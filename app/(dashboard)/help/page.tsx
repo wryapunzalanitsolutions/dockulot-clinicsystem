@@ -53,13 +53,13 @@ export default function HelpPage() {
         <input
           type="text"
           placeholder="Search help topics..."
-          className="w-full rounded-[1rem] border border-emerald-100 px-4 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+          className="w-full rounded-2xl border border-emerald-100 px-4 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
         />
       </div>
 
       <div className="space-y-4">
         {faqs.map((faq, idx) => (
-          <details key={idx} className="group rounded-[1.5rem] border border-emerald-100 bg-white shadow-sm">
+          <details key={idx} className="group rounded-3xl border border-emerald-100 bg-white shadow-sm">
             <summary className="flex cursor-pointer items-center justify-between p-5 font-semibold text-slate-900">
               <span>{faq.question}</span>
               <span className="transition group-open:rotate-180">▼</span>

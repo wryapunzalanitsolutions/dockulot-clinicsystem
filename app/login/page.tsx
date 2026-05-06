@@ -274,7 +274,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isPending}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-700 via-emerald-600 to-green-500 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-lg shadow-emerald-900/40 transition hover:from-emerald-600 hover:via-emerald-500 hover:to-green-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-emerald-900 disabled:to-emerald-700 disabled:text-emerald-200"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-linear-to-r from-emerald-700 via-emerald-600 to-green-500 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-lg shadow-emerald-900/40 transition hover:from-emerald-600 hover:via-emerald-500 hover:to-green-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-emerald-900 disabled:to-emerald-700 disabled:text-emerald-200"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6L16.5 12L10.5 18" />

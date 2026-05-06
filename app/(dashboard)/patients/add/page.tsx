@@ -111,7 +111,7 @@ export default function AddPatientPage() {
       <div>
         <form
           onSubmit={handleSubmit}
-          className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]"
+          className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]"
         >
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <Field label="Full Name">
@@ -119,7 +119,7 @@ export default function AddPatientPage() {
                 type="text"
                 value={form.fullName}
                 onChange={(event) => updateField("fullName", event.target.value)}
-                className="mt-2 w-full rounded-[1rem] border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                className="mt-2 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                 placeholder="Juan Dela Cruz"
                 required
               />
@@ -130,7 +130,7 @@ export default function AddPatientPage() {
                 type="email"
                 value={form.email}
                 onChange={(event) => updateField("email", event.target.value)}
-                className="mt-2 w-full rounded-[1rem] border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                className="mt-2 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                 placeholder="juan@example.com"
                 required
               />
@@ -141,7 +141,7 @@ export default function AddPatientPage() {
                 type="tel"
                 value={form.phone}
                 onChange={(event) => updateField("phone", event.target.value)}
-                className="mt-2 w-full rounded-[1rem] border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                className="mt-2 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                 placeholder="+63 912 345 6789"
                 required
               />
@@ -153,7 +153,7 @@ export default function AddPatientPage() {
                 max={maxBirthDate}
                 value={form.dateOfBirth}
                 onChange={(event) => updateField("dateOfBirth", event.target.value)}
-                className="mt-2 w-full rounded-[1rem] border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                className="mt-2 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                 required
               />
             </Field>
@@ -162,7 +162,7 @@ export default function AddPatientPage() {
               <select
                 value={form.gender}
                 onChange={(event) => updateField("gender", event.target.value)}
-                className="mt-2 w-full rounded-[1rem] border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                className="mt-2 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                 required
               >
                 <option value="">Select gender</option>
@@ -175,7 +175,7 @@ export default function AddPatientPage() {
             </Field>
 
             <Field label="Patient Type">
-              <div className="mt-2 rounded-[1rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+              <div className="mt-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
                 Walk-in patient
               </div>
             </Field>
@@ -186,7 +186,7 @@ export default function AddPatientPage() {
               type="text"
               value={form.address}
               onChange={(event) => updateField("address", event.target.value)}
-              className="mt-2 w-full rounded-[1rem] border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+              className="mt-2 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
               placeholder="Street, barangay, city"
               required
             />

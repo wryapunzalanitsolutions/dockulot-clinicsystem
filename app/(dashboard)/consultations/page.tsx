@@ -161,7 +161,7 @@ export default function OnlineConsultationPage() {
       ) : null}
 
       <div className="grid grid-cols-1 gap-6">
-        <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] hover-lift animate-fade-in-up stagger-4">
+        <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] hover-lift animate-fade-in-up stagger-4">
           <h2 className="text-lg font-bold text-slate-900">Consultation Queue</h2>
           <div className="mt-5 space-y-4">
             {eligibleAppointments.length === 0 ? (
@@ -239,7 +239,7 @@ export default function OnlineConsultationPage() {
                               status: event.target.value as ConsultationProgress,
                             }))
                           }
-                          className="mt-2 w-full rounded-[1rem] border border-emerald-100 bg-white px-3 py-2.5 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                          className="mt-2 w-full rounded-2xl border border-emerald-100 bg-white px-3 py-2.5 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                         >
                           <option value="Ready">Ready</option>
                           <option value="In Progress">In Progress</option>
@@ -253,7 +253,7 @@ export default function OnlineConsultationPage() {
                           onChange={(event) =>
                             setDraft((current) => ({ ...current, note: event.target.value }))
                           }
-                          className="mt-2 min-h-32 w-full rounded-[1rem] border border-emerald-100 px-3 py-2.5 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                          className="mt-2 min-h-32 w-full rounded-2xl border border-emerald-100 px-3 py-2.5 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                           placeholder="Assessment, progress, symptoms, and recommendations"
                         />
                       </label>
@@ -267,7 +267,7 @@ export default function OnlineConsultationPage() {
                               prescription: event.target.value,
                             }))
                           }
-                          className="mt-2 min-h-24 w-full rounded-[1rem] border border-emerald-100 px-3 py-2.5 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                          className="mt-2 min-h-24 w-full rounded-2xl border border-emerald-100 px-3 py-2.5 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                           placeholder="Medication, tests, or follow-up plan"
                         />
                       </label>

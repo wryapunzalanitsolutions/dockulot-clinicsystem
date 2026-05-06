@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { FaCircleCheck, FaTriangleExclamation, FaUpRightFromSquare, FaVideo } from "react-icons/fa6";
 import { useRole } from "@/src/components/layout/RoleProvider";
 import type { SystemSettings } from "@/src/lib/clinic";
 
@@ -14,7 +15,40 @@ const EMPTY: SystemSettings = {
   maxPatientsPerHour: 5,
   clinicOpenTime: "08:00",
   clinicCloseTime: "17:00",
+  defaultMeetingLink: "",
 };
+
+// Light validation: accept anything that parses as an https URL. Warn (don't
+// block) when the host isn't a recognised meeting provider so the doctor can
+// still use Jitsi / Whereby / Zoom if she ever wants to.
+const RECOGNISED_MEETING_HOSTS = [
+  "meet.google.com",
+  "meet.jit.si",
+  "zoom.us",
+  "us02web.zoom.us",
+  "us04web.zoom.us",
+  "us05web.zoom.us",
+  "whereby.com",
+  "teams.microsoft.com",
+  "teams.live.com",
+];
+
+function classifyMeetingLink(raw: string): {
+  state: "empty" | "valid-known" | "valid-unknown" | "invalid";
+  host?: string;
+} {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return { state: "empty" };
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "https:") return { state: "invalid" };
+    const host = url.host.toLowerCase();
+    const known = RECOGNISED_MEETING_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
+    return { state: known ? "valid-known" : "valid-unknown", host };
+  } catch {
+    return { state: "invalid" };
+  }
+}
 
 export default function SettingsPage() {
   const { role, accessToken, isLoading: authLoading } = useRole();
@@ -24,6 +58,10 @@ export default function SettingsPage() {
   const [isSaving, startTransition] = useTransition();
 
   const canEdit = role === "SUPER_ADMIN" || role === "DOCTOR";
+  const meetingLinkClass = useMemo(
+    () => classifyMeetingLink(settings.defaultMeetingLink),
+    [settings.defaultMeetingLink],
+  );
 
   useEffect(() => {
     if (authLoading || !accessToken) return;
@@ -107,7 +145,7 @@ export default function SettingsPage() {
         </div>
       ) : null}
 
-      <form onSubmit={handleSubmit} className="rounded-[2rem] border border-emerald-100 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-1">
+      <form onSubmit={handleSubmit} className="rounded-4xl border border-emerald-100 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-1">
         <h2 className="text-lg font-bold text-slate-900">General</h2>
         <fieldset disabled={loading || !canEdit || isSaving} className="mt-6 space-y-6">
           <div>
@@ -116,7 +154,7 @@ export default function SettingsPage() {
               type="text"
               value={settings.clinicName}
               onChange={(e) => updateField("clinicName", e.target.value)}
-              className="mt-2 w-full rounded-[1rem] border border-emerald-100 px-3 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+              className="mt-2 w-full rounded-2xl border border-emerald-100 px-3 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
             />
           </div>
 
@@ -127,7 +165,7 @@ export default function SettingsPage() {
                 type="email"
                 value={settings.email}
                 onChange={(e) => updateField("email", e.target.value)}
-                className="mt-2 w-full rounded-[1rem] border border-emerald-100 px-3 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                className="mt-2 w-full rounded-2xl border border-emerald-100 px-3 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
               />
             </div>
             <div>
@@ -136,7 +174,7 @@ export default function SettingsPage() {
                 type="tel"
                 value={settings.phone}
                 onChange={(e) => updateField("phone", e.target.value)}
-                className="mt-2 w-full rounded-[1rem] border border-emerald-100 px-3 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                className="mt-2 w-full rounded-2xl border border-emerald-100 px-3 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
               />
             </div>
           </div>
@@ -147,7 +185,7 @@ export default function SettingsPage() {
               type="text"
               value={settings.address}
               onChange={(e) => updateField("address", e.target.value)}
-              className="mt-2 w-full rounded-[1rem] border border-emerald-100 px-3 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+              className="mt-2 w-full rounded-2xl border border-emerald-100 px-3 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
             />
           </div>
 
@@ -158,7 +196,7 @@ export default function SettingsPage() {
                 type="time"
                 value={settings.clinicOpenTime}
                 onChange={(e) => updateField("clinicOpenTime", e.target.value)}
-                className="mt-2 w-full rounded-[1rem] border border-emerald-100 px-3 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                className="mt-2 w-full rounded-2xl border border-emerald-100 px-3 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
               />
             </div>
             <div>
@@ -167,7 +205,7 @@ export default function SettingsPage() {
                 type="time"
                 value={settings.clinicCloseTime}
                 onChange={(e) => updateField("clinicCloseTime", e.target.value)}
-                className="mt-2 w-full rounded-[1rem] border border-emerald-100 px-3 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                className="mt-2 w-full rounded-2xl border border-emerald-100 px-3 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
               />
             </div>
           </div>
@@ -197,10 +235,99 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          <div className="border-t border-emerald-100 pt-6">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
+                <FaVideo className="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Online Consultation</h3>
+                <p className="text-xs text-slate-500">
+                  Used as the meeting link for every Online appointment by default.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-slate-700">
+                Default Meeting Link
+              </label>
+              <input
+                type="url"
+                placeholder="https://meet.google.com/abc-defg-hij"
+                value={settings.defaultMeetingLink}
+                onChange={(e) => updateField("defaultMeetingLink", e.target.value)}
+                className={`mt-2 w-full rounded-2xl border px-3 py-3 outline-none transition focus:ring-4 ${
+                  meetingLinkClass.state === "invalid"
+                    ? "border-red-300 focus:border-red-400 focus:ring-red-100"
+                    : "border-emerald-100 focus:border-emerald-300 focus:ring-emerald-100"
+                }`}
+              />
+
+              <div className="mt-2 space-y-2 text-xs">
+                {meetingLinkClass.state === "empty" ? (
+                  <p className="inline-flex items-center gap-1.5 text-amber-700">
+                    <FaTriangleExclamation className="h-3 w-3" aria-hidden="true" />
+                    No link saved. Online bookings will be confirmed without a meeting link until you add one.
+                  </p>
+                ) : null}
+                {meetingLinkClass.state === "invalid" ? (
+                  <p className="inline-flex items-center gap-1.5 text-red-700">
+                    <FaTriangleExclamation className="h-3 w-3" aria-hidden="true" />
+                    That doesn&apos;t look like a valid <code className="rounded bg-red-50 px-1">https://</code> URL.
+                  </p>
+                ) : null}
+                {meetingLinkClass.state === "valid-known" ? (
+                  <p className="inline-flex items-center gap-1.5 text-emerald-700">
+                    <FaCircleCheck className="h-3 w-3" aria-hidden="true" />
+                    Looks good — host detected: <span className="font-semibold">{meetingLinkClass.host}</span>
+                  </p>
+                ) : null}
+                {meetingLinkClass.state === "valid-unknown" ? (
+                  <p className="inline-flex items-center gap-1.5 text-slate-600">
+                    <FaCircleCheck className="h-3 w-3 text-emerald-600" aria-hidden="true" />
+                    Saved as-is. Host <span className="font-semibold">{meetingLinkClass.host}</span> isn&apos;t a recognised meeting provider — double-check it works.
+                  </p>
+                ) : null}
+
+                <details className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-600">
+                  <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wider text-slate-700">
+                    How to get a Google Meet link
+                  </summary>
+                  <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs leading-5">
+                    <li>
+                      Open <a href="https://meet.new" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:underline">meet.new <FaUpRightFromSquare className="h-2.5 w-2.5" aria-hidden="true" /></a> while signed in to the doctor&apos;s Google account — Google instantly creates a permanent meeting room.
+                    </li>
+                    <li>
+                      Copy the URL from the address bar (it looks like <code className="rounded bg-white px-1">https://meet.google.com/abc-defg-hij</code>).
+                    </li>
+                    <li>Paste it above and save. Patients will receive this link in their booking-confirmation email and SMS.</li>
+                    <li>
+                      <span className="font-semibold">Privacy tip:</span> with non-Workspace Google accounts, patients land in a &ldquo;Asking to join&rdquo; waiting room — only let in the patient whose slot is active.
+                    </li>
+                  </ol>
+                </details>
+
+                {meetingLinkClass.state === "valid-known"
+                  || meetingLinkClass.state === "valid-unknown" ? (
+                    <a
+                      href={settings.defaultMeetingLink.trim()}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
+                    >
+                      <FaUpRightFromSquare className="h-2.5 w-2.5" aria-hidden="true" />
+                      Test the link
+                    </a>
+                  ) : null}
+              </div>
+            </div>
+          </div>
+
           {canEdit ? (
             <button
               type="submit"
-              disabled={isSaving || loading}
+              disabled={isSaving || loading || meetingLinkClass.state === "invalid"}
               className="rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-6 py-3 font-semibold text-white shadow-[0_14px_28px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-teal-300"
             >
               {isSaving ? "Saving..." : "Save Changes"}

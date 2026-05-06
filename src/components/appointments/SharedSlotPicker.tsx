@@ -24,7 +24,7 @@ export function SharedSlotPicker({
   const selectedSlot = slotStatuses.find((slot) => slot.start === selectedStart) ?? null;
 
   return (
-    <div className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f6fef9_100%)] p-5 shadow-[0_20px_60px_rgba(16,185,129,0.08)] transition-transform duration-300 hover:-translate-y-0.5">
+    <div className="overflow-hidden rounded-4xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f6fef9_100%)] p-5 shadow-[0_20px_60px_rgba(16,185,129,0.08)] transition-transform duration-300 hover:-translate-y-0.5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600">Time Selection</p>
@@ -56,7 +56,7 @@ export function SharedSlotPicker({
       </div>
 
       {loading ? (
-        <div className="mt-4 rounded-[1.5rem] border border-emerald-100 bg-emerald-50/70 px-4 py-5 text-sm text-emerald-900">
+        <div className="mt-4 rounded-3xl border border-emerald-100 bg-emerald-50/70 px-4 py-5 text-sm text-emerald-900">
           Refreshing slot availability...
         </div>
       ) : null}

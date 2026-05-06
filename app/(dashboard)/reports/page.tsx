@@ -87,7 +87,7 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-1">
+      <section className="rounded-4xl border border-emerald-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-1">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Date Range</p>
@@ -131,7 +131,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="rounded-[2rem] border border-emerald-100 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-5">
+      <div className="rounded-4xl border border-emerald-100 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-5">
         <h2 className="text-lg font-bold text-slate-900">Peak Hours</h2>
         <p className="text-xs text-slate-500 mt-0.5">Booking count per hour (excluding cancelled)</p>
         {loading ? (
@@ -148,7 +148,7 @@ export default function ReportsPage() {
                 return (
                   <div key={h.start_time} className="relative h-full flex flex-col items-center justify-end">
                     <div
-                      className="w-full rounded-t-md bg-gradient-to-t from-teal-700 to-teal-400"
+                      className="w-full rounded-t-md bg-linear-to-t from-teal-700 to-teal-400"
                       style={{ height: `${pct}%` }}
                       title={`${h.start_time} — ${h.count} appointments`}
                     />
@@ -160,7 +160,7 @@ export default function ReportsPage() {
         )}
       </div>
 
-      <div className="rounded-[2rem] border border-emerald-100 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-6">
+      <div className="rounded-4xl border border-emerald-100 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-6">
         <h2 className="text-lg font-bold text-slate-900">No-show Rate by Doctor</h2>
         <p className="text-xs text-slate-500 mt-0.5">Share of completed-or-missed appointments that were missed</p>
         {loading ? (
@@ -215,7 +215,7 @@ function StatCard({
     amber: "bg-amber-500",
   };
   return (
-    <div className="relative overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(15,23,42,0.08)]">
+    <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(15,23,42,0.08)]">
       <div className={`absolute -top-4 -right-4 h-16 w-16 rounded-full opacity-10 ${accent[tone]}`} />
       <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
       <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>

@@ -257,7 +257,7 @@ export function DashboardHeader({
                   <p className="mt-1 text-xs text-slate-500">In-app updates for your account activity.</p>
                 </div>
 
-                <div className="max-h-[24rem] overflow-y-auto">
+                <div className="max-h-96 overflow-y-auto">
                   {isNotifLoading ? (
                     <div className="space-y-3 p-5">
                       {[0, 1, 2].map((key) => (
@@ -304,7 +304,7 @@ export function DashboardHeader({
           <div className="relative" ref={profileMenuRef}>
             <button
               type="button"
-              className="flex min-w-0 max-w-[12rem] items-center gap-2 rounded-[1.4rem] border-2 border-emerald-600 bg-white px-2.5 py-1.5 text-left shadow-sm transition hover:border-emerald-500 hover:shadow-md sm:max-w-none sm:gap-3 sm:rounded-[1.75rem] sm:px-3 sm:py-2 sm:pr-4"
+              className="flex min-w-0 max-w-48 items-center gap-2 rounded-[1.4rem] border-2 border-emerald-600 bg-white px-2.5 py-1.5 text-left shadow-sm transition hover:border-emerald-500 hover:shadow-md sm:max-w-none sm:gap-3 sm:rounded-[1.75rem] sm:px-3 sm:py-2 sm:pr-4"
               onClick={() => {
                 setIsMenuOpen((current) => !current);
                 setIsNotifOpen(false);
@@ -323,7 +323,7 @@ export function DashboardHeader({
               </div>
 
               <div className="min-w-0 sm:hidden">
-                <p className="max-w-[4.75rem] truncate text-[11px] font-extrabold uppercase tracking-[0.03em] text-slate-900">
+                <p className="max-w-19 truncate text-[11px] font-extrabold uppercase tracking-[0.03em] text-slate-900">
                   {compactName}
                 </p>
               </div>

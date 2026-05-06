@@ -152,7 +152,7 @@ export default function TimeSlotsPage() {
       </section>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="rounded-[1.5rem] border border-emerald-100 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
+        <div className="rounded-3xl border border-emerald-100 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
           Live schedule preview: <span className="font-semibold text-slate-900">{doctor.name}</span> on{" "}
           <span className="font-semibold text-slate-900">{formatDisplayDate(form.date)}</span>
         </div>
@@ -177,7 +177,7 @@ export default function TimeSlotsPage() {
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr,1.1fr]">
-        <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Editor</p>
@@ -270,7 +270,7 @@ export default function TimeSlotsPage() {
           </form>
         </div>
 
-        <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Operational Preview</p>
@@ -331,7 +331,7 @@ export default function TimeSlotsPage() {
         </div>
       </div>
 
-      <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+      <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Saved Entries</p>

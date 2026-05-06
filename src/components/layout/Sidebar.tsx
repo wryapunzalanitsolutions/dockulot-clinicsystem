@@ -61,7 +61,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
       icon: FaCalendarCheck,
       subItems: [
         { label: "Book Appointment", href: "/appointments", icon: FaCalendarPlus },
-        { label: "Manage Appointments", href: "/appointments", icon: FaListUl },
+        { label: "Manage Appointments", href: "/appointments/my", icon: FaListUl },
         { label: "Calendar View", href: "/appointments/calendar", icon: FaCalendarDays },
       ],
     },
@@ -114,7 +114,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
       icon: FaCalendarCheck,
       subItems: [
         { label: "Book Appointment", href: "/appointments", icon: FaCalendarPlus },
-        { label: "Manage Appointments", href: "/appointments", icon: FaListUl },
+        { label: "Manage Appointments", href: "/appointments/my", icon: FaListUl },
         { label: "Calendar View", href: "/appointments/calendar", icon: FaCalendarDays },
       ],
     },
@@ -144,10 +144,10 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { label: "Users", href: "/users", icon: FaUsers },
     {
       label: "Appointments",
-      href: "/appointments",
+      href: "/appointments/my",
       icon: FaCalendarCheck,
       subItems: [
-        { label: "Manage Appointments", href: "/appointments", icon: FaCalendarCheck },
+        { label: "Manage Appointments", href: "/appointments/my", icon: FaCalendarCheck },
         { label: "Calendar View", href: "/appointments/calendar", icon: FaCalendarDays },
       ],
     },
@@ -265,7 +265,7 @@ export function Sidebar({ role, isOpen, onClose }: SidebarProps) {
       />
 
       <aside
-        className={`fixed left-0 top-0 z-40 flex h-[100svh] max-h-[100svh] w-[min(17rem,86vw)] flex-col overflow-hidden border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 lg:h-screen lg:max-h-screen lg:w-56 lg:translate-x-0 lg:shadow-none ${
+        className={`fixed left-0 top-0 z-40 flex h-svh max-h-svh w-[min(17rem,86vw)] flex-col overflow-hidden border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 lg:h-screen lg:max-h-screen lg:w-56 lg:translate-x-0 lg:shadow-none ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -279,7 +279,7 @@ export function Sidebar({ role, isOpen, onClose }: SidebarProps) {
               priority
               quality={100}
               style={{ width: "160px", height: "auto" }}
-              className="object-contain -my-2 sm:w-[180px]"
+              className="object-contain -my-2 sm:w-45"
             />
             <button
               className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100 lg:hidden"
@@ -376,7 +376,7 @@ export function Sidebar({ role, isOpen, onClose }: SidebarProps) {
         </nav>
 
         <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-3">
-          <div className="rounded-2xl border border-cyan-200/60 bg-gradient-to-b from-cyan-100/70 via-emerald-100/60 to-cyan-100/70 px-4 py-3 shadow-lg">
+          <div className="rounded-2xl border border-cyan-200/60 bg-linear-to-b from-cyan-100/70 via-emerald-100/60 to-cyan-100/70 px-4 py-3 shadow-lg">
             {/* Status Header */}
             <div className="flex flex-col items-center justify-center gap-1 text-center">
               <div className="flex items-center justify-center gap-1.5">

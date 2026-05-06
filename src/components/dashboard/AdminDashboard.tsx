@@ -400,7 +400,7 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Link href="/patients" className="block no-underline">
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-600 to-emerald-600 p-5 shadow-md text-white transition-all duration-300 hover:shadow-xl hover:scale-[1.03] animate-fade-in-up stagger-1">
+          <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-teal-600 to-emerald-600 p-5 shadow-md text-white transition-all duration-300 hover:shadow-xl hover:scale-[1.03] animate-fade-in-up stagger-1">
           <div className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-white/10 animate-float-slow" />
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-white/70">Total Patients</p>
@@ -460,7 +460,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <div className="min-w-0 rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-5">
+        <div className="min-w-0 rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-slate-900">Patient Trends</h2>
             <span className="text-xs text-slate-400">Last 7 days</span>
@@ -482,7 +482,7 @@ export default function AdminDashboard() {
           </ChartContainer>
         </div>
 
-        <div className="min-w-0 rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-6">
+        <div className="min-w-0 rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-slate-900">Appointment Trends</h2>
             <span className="text-xs text-slate-400">Last 7 days</span>
@@ -501,7 +501,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="rounded-[2rem] border border-emerald-100 bg-white px-5 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-7">
+      <div className="rounded-4xl border border-emerald-100 bg-white px-5 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-7">
         <h3 className="text-base font-bold text-slate-900 mb-3">Overview</h3>
         <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           <DonutSection title="Appointment Types" data={appointmentTypeData} colors={DONUT_COLORS_APPOINTMENT} />
@@ -511,15 +511,15 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] space-y-6 animate-fade-in-up stagger-8">
+        <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] space-y-6 animate-fade-in-up stagger-8">
           <Calendar appointments={appointments} />
         </div>
-        <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-8">
+        <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-8">
           <ActivityDetails appointments={appointments} />
         </div>
       </div>
 
-      <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-8">
+      <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-8">
         <h2 className="text-base font-bold text-slate-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <QuickAction label="Book Appointment" href="/appointments" color="teal" />

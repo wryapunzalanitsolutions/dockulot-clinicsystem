@@ -60,9 +60,9 @@ export default function PatientDashboard() {
       </div>
 
       {next ? (
-        <section className="relative overflow-hidden rounded-[2.5rem] border-2 border-emerald-200 bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-cyan-50/20 p-8 shadow-[0_28px_54px_rgba(16,185,129,0.16)] animate-pop-in transition hover:-translate-y-1">
-          <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-gradient-to-br from-emerald-300/20 to-teal-300/10 blur-3xl" />
-          <div className="absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-gradient-to-r from-teal-300/20 to-cyan-300/10 blur-3xl" />
+        <section className="relative overflow-hidden rounded-[2.5rem] border-2 border-emerald-200 bg-linear-to-br from-emerald-50/80 via-teal-50/40 to-cyan-50/20 p-8 shadow-[0_28px_54px_rgba(16,185,129,0.16)] animate-pop-in transition hover:-translate-y-1">
+          <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-linear-to-br from-emerald-300/20 to-teal-300/10 blur-3xl" />
+          <div className="absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-linear-to-r from-teal-300/20 to-cyan-300/10 blur-3xl" />
           <div className="relative">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex-1 max-w-2xl">
@@ -103,7 +103,7 @@ export default function PatientDashboard() {
                     href={next.meetingLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3 text-sm font-bold text-white shadow-[0_16px_32px_rgba(16,185,129,0.3)] transition hover:-translate-y-1 hover:shadow-[0_24px_48px_rgba(16,185,129,0.4)]"
+                    className="inline-flex items-center gap-2 rounded-full bg-linear-to-r from-emerald-600 to-teal-600 px-6 py-3 text-sm font-bold text-white shadow-[0_16px_32px_rgba(16,185,129,0.3)] transition hover:-translate-y-1 hover:shadow-[0_24px_48px_rgba(16,185,129,0.4)]"
                   >
                     <FaVideo />
                     Join consultation
@@ -133,10 +133,10 @@ export default function PatientDashboard() {
               <FaCalendarDays className="text-2xl text-emerald-700" />
             </div>
             <p className="text-base font-semibold text-slate-900">No upcoming appointments</p>
-            <p className="mt-2 text-sm text-slate-500">You're all caught up! Book your next appointment when you need one.</p>
+            <p className="mt-2 text-sm text-slate-500">You&apos;re all caught up! Book your next appointment when you need one.</p>
             <Link
               href="/appointments"
-              className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3 text-sm font-bold text-white shadow-[0_12px_24px_rgba(16,185,129,0.25)] transition hover:-translate-y-1"
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-linear-to-r from-emerald-600 to-teal-600 px-6 py-3 text-sm font-bold text-white shadow-[0_12px_24px_rgba(16,185,129,0.25)] transition hover:-translate-y-1"
             >
               <FaCalendarDays />
               Book appointment
@@ -151,7 +151,7 @@ export default function PatientDashboard() {
                 className={`group flex items-center justify-between gap-4 rounded-[1.25rem] border-2 border-transparent px-5 py-4 transition-all hover:border-emerald-200 hover:bg-emerald-50/60 hover:shadow-[0_8px_20px_rgba(16,185,129,0.10)] animate-slide-in-left stagger-${Math.min(i + 1, 5)}`}
               >
                 <div className="flex min-w-0 items-center gap-4">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${appt.type === "Online" ? "bg-gradient-to-br from-sky-500 to-sky-600" : "bg-gradient-to-br from-emerald-500 to-teal-600"}`}>
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${appt.type === "Online" ? "bg-linear-to-br from-sky-500 to-sky-600" : "bg-linear-to-br from-emerald-500 to-teal-600"}`}>
                     {appt.type === "Online" ? <FaVideo className="text-sm" /> : <FaHospital className="text-sm" />}
                   </div>
                   <div className="min-w-0">

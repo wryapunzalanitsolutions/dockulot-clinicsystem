@@ -10,7 +10,7 @@
 
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 import { enqueueNotification } from "@/src/lib/services/notification";
-import type { PaymentMethod } from "@/src/lib/db/types";
+import type { BillingItem, Payment, PaymentMethod } from "@/src/lib/db/types";
 
 export type BillingLineItem = {
   pricing_id?: string; // Reference to pricing table
@@ -364,7 +364,7 @@ export async function generateReceipt(billing_id: string) {
     patient_name: patient?.full_name || "N/A",
     patient_email: patient?.email || "N/A",
     patient_phone: patient?.phone || "N/A",
-    items: items.map((item: any) => ({
+    items: (items as BillingItem[]).map((item) => ({
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unit_price,
@@ -374,7 +374,7 @@ export async function generateReceipt(billing_id: string) {
     discount: billing.discount,
     tax: billing.tax,
     total: billing.total,
-    payments: payments.map((p: any) => ({
+    payments: (payments as Payment[]).map((p) => ({
       method: p.method,
       amount: p.amount,
       date: p.paid_at,

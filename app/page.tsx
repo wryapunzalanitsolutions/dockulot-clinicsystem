@@ -149,7 +149,7 @@ export default function LandingPage() {
             quality={100}
           />
           {/* Overlay for readability while preserving background */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/10 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-r from-transparent via-black/10 to-transparent" />
           {/* Left mask removed per user request */}
         </div>
 
@@ -171,7 +171,7 @@ export default function LandingPage() {
             <div className="flex w-full flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4 md:justify-end">
               <button
                 onClick={handleBookNow}
-                className="w-full max-w-sm rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3.5 text-base font-bold text-white shadow-lg transition hover:-translate-y-1 hover:shadow-xl sm:w-auto sm:px-8 sm:py-4 sm:text-lg"
+                className="w-full max-w-sm rounded-full bg-linear-to-r from-emerald-600 to-teal-600 px-6 py-3.5 text-base font-bold text-white shadow-lg transition hover:-translate-y-1 hover:shadow-xl sm:w-auto sm:px-8 sm:py-4 sm:text-lg"
               >
                 Book Appointment Now
               </button>
@@ -190,7 +190,7 @@ export default function LandingPage() {
       </section>
 
       {/* Doctor Profile Section */}
-      <ScrollReveal as="section" id="about" className="order-5 bg-gradient-to-b from-emerald-50/80 to-white py-16 md:py-32">
+      <ScrollReveal as="section" id="about" className="order-5 bg-linear-to-b from-emerald-50/80 to-white py-16 md:py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <ScrollReveal className="mb-12 text-center md:mb-16" delayMs={40} direction="none">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald-700 mb-2">
@@ -206,8 +206,8 @@ export default function LandingPage() {
 
           <div className="grid items-center gap-10 md:grid-cols-2 md:gap-16">
             <ScrollReveal className="order-2 flex justify-center overflow-visible md:order-1" delayMs={80} direction="left">
-              <div className="relative w-full max-w-md rounded-[2rem] border border-emerald-100 bg-gradient-to-b from-white to-emerald-50/70 p-4 shadow-[0_24px_60px_rgba(16,185,129,0.12)] sm:p-6 md:max-w-lg">
-                <div className="absolute -inset-3 rounded-[2.25rem] bg-gradient-to-br from-emerald-100 to-teal-100 opacity-50 blur-2xl" />
+              <div className="relative w-full max-w-md rounded-4xl border border-emerald-100 bg-linear-to-b from-white to-emerald-50/70 p-4 shadow-[0_24px_60px_rgba(16,185,129,0.12)] sm:p-6 md:max-w-lg">
+                <div className="absolute -inset-3 rounded-[2.25rem] bg-linear-to-br from-emerald-100 to-teal-100 opacity-50 blur-2xl" />
                 <Image
                   src="/images/doctora.png"
                   alt="Dr. Chiara C. Punzalan"
@@ -276,7 +276,7 @@ export default function LandingPage() {
       </ScrollReveal>
 
       {/* Testimonials Section */}
-      <ScrollReveal as="section" id="testimonials" className="order-6 bg-gradient-to-b from-white to-emerald-50/70 py-16 md:py-24">
+      <ScrollReveal as="section" id="testimonials" className="order-6 bg-linear-to-b from-white to-emerald-50/70 py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <ScrollReveal className="mb-12 text-center" delayMs={30} direction="none">
             <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-emerald-700">
@@ -293,7 +293,7 @@ export default function LandingPage() {
           <div className="grid gap-6 lg:grid-cols-3">
             {testimonials.map((item, index) => (
               <ScrollReveal key={item.name} delayMs={index * 110} direction="up">
-                <article className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_40px_rgba(16,185,129,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_rgba(16,185,129,0.14)]">
+                <article className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_40px_rgba(16,185,129,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_rgba(16,185,129,0.14)]">
                 <div className="mb-5 flex items-center justify-between">
                   <FaQuoteLeft className="text-2xl text-emerald-300" />
                   <div className="flex items-center gap-1 text-amber-400">
@@ -335,7 +335,7 @@ export default function LandingPage() {
             {/* Clinic Visit */}
             <ScrollReveal delayMs={70} direction="left">
             <div className="rounded-3xl border-2 border-emerald-100 overflow-hidden transition duration-300 hover:-translate-y-1 hover:shadow-xl">
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-8">
+              <div className="bg-linear-to-br from-emerald-50 to-teal-50 p-8">
                 <div className="text-5xl mb-4 text-emerald-700"><FaClinicMedical /></div>
                 <h3 className="text-2xl font-black text-slate-900 mb-2">Clinic Visit</h3>
                 <p className="text-slate-600 mb-6">In-person consultation at our facility</p>
@@ -375,7 +375,7 @@ export default function LandingPage() {
             {/* Online Consultation */}
             <ScrollReveal delayMs={170} direction="right">
             <div className="rounded-3xl border-2 border-sky-100 overflow-hidden transition duration-300 hover:-translate-y-1 hover:shadow-xl">
-              <div className="bg-gradient-to-br from-sky-50 to-blue-50 p-8">
+              <div className="bg-linear-to-br from-sky-50 to-blue-50 p-8">
                 <div className="text-5xl mb-4 text-sky-600"><FaVideo /></div>
                 <h3 className="text-2xl font-black text-slate-900 mb-2">Online Consultation</h3>
                 <p className="text-slate-600 mb-6">Remote consultation from the comfort of your home</p>
@@ -416,7 +416,7 @@ export default function LandingPage() {
       </ScrollReveal>
 
       {/* How to Book Section */}
-      <ScrollReveal as="section" className="order-2 bg-gradient-to-b from-emerald-50/50 to-white py-16 md:py-24">
+      <ScrollReveal as="section" className="order-2 bg-linear-to-b from-emerald-50/50 to-white py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <ScrollReveal className="mb-12 text-center" delayMs={20} direction="none">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald-700 mb-2">
@@ -465,7 +465,7 @@ export default function LandingPage() {
       </ScrollReveal>
 
       {/* CTA Section */}
-      <ScrollReveal as="section" className="order-4 bg-gradient-to-r from-emerald-600 to-teal-600 py-16 md:py-24">
+      <ScrollReveal as="section" className="order-4 bg-linear-to-r from-emerald-600 to-teal-600 py-16 md:py-24">
         <ScrollReveal className="mx-auto max-w-7xl px-4 text-center sm:px-6" delayMs={40} direction="none">
           <h2 className="mb-6 text-3xl font-black text-white sm:text-4xl md:text-5xl">
             Ready to Schedule Your Appointment?
@@ -496,7 +496,7 @@ export default function LandingPage() {
       </ScrollReveal>
 
       {/* Contact Section */}
-      <ScrollReveal as="section" id="contact" className="order-8 bg-gradient-to-r from-emerald-600 to-teal-600 py-16 md:py-24">
+      <ScrollReveal as="section" id="contact" className="order-8 bg-linear-to-r from-emerald-600 to-teal-600 py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <ScrollReveal className="text-center mb-12" delayMs={20} direction="none">
             <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-emerald-100">Get in Touch</p>
@@ -553,7 +553,7 @@ export default function LandingPage() {
       </ScrollReveal>
 
       {/* Footer */}
-      <footer className="order-9 bg-gradient-to-r from-[#0f5a3f] via-[#126847] to-[#184f3c] text-white py-12 md:py-16">
+      <footer className="order-9 bg-linear-to-r from-[#0f5a3f] via-[#126847] to-[#184f3c] text-white py-12 md:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-12 grid gap-8 sm:grid-cols-2 xl:grid-cols-4">
             <div>

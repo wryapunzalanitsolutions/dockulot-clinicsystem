@@ -223,7 +223,7 @@ export default function PricingPage() {
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-[2rem] border border-emerald-200 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.16),transparent_30%),linear-gradient(135deg,#ecfdf5_0%,#ffffff_70%)] p-6 shadow-sm">
+      <section className="overflow-hidden rounded-4xl border border-emerald-200 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.16),transparent_30%),linear-gradient(135deg,#ecfdf5_0%,#ffffff_70%)] p-6 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">Pricing Management</p>
         <h1 className="mt-3 text-3xl font-bold text-slate-900">Consultation rates and service pricing</h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-600">Update consultation fees and service pricing from one screen.</p>
@@ -246,7 +246,7 @@ export default function PricingPage() {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-4xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Dedicated Rates</p>
@@ -276,7 +276,7 @@ export default function PricingPage() {
           </div>
 
           {primaryDoctor ? (
-            <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+            <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Doctor Rate Source</p>
               <p className="mt-2 text-sm font-semibold text-slate-900">
                 {primaryDoctor.profiles?.[0]?.full_name ?? "Assigned doctor"}
@@ -325,7 +325,7 @@ export default function PricingPage() {
           ) : null}
         </section>
 
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-4xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Consultation Catalog</p>
           <h2 className="mt-2 text-xl font-bold text-slate-900">Consultation pricing items</h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -358,7 +358,7 @@ export default function PricingPage() {
       </div>
 
       {canEdit ? (
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-4xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-bold text-slate-900">Add New Service Pricing</h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
             <input
@@ -547,7 +547,7 @@ function RateCard({
   const accentStyles = accent === "emerald" ? "text-emerald-700 bg-emerald-50" : "text-teal-700 bg-teal-50";
 
   return (
-    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
       <p className={`mt-3 inline-flex rounded-full px-3 py-1 text-lg font-bold ${accentStyles}`}>{value}</p>
       <p className="mt-3 text-sm text-slate-500">{note}</p>

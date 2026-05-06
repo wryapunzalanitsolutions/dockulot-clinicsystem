@@ -6,15 +6,15 @@ import type { ReactNode } from "react";
 type Tone = "emerald" | "teal" | "sky" | "amber" | "slate" | "rose" | "indigo" | "violet" | "cyan";
 
 const panelToneClasses: Record<Tone, string> = {
-  emerald: "border-emerald-100 bg-gradient-to-br from-emerald-50 to-emerald-50/30 shadow-[0_16px_34px_rgba(16,185,129,0.12)]",
-  teal: "border-teal-100 bg-gradient-to-br from-teal-50 to-teal-50/30 shadow-[0_16px_34px_rgba(20,184,166,0.12)]",
-  sky: "border-sky-100 bg-gradient-to-br from-sky-50 to-sky-50/30 shadow-[0_16px_34px_rgba(14,165,233,0.12)]",
-  amber: "border-amber-100 bg-gradient-to-br from-amber-50 to-amber-50/30 shadow-[0_16px_34px_rgba(245,158,11,0.12)]",
-  slate: "border-slate-200 bg-gradient-to-br from-slate-50 to-slate-50/30 shadow-[0_16px_34px_rgba(15,23,42,0.08)]",
-  rose: "border-rose-100 bg-gradient-to-br from-rose-50 to-rose-50/30 shadow-[0_16px_34px_rgba(244,63,94,0.12)]",
-  indigo: "border-indigo-100 bg-gradient-to-br from-indigo-50 to-indigo-50/30 shadow-[0_16px_34px_rgba(79,70,229,0.12)]",
-  violet: "border-violet-100 bg-gradient-to-br from-violet-50 to-violet-50/30 shadow-[0_16px_34px_rgba(139,92,246,0.12)]",
-  cyan: "border-cyan-100 bg-gradient-to-br from-cyan-50 to-cyan-50/30 shadow-[0_16px_34px_rgba(6,182,212,0.12)]",
+  emerald: "border-emerald-100 bg-linear-to-br from-emerald-50 to-emerald-50/30 shadow-[0_16px_34px_rgba(16,185,129,0.12)]",
+  teal: "border-teal-100 bg-linear-to-br from-teal-50 to-teal-50/30 shadow-[0_16px_34px_rgba(20,184,166,0.12)]",
+  sky: "border-sky-100 bg-linear-to-br from-sky-50 to-sky-50/30 shadow-[0_16px_34px_rgba(14,165,233,0.12)]",
+  amber: "border-amber-100 bg-linear-to-br from-amber-50 to-amber-50/30 shadow-[0_16px_34px_rgba(245,158,11,0.12)]",
+  slate: "border-slate-200 bg-linear-to-br from-slate-50 to-slate-50/30 shadow-[0_16px_34px_rgba(15,23,42,0.08)]",
+  rose: "border-rose-100 bg-linear-to-br from-rose-50 to-rose-50/30 shadow-[0_16px_34px_rgba(244,63,94,0.12)]",
+  indigo: "border-indigo-100 bg-linear-to-br from-indigo-50 to-indigo-50/30 shadow-[0_16px_34px_rgba(79,70,229,0.12)]",
+  violet: "border-violet-100 bg-linear-to-br from-violet-50 to-violet-50/30 shadow-[0_16px_34px_rgba(139,92,246,0.12)]",
+  cyan: "border-cyan-100 bg-linear-to-br from-cyan-50 to-cyan-50/30 shadow-[0_16px_34px_rgba(6,182,212,0.12)]",
 };
 
 const accentClasses: Record<Tone, string> = {
@@ -67,9 +67,9 @@ export function DashboardHero({
   };
 
   return (
-    <section className={`relative overflow-hidden rounded-[2.5rem] border border-white/50 bg-gradient-to-br p-8 shadow-[0_32px_64px_rgba(16,185,129,0.15)] animate-fade-in-down ${gradients[accent]} backdrop-blur-sm`}>
-      <div className="absolute -right-40 -top-40 h-80 w-80 rounded-full bg-gradient-to-r from-emerald-300/20 to-teal-300/10 blur-3xl" />
-      <div className="absolute -left-32 bottom-0 h-64 w-64 rounded-full bg-gradient-to-r from-teal-300/20 to-cyan-300/10 blur-3xl" />
+    <section className={`relative overflow-hidden rounded-[2.5rem] border border-white/50 bg-linear-to-br p-8 shadow-[0_32px_64px_rgba(16,185,129,0.15)] animate-fade-in-down ${gradients[accent]} backdrop-blur-sm`}>
+      <div className="absolute -right-40 -top-40 h-80 w-80 rounded-full bg-linear-to-r from-emerald-300/20 to-teal-300/10 blur-3xl" />
+      <div className="absolute -left-32 bottom-0 h-64 w-64 rounded-full bg-linear-to-r from-teal-300/20 to-cyan-300/10 blur-3xl" />
       <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-3xl flex-1">
           <p className={`text-xs font-bold uppercase tracking-[0.35em] ${textColorClasses[accent]} opacity-80`}>{eyebrow}</p>
@@ -77,7 +77,7 @@ export function DashboardHero({
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 font-medium">{description}</p>
         </div>
         <div className={`inline-flex w-fit shrink-0 items-center gap-3 rounded-full border-2 px-5 py-3 text-sm font-bold backdrop-blur-sm ${panelToneClasses[accent]}`}>
-          <span className={`h-3 w-3 rounded-full bg-gradient-to-r ${accentClasses[accent]} animate-soft-pulse`} />
+          <span className={`h-3 w-3 rounded-full bg-linear-to-r ${accentClasses[accent]} animate-soft-pulse`} />
           <span className={textColorClasses[accent]}>{summary}</span>
         </div>
       </div>
@@ -102,7 +102,7 @@ export function MetricCard({
 }) {
   const content = (
     <div className={`relative overflow-hidden rounded-[1.75rem] border px-6 py-6 transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_28px_50px_rgba(16,185,129,0.18)] ${panelToneClasses[tone]} group`}>
-      <div className={`absolute -right-8 -top-8 h-32 w-32 rounded-full bg-gradient-to-br ${accentClasses[tone]} opacity-[0.15] transition-transform group-hover:scale-110`} />
+      <div className={`absolute -right-8 -top-8 h-32 w-32 rounded-full bg-linear-to-br ${accentClasses[tone]} opacity-[0.15] transition-transform group-hover:scale-110`} />
       <div className="relative">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
@@ -141,7 +141,7 @@ export function SectionCard({
   description?: string;
 }) {
   return (
-    <section className="rounded-[2rem] border border-white/90 bg-white/60 p-7 shadow-[0_24px_54px_rgba(15,23,42,0.10)] backdrop-blur-sm animate-fade-in-up hover:shadow-[0_28px_64px_rgba(15,23,42,0.12)] transition-shadow duration-300">
+    <section className="rounded-4xl border border-white/90 bg-white/60 p-7 shadow-[0_24px_54px_rgba(15,23,42,0.10)] backdrop-blur-sm animate-fade-in-up hover:shadow-[0_28px_64px_rgba(15,23,42,0.12)] transition-shadow duration-300">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="flex-1">
           <h2 className="text-lg font-bold tracking-tight text-slate-900">{title}</h2>
@@ -174,11 +174,11 @@ export function ActionCard({
   return (
     <Link
       href={href}
-      className={`group relative overflow-hidden rounded-[1.5rem] border px-5 py-5 text-left transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(16,185,129,0.15)] ${panelToneClasses[tone]}`}
+      className={`group relative overflow-hidden rounded-3xl border px-5 py-5 text-left transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(16,185,129,0.15)] ${panelToneClasses[tone]}`}
     >
-      <div className={`absolute -right-12 -top-12 h-28 w-28 rounded-full bg-gradient-to-br ${accentClasses[tone]} opacity-0 transition-all group-hover:opacity-20`} />
+      <div className={`absolute -right-12 -top-12 h-28 w-28 rounded-full bg-linear-to-br ${accentClasses[tone]} opacity-0 transition-all group-hover:opacity-20`} />
       <div className="relative flex items-start gap-4">
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[0.875rem] bg-gradient-to-br ${accentClasses[tone]} text-white shadow-[0_8px_16px_rgba(16,185,129,0.20)] group-hover:scale-110 transition-transform`}>
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[0.875rem] bg-linear-to-br ${accentClasses[tone]} text-white shadow-[0_8px_16px_rgba(16,185,129,0.20)] group-hover:scale-110 transition-transform`}>
           {icon ? icon : <span className="text-lg font-bold">→</span>}
         </div>
         <div className="min-w-0 flex-1">

@@ -3,6 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, useMemo, useState, useEffect, useTransition } from "react";
+import {
+  FaCcVisa,
+  FaCcMastercard,
+  FaCcJcb,
+  FaBuildingColumns,
+  FaQrcode,
+  FaCircleXmark,
+  FaBolt,
+  FaClipboardList,
+  FaHospital,
+  FaVideo,
+  FaCreditCard,
+  FaLock,
+  FaUser,
+  FaCircleCheck,
+  FaCheck,
+  FaArrowRotateLeft,
+  FaArrowLeft,
+  FaArrowRight,
+} from "react-icons/fa6";
 import { createAppointmentAction } from "@/app/(dashboard)/appointments/actions";
 import { SharedSlotPicker } from "@/src/components/appointments/SharedSlotPicker";
 import { useAppointments } from "@/src/components/appointments/useAppointments";
@@ -39,11 +59,14 @@ type BookingForm = {
   paymentOption: OnlinePaymentOption;
 };
 
+// Online consultation now routes every payment option through PayMongo:
+//   QR/GCash → PayMongo gcash + qrph
+//   Card     → PayMongo card
+//   Bank     → PayMongo Direct Online Banking (BPI, UnionBank, RCBC, Chinabank, etc.)
 type OnlinePaymentOption =
   | "paymongo_gcash"
   | "paymongo_card"
-  | "stripe_card"
-  | "bank_transfer";
+  | "paymongo_bank";
 
 const today = getClinicToday();
 const DEFAULT_DOCTOR_ID = "chiara-punzalan";
@@ -61,32 +84,183 @@ const INITIAL_FORM: BookingForm = {
   paymentOption: "paymongo_gcash",
 };
 
-const ONLINE_PAYMENT_OPTIONS: Array<{
+type OnlinePaymentOptionConfig = {
   value: OnlinePaymentOption;
   label: string;
   detail: string;
-}> = [
+  // Tailwind utility classes for the logo tile background + ring colour shown
+  // in the selected state, so each option keeps its own brand accent.
+  accent: {
+    tileBg: string;
+    ring: string;
+    selectedBorder: string;
+    selectedBg: string;
+  };
+  brands: Array<{ key: string; node: React.ReactNode }>;
+  logo: React.ReactNode;
+};
+
+const ONLINE_PAYMENT_OPTIONS: OnlinePaymentOptionConfig[] = [
   {
     value: "paymongo_gcash",
     label: "QR / GCash",
-    detail: "Pay online using GCash or a local QR-supported wallet.",
+    detail: "Pay using GCash or any QR Ph supported wallet/bank app.",
+    accent: {
+      tileBg: "bg-linear-to-br from-sky-500 to-blue-600",
+      ring: "ring-sky-300",
+      selectedBorder: "border-sky-500",
+      selectedBg: "bg-sky-50/60",
+    },
+    logo: <GCashLogo />,
+    brands: [
+      { key: "gcash", node: <BrandChip className="bg-sky-100 text-sky-800">GCash</BrandChip> },
+      {
+        key: "qrph",
+        node: (
+          <BrandChip className="bg-blue-100 text-blue-800">
+            <FaQrcode className="h-3 w-3" /> QR Ph
+          </BrandChip>
+        ),
+      },
+      { key: "maya", node: <BrandChip className="bg-emerald-100 text-emerald-800">Maya</BrandChip> },
+    ],
   },
   {
     value: "paymongo_card",
-    label: "Card via PayMongo",
-    detail: "Use a debit or credit card through PayMongo checkout.",
+    label: "Credit / Debit Card",
+    detail: "Pay with Visa, Mastercard, or JCB through PayMongo's secure checkout.",
+    accent: {
+      tileBg: "bg-linear-to-br from-slate-800 to-slate-950",
+      ring: "ring-slate-300",
+      selectedBorder: "border-slate-800",
+      selectedBg: "bg-slate-50",
+    },
+    logo: <CardLogo />,
+    brands: [
+      {
+        key: "visa",
+        node: (
+          <span className="inline-flex items-center justify-center h-7 w-11 rounded-md bg-white border border-slate-200 shadow-xs">
+            <FaCcVisa className="h-5 w-auto text-[#1A1F71]" />
+          </span>
+        ),
+      },
+      {
+        key: "mc",
+        node: (
+          <span className="inline-flex items-center justify-center h-7 w-11 rounded-md bg-white border border-slate-200 shadow-xs">
+            <FaCcMastercard className="h-5 w-auto text-[#EB001B]" />
+          </span>
+        ),
+      },
+      {
+        key: "jcb",
+        node: (
+          <span className="inline-flex items-center justify-center h-7 w-11 rounded-md bg-white border border-slate-200 shadow-xs">
+            <FaCcJcb className="h-5 w-auto text-[#0E4C96]" />
+          </span>
+        ),
+      },
+    ],
   },
   {
-    value: "stripe_card",
-    label: "Card via Stripe",
-    detail: "Use a debit or credit card through Stripe checkout.",
-  },
-  {
-    value: "bank_transfer",
-    label: "Bank Transfer",
-    detail: "Manual verification by clinic staff. Appointment confirms only after payment is verified.",
+    value: "paymongo_bank",
+    label: "Online Bank Transfer",
+    detail: "Pay directly from your online banking — BPI, UnionBank, RCBC, Chinabank and more.",
+    accent: {
+      tileBg: "bg-linear-to-br from-emerald-500 to-teal-600",
+      ring: "ring-emerald-300",
+      selectedBorder: "border-emerald-500",
+      selectedBg: "bg-emerald-50/60",
+    },
+    logo: <BankLogo />,
+    brands: [
+      { key: "bpi", node: <BrandChip className="bg-rose-100 text-rose-800">BPI</BrandChip> },
+      { key: "ubp", node: <BrandChip className="bg-amber-100 text-amber-800">UnionBank</BrandChip> },
+      { key: "rcbc", node: <BrandChip className="bg-blue-100 text-blue-800">RCBC</BrandChip> },
+      {
+        key: "chinabank",
+        node: <BrandChip className="bg-red-100 text-red-800">Chinabank</BrandChip>,
+      },
+      { key: "more", node: <BrandChip className="bg-slate-100 text-slate-700">+ more</BrandChip> },
+    ],
   },
 ];
+
+function BrandChip({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold leading-none ${className ?? ""}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function GCashLogo() {
+  // Stylised GCash brand mark — blue gradient tile with a stylised "G".
+  return (
+    <span className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-sky-500 to-blue-600 shadow-md">
+      <span className="text-lg font-black tracking-tight text-white">G</span>
+      <span className="absolute -bottom-1 -right-1 inline-flex h-5 w-5 items-center justify-center rounded-md bg-white shadow-sm ring-1 ring-sky-200">
+        <FaQrcode className="h-3 w-3 text-sky-600" />
+      </span>
+    </span>
+  );
+}
+
+function CardLogo() {
+  // Generic card-shape logo tile with two stripes evoking a chip card.
+  return (
+    <span className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-slate-800 to-slate-950 shadow-md">
+      <svg
+        viewBox="0 0 32 24"
+        fill="none"
+        className="h-6 w-6"
+        aria-hidden="true"
+      >
+        <rect x="1" y="3" width="30" height="18" rx="3" stroke="white" strokeWidth="1.5" />
+        <rect x="1" y="7.5" width="30" height="3" fill="white" />
+        <rect x="5" y="14" width="8" height="2" rx="0.5" fill="white" opacity="0.85" />
+        <rect x="5" y="17" width="5" height="1.5" rx="0.5" fill="white" opacity="0.6" />
+      </svg>
+    </span>
+  );
+}
+
+function BankLogo() {
+  // Bank columns icon on emerald gradient.
+  return (
+    <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-md">
+      <FaBuildingColumns className="h-6 w-6 text-white" />
+    </span>
+  );
+}
+
+// Inline icon + label used inside summary rows to identify the visit type
+// without resorting to emojis.
+function VisitTypeValue({ type }: { type: AppointmentType }) {
+  if (type === "Clinic") {
+    return (
+      <>
+        <FaHospital className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+        Clinic Visit
+      </>
+    );
+  }
+  return (
+    <>
+      <FaVideo className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
+      Online Consultation
+    </>
+  );
+}
 
 function paymentOptionLabel(option: OnlinePaymentOption) {
   return ONLINE_PAYMENT_OPTIONS.find((item) => item.value === option)?.label ?? "Online payment";
@@ -289,7 +463,7 @@ export default function BookAppointmentPage() {
     // CRITICAL: Block submission without authentication
     if (!accessToken || !user || !profile) {
       console.warn("[BookAppointment] Submission blocked: not authenticated", { accessToken: !!accessToken, user: !!user, profile: !!profile });
-      setFeedback({ message: "❌ You must sign in or create an account to complete your booking.", type: "error" });
+      setFeedback({ message: "You must sign in or create an account to complete your booking.", type: "error" });
       return;
     }
 
@@ -381,12 +555,15 @@ export default function BookAppointmentPage() {
       </div>
 
       {feedback ? (
-        <div className={`rounded-2xl px-4 py-3 text-sm font-medium ${
+        <div className={`flex items-start gap-2.5 rounded-2xl px-4 py-3 text-sm font-medium ${
           feedback.type === "success"
             ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
             : "border border-red-200 bg-red-50 text-red-800"
         }`}>
-          {feedback.message}
+          {feedback.type === "success"
+            ? <FaCircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+            : <FaCircleXmark className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden="true" />}
+          <span>{feedback.message}</span>
         </div>
       ) : null}
       {error ? (
@@ -397,7 +574,7 @@ export default function BookAppointmentPage() {
       ) : null}
 
       <form onSubmit={handleSubmit}>
-        <div className="rounded-[2rem] border border-emerald-100 bg-white/95 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur sm:p-5">
+        <div className="rounded-4xl border border-emerald-100 bg-white/95 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur sm:p-5">
           <HorizontalBookingStepper
             labels={BOOKING_STEP_LABELS}
             activeStep={activeStep}
@@ -408,7 +585,7 @@ export default function BookAppointmentPage() {
         <div className="mt-6 space-y-5">
           {activeStep === 1 ? (
             <>
-              <section className="rounded-[2rem] border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4 shadow-[0_20px_45px_rgba(16,185,129,0.08)] sm:p-6">
+              <section className="rounded-4xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4 shadow-[0_20px_45px_rgba(16,185,129,0.08)] sm:p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600">Step 1 of 4</p>
@@ -515,7 +692,7 @@ export default function BookAppointmentPage() {
                           id="duration"
                           value={formData.durationMinutes}
                           onChange={(event) => updateForm("durationMinutes", event.target.value as "60")}
-                          className="mt-2.5 w-full rounded-[1rem] border border-emerald-100 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 cursor-pointer"
+                          className="mt-2.5 w-full rounded-2xl border border-emerald-100 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 cursor-pointer"
                         >
                           <option value="60">1 hour - PHP 350</option>
                         </select>
@@ -531,7 +708,7 @@ export default function BookAppointmentPage() {
 
           {activeStep === 2 ? (
             <>
-              <section className="rounded-[2rem] border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4 shadow-[0_20px_45px_rgba(16,185,129,0.08)] sm:p-6">
+              <section className="rounded-4xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4 shadow-[0_20px_45px_rgba(16,185,129,0.08)] sm:p-6">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600">Step 2 of 4</p>
@@ -602,7 +779,7 @@ export default function BookAppointmentPage() {
             <>
               <section className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_24rem]">
                 <div className="space-y-5">
-                  <div className="rounded-[2rem] border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4 shadow-[0_20px_45px_rgba(16,185,129,0.08)] sm:p-6">
+                  <div className="rounded-4xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4 shadow-[0_20px_45px_rgba(16,185,129,0.08)] sm:p-6">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600">Step 3 of 4</p>
@@ -616,9 +793,10 @@ export default function BookAppointmentPage() {
                             updateForm("date", nextAvailableSlot.date);
                             updateForm("start", nextAvailableSlot.slot.start);
                           }}
-                          className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300"
+                          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300"
                         >
-                          ⚡ Next: {formatDisplayDate(nextAvailableSlot.date)} {formatRange(nextAvailableSlot.slot.start, nextAvailableSlot.slot.end)}
+                          <FaBolt className="h-3 w-3 text-amber-500" aria-hidden="true" />
+                          Next: {formatDisplayDate(nextAvailableSlot.date)} {formatRange(nextAvailableSlot.slot.start, nextAvailableSlot.slot.end)}
                         </button>
                       ) : null}
                     </div>
@@ -699,23 +877,26 @@ export default function BookAppointmentPage() {
                   />
                 </div>
 
-                <div className="rounded-[2rem] border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4 shadow-[0_20px_45px_rgba(16,185,129,0.08)] h-fit sm:p-5 lg:sticky lg:top-24">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">📋 Booking Summary</p>
+                <div className="rounded-4xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4 shadow-[0_20px_45px_rgba(16,185,129,0.08)] h-fit sm:p-5 lg:sticky lg:top-24">
+                  <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">
+                    <FaClipboardList className="h-3 w-3" aria-hidden="true" />
+                    Booking Summary
+                  </p>
                   
-                  <div className="mt-4 rounded-[1.5rem] border border-emerald-200 bg-[linear-gradient(180deg,#ecfdf5_0%,#d1fae5_100%)] p-4.5 shadow-sm">
+                  <div className="mt-4 rounded-3xl border border-emerald-200 bg-[linear-gradient(180deg,#ecfdf5_0%,#d1fae5_100%)] p-4.5 shadow-sm">
                     <div className="space-y-3">
-                      <SummaryRow label="Visit Type" value={formData.type === "Clinic" ? "🏥 Clinic Visit" : "💻 Online Consultation"} done />
+                      <SummaryRow label="Visit Type" value={<VisitTypeValue type={formData.type} />} done />
                       <SummaryRow label="Doctor" value={selectedDoctor?.name ?? "-"} done />
-                      <div className="h-[1px] bg-gradient-to-r from-emerald-200 to-transparent my-2" />
+                      <div className="h-px bg-linear-to-r from-emerald-200 to-transparent my-2" />
                       <SummaryRow label="Date" value={formatDisplayDate(formData.date)} done={!!formData.date} />
                       <SummaryRow label="Time" value={selectedSlot ? formatRange(selectedSlot.start, selectedSlot.end) : "Choose a slot"} done={!!selectedSlot} />
                       <SummaryRow label="Duration" value={selectedSlot ? selectedSlotDuration : "-"} done={!!selectedSlot} />
-                      <div className="h-[1px] bg-gradient-to-r from-emerald-200 to-transparent my-2" />
+                      <div className="h-px bg-linear-to-r from-emerald-200 to-transparent my-2" />
                       <SummaryRow label="Queue #" value={selectedSlot?.nextQueueNumber ? `#${selectedSlot.nextQueueNumber}` : "—"} done={!!selectedSlot} />
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-[1.5rem] border-2 border-emerald-500 bg-[linear-gradient(180deg,#ecfdf5_0%,#d1fae5_100%)] px-4 py-4 shadow-md">
+                  <div className="mt-4 rounded-3xl border-2 border-emerald-500 bg-[linear-gradient(180deg,#ecfdf5_0%,#d1fae5_100%)] px-4 py-4 shadow-md">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Estimated Fee</p>
                     <p className="mt-2.5 text-3xl font-black text-emerald-900">
                       PHP {estimatedFee.toLocaleString()}
@@ -725,14 +906,20 @@ export default function BookAppointmentPage() {
 
                   {formData.type === "Online" ? (
                     <div className="mt-4 rounded-[1.4rem] border border-sky-200 bg-sky-50 px-3.5 py-3.5 text-xs">
-                      <p className="font-semibold text-sky-900">💳 Payment Info</p>
+                      <p className="inline-flex items-center gap-1.5 font-semibold text-sky-900">
+                        <FaCreditCard className="h-3 w-3" aria-hidden="true" />
+                        Payment Info
+                      </p>
                       <p className="mt-1.5 text-sky-800">Online consultations require payment first. You&apos;ll choose QR, card, or bank transfer on the review step.</p>
                     </div>
                   ) : null}
 
                   {requiresAuthForReview && !accessToken && (
                     <div className="mt-4 rounded-[1.4rem] border border-emerald-300 bg-emerald-50 px-3.5 py-3.5">
-                      <p className="text-xs font-semibold text-emerald-700 mb-2">🔐 Sign In Required</p>
+                      <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 mb-2">
+                        <FaLock className="h-3 w-3" aria-hidden="true" />
+                        Sign In Required
+                      </p>
                       <p className="text-xs text-emerald-700 mb-3">Please sign in or create an account to proceed to the next step.</p>
                       <div className="flex gap-2 flex-col">
                         <Link href={`/login?next=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "")}#booking`} className="w-full rounded-full bg-emerald-600 text-white px-3 py-2 text-xs font-semibold text-center transition hover:bg-emerald-700">
@@ -752,7 +939,7 @@ export default function BookAppointmentPage() {
           ) : null}
 
           {activeStep === 4 ? (
-            <section className="rounded-[2rem] border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f6fef9_100%)] p-4 shadow-[0_22px_48px_rgba(16,185,129,0.08)] sm:p-6">
+            <section className="rounded-4xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f6fef9_100%)] p-4 shadow-[0_22px_48px_rgba(16,185,129,0.08)] sm:p-6">
               {requiresAuthForReview ? (
                 <div className="mx-auto max-w-3xl rounded-[1.75rem] border border-emerald-300 bg-[linear-gradient(180deg,#ecfdf5_0%,#d1fae5_100%)] p-6 shadow-sm sm:p-8">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">Step 4 of 4</p>
@@ -791,11 +978,14 @@ export default function BookAppointmentPage() {
                   <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
                     <div className="space-y-4 rounded-[1.75rem] border border-emerald-100 bg-[linear-gradient(180deg,#ecfdf5_0%,#d1fae5_100%)] p-5.5 shadow-sm">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 mb-3">📋 Appointment Details</p>
+                        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 mb-3">
+                          <FaClipboardList className="h-3 w-3" aria-hidden="true" />
+                          Appointment Details
+                        </p>
                         <div className="space-y-3">
-                          <SummaryRow label="Visit Type" value={formData.type === "Clinic" ? "🏥 Clinic Visit" : "💻 Online Consultation"} done />
+                          <SummaryRow label="Visit Type" value={<VisitTypeValue type={formData.type} />} done />
                           <SummaryRow label="Doctor" value={selectedDoctor?.name ?? "-"} done />
-                          <div className="h-[1px] bg-gradient-to-r from-emerald-200 to-transparent" />
+                          <div className="h-px bg-linear-to-r from-emerald-200 to-transparent" />
                           <SummaryRow label="Date" value={formatDisplayDate(formData.date)} done={datePicked} />
                           <SummaryRow label="Time" value={selectedSlot ? formatRange(selectedSlot.start, selectedSlot.end) : "-"} done={step3Valid} />
                           <SummaryRow label="Duration" value={selectedSlot ? selectedSlotDuration : "-"} done={step3Valid} />
@@ -804,7 +994,10 @@ export default function BookAppointmentPage() {
                       </div>
 
                       <div className="pt-2 border-t border-emerald-200">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 mb-3">👤 Patient Information</p>
+                        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 mb-3">
+                          <FaUser className="h-3 w-3" aria-hidden="true" />
+                          Patient Information
+                        </p>
                         <div className="space-y-3 text-sm">
                           <SummaryRow label="Name" value={effectivePatientName} done={step2Valid} />
                           <SummaryRow label="Email" value={effectivePatientEmail} done={step2Valid} />
@@ -831,8 +1024,18 @@ export default function BookAppointmentPage() {
                     </div>
 
                     <div className="rounded-[1.75rem] border-2 border-emerald-500 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-5.5 shadow-md h-fit lg:sticky lg:top-24">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                        {formData.type === "Online" ? "💳 Ready for Payment" : "✅ Ready to Book"}
+                      <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                        {formData.type === "Online" ? (
+                          <>
+                            <FaCreditCard className="h-3 w-3" aria-hidden="true" />
+                            Ready for Payment
+                          </>
+                        ) : (
+                          <>
+                            <FaCircleCheck className="h-3 w-3" aria-hidden="true" />
+                            Ready to Book
+                          </>
+                        )}
                       </p>
                       <p className="mt-4 text-3xl font-black text-emerald-900">
                         {formData.type === "Online"
@@ -841,9 +1044,7 @@ export default function BookAppointmentPage() {
                       </p>
                       <p className="mt-2.5 text-sm text-slate-600 leading-relaxed">
                         {formData.type === "Online"
-                          ? formData.paymentOption === "bank_transfer"
-                            ? "Your booking will stay pending until the clinic verifies the bank transfer."
-                            : "You will be directed to the selected payment gateway to complete the payment."
+                          ? "You will be redirected to PayMongo's secure checkout to complete the payment."
                           : selectedSlot
                             ? `Your appointment is confirmed for ${formatRange(selectedSlot.start, selectedSlot.end)}`
                             : "Select a time slot first"}
@@ -859,40 +1060,77 @@ export default function BookAppointmentPage() {
                       </div>
 
                       {formData.type === "Online" ? (
-                        <div className="mt-4 space-y-3 rounded-[1.4rem] border border-sky-200 bg-sky-50 px-4 py-4">
+                        <div className="mt-4 space-y-3 rounded-[1.4rem] border border-sky-200 bg-linear-to-b from-sky-50 to-white px-4 py-4">
                           <div className="flex items-center justify-between gap-2 text-sm">
-                            <span className="font-semibold text-sky-900">Choose Payment Option</span>
-                            <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-sky-700 shadow-sm border border-sky-200">
-                              Pay first
+                            <span className="font-semibold text-sky-900">Choose Payment Method</span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-sky-700 shadow-sm border border-sky-200">
+                              <FaLock className="h-2.5 w-2.5" aria-hidden="true" />
+                              Secure · PayMongo
                             </span>
                           </div>
-                          <div className="space-y-2">
-                            {ONLINE_PAYMENT_OPTIONS.map((option) => (
-                              <button
-                                key={option.value}
-                                type="button"
-                                onClick={() => updateForm("paymentOption", option.value)}
-                                className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
-                                  formData.paymentOption === option.value
-                                    ? "border-sky-500 bg-white shadow-sm"
-                                    : "border-sky-100 bg-white/70 hover:border-sky-300"
-                                }`}
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-sm font-semibold text-slate-900">{option.label}</p>
-                                    <p className="mt-1 text-xs text-slate-600">{option.detail}</p>
+                          <div className="space-y-2.5">
+                            {ONLINE_PAYMENT_OPTIONS.map((option) => {
+                              const isSelected = formData.paymentOption === option.value;
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => updateForm("paymentOption", option.value)}
+                                  aria-pressed={isSelected}
+                                  className={`group relative w-full overflow-hidden rounded-2xl border-2 px-3.5 py-3.5 text-left transition-all duration-150 ${
+                                    isSelected
+                                      ? `${option.accent.selectedBorder} ${option.accent.selectedBg} shadow-md ring-2 ${option.accent.ring} ring-offset-1`
+                                      : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-3.5">
+                                    {/* Brand logo tile */}
+                                    <div className="shrink-0">{option.logo}</div>
+
+                                    {/* Label + detail + brand chips */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <p className="text-sm font-bold text-slate-900">{option.label}</p>
+                                        {isSelected ? (
+                                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                                            <FaCheck className="h-2.5 w-2.5" aria-hidden="true" />
+                                            Selected
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      <p className="mt-1 text-xs text-slate-600 leading-snug">{option.detail}</p>
+                                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                        {option.brands.map((brand) => (
+                                          <Fragment key={brand.key}>{brand.node}</Fragment>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    {/* Radio indicator */}
+                                    <span
+                                      className={`mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                                        isSelected
+                                          ? `${option.accent.selectedBorder} bg-white`
+                                          : "border-slate-300 bg-white group-hover:border-slate-400"
+                                      }`}
+                                    >
+                                      {isSelected ? (
+                                        <span
+                                          className={`h-2.5 w-2.5 rounded-full ${option.accent.tileBg}`}
+                                          aria-hidden="true"
+                                        />
+                                      ) : null}
+                                    </span>
                                   </div>
-                                  <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold ${
-                                    formData.paymentOption === option.value
-                                      ? "border-sky-500 bg-sky-500 text-white"
-                                      : "border-slate-300 text-slate-400"
-                                  }`}>
-                                    {formData.paymentOption === option.value ? "✓" : ""}
-                                  </span>
-                                </div>
-                              </button>
-                            ))}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="flex items-center justify-center gap-1.5 pt-1 text-[10px] text-slate-500">
+                            <span>Powered by</span>
+                            <span className="font-bold text-slate-700">PayMongo</span>
+                            <span>·</span>
+                            <span>SSL encrypted</span>
                           </div>
                         </div>
                       ) : null}
@@ -901,7 +1139,10 @@ export default function BookAppointmentPage() {
 
                   {!requiresAuthForReview && !accessToken && (
                     <div className="rounded-[1.4rem] border border-emerald-300 bg-emerald-50 px-4 py-4">
-                      <p className="text-sm font-semibold text-emerald-700 mb-3">🔐 Sign In Required</p>
+                      <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 mb-3">
+                        <FaLock className="h-3.5 w-3.5" aria-hidden="true" />
+                        Sign In Required
+                      </p>
                       <p className="text-sm text-emerald-700 mb-4">You must sign in or create an account to complete your booking.</p>
                       <div className="flex gap-3 flex-col sm:flex-row">
                         <Link href={`/login?next=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "")}#booking`} className="flex-1 rounded-full bg-emerald-600 text-white px-4 py-2.5 text-sm font-semibold text-center transition hover:bg-emerald-700">
@@ -917,12 +1158,14 @@ export default function BookAppointmentPage() {
               )}
 
               <div className="mt-6 flex flex-col gap-3 border-t border-emerald-100 pt-5 sm:flex-row sm:items-center">
-                <button type="button" onClick={goBack} className="order-2 rounded-full border border-emerald-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 sm:order-1">
-                  ← Back
+                <button type="button" onClick={goBack} className="order-2 inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 sm:order-1">
+                  <FaArrowLeft className="h-3 w-3" aria-hidden="true" />
+                  Back
                 </button>
                 <div className="order-1 flex flex-1 flex-col gap-3 sm:order-2 sm:flex-row sm:justify-end">
-                  <button type="button" onClick={() => { setFormData({ ...INITIAL_FORM, doctorId: formData.doctorId, type: formData.type }); setFeedback(null); setActiveStep(1); setVisibleWeekStart(today); }} className="rounded-full border border-emerald-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50">
-                    🔄 Start Over
+                  <button type="button" onClick={() => { setFormData({ ...INITIAL_FORM, doctorId: formData.doctorId, type: formData.type }); setFeedback(null); setActiveStep(1); setVisibleWeekStart(today); }} className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50">
+                    <FaArrowRotateLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                    Start Over
                   </button>
                   <button type="submit" disabled={isLoading || isSubmitting || !step4Done || !accessToken} className="rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-7 py-3 text-sm font-semibold text-white shadow-[0_16px_28px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(16,185,129,0.28)] disabled:cursor-not-allowed disabled:opacity-60">
                     {isSubmitting ? "Processing..." : formData.type === "Online" ? "Proceed to Payment" : "Confirm Appointment"}
@@ -956,8 +1199,8 @@ function HorizontalBookingStepper({
           const isComplete = step < activeStep;
           return (
             <Fragment key={label}>
-              {i > 0 ? <div className={`mt-5 h-[2px] min-w-[6px] flex-1 ${isComplete ? "bg-emerald-400" : "bg-emerald-100"}`} aria-hidden /> : null}
-              <div className="flex w-[4.75rem] shrink-0 flex-col items-center sm:w-32">
+              {i > 0 ? <div className={`mt-5 h-0.5 min-w-1.5 flex-1 ${isComplete ? "bg-emerald-400" : "bg-emerald-100"}`} aria-hidden /> : null}
+              <div className="flex w-19 shrink-0 flex-col items-center sm:w-32">
                 <button
                   type="button"
                   onClick={() => onStepClick(step)}
@@ -1003,22 +1246,38 @@ function WizardNav({
   return (
     <div className={`flex flex-col gap-3 sm:flex-row sm:items-center ${showBack ? "sm:justify-between" : "sm:justify-end"}`}>
       {showBack ? (
-        <button type="button" onClick={onBack} className="w-full rounded-full border border-emerald-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 sm:w-auto">
-          ← Back
+        <button type="button" onClick={onBack} className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 sm:w-auto">
+          <FaArrowLeft className="h-3 w-3" aria-hidden="true" />
+          Back
         </button>
       ) : null}
-      <button type="button" onClick={onNext} disabled={nextDisabled} className="w-full rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-7 py-3 text-sm font-semibold text-white shadow-[0_16px_28px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(16,185,129,0.28)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
-        {nextLabel} →
+      <button type="button" onClick={onNext} disabled={nextDisabled} className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-7 py-3 text-sm font-semibold text-white shadow-[0_16px_28px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(16,185,129,0.28)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
+        {nextLabel}
+        <FaArrowRight className="h-3 w-3" aria-hidden="true" />
       </button>
     </div>
   );
 }
 
-function SummaryRow({ label, value, done }: { label: string; value: string; done: boolean }) {
+function SummaryRow({
+  label,
+  value,
+  done,
+}: {
+  label: string;
+  value: React.ReactNode;
+  done: boolean;
+}) {
   return (
     <div className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <span className={`font-medium ${done ? "text-slate-600" : "text-slate-400"}`}>{label}</span>
-      <span className={`break-words font-semibold sm:max-w-[60%] sm:text-right ${done ? "text-slate-900" : "text-slate-500"}`}>{value}</span>
+      <span
+        className={`wrap-break-word font-semibold sm:max-w-[60%] sm:text-right inline-flex items-center justify-end gap-1.5 ${
+          done ? "text-slate-900" : "text-slate-500"
+        }`}
+      >
+        {value}
+      </span>
     </div>
   );
 }

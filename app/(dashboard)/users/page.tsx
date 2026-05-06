@@ -729,19 +729,19 @@ export default function UsersPage() {
       {activeTab === "accounts" ? (
         <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 animate-fade-in-up">
-        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100/50 px-4 py-4 shadow-sm hover:shadow-md transition">
+        <div className="rounded-2xl border border-emerald-200 bg-linear-to-br from-emerald-50 to-emerald-100/50 px-4 py-4 shadow-sm hover:shadow-md transition">
           <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Active users</p>
           <p className="mt-2 text-3xl font-bold text-emerald-900">{activeUsers}</p>
         </div>
-        <div className="rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-sky-100/50 px-4 py-4 shadow-sm hover:shadow-md transition">
+        <div className="rounded-2xl border border-sky-200 bg-linear-to-br from-sky-50 to-sky-100/50 px-4 py-4 shadow-sm hover:shadow-md transition">
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Doctors</p>
           <p className="mt-2 text-3xl font-bold text-sky-900">{doctorUsers}</p>
         </div>
-        <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-violet-100/50 px-4 py-4 shadow-sm hover:shadow-md transition">
+        <div className="rounded-2xl border border-violet-200 bg-linear-to-br from-violet-50 to-violet-100/50 px-4 py-4 shadow-sm hover:shadow-md transition">
           <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">Secretary</p>
           <p className="mt-2 text-3xl font-bold text-violet-900">{secretaryUsers}</p>
         </div>
-        <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100/50 px-4 py-4 shadow-sm hover:shadow-md transition">
+        <div className="rounded-2xl border border-amber-200 bg-linear-to-br from-amber-50 to-amber-100/50 px-4 py-4 shadow-sm hover:shadow-md transition">
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Patients</p>
           <p className="mt-2 text-3xl font-bold text-amber-900">{patientUsers}</p>
         </div>
@@ -937,7 +937,7 @@ export default function UsersPage() {
 
       <div className="hidden overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm hover-lift animate-fade-in-up md:block">
         <table className="w-full text-left text-base">
-          <thead className="border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-cyan-50">
+          <thead className="border-b border-slate-200 bg-linear-to-r from-emerald-50 to-cyan-50">
             <tr>
               <th className="px-4 py-4">
                 <input
@@ -981,7 +981,7 @@ export default function UsersPage() {
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 text-sm font-bold text-white shadow-sm">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-linear-to-br from-emerald-400 to-cyan-500 text-sm font-bold text-white shadow-sm">
                       {u.full_name
                         .split(" ")
                         .filter(Boolean)
@@ -1183,7 +1183,7 @@ export default function UsersPage() {
       {showAddModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-3xl rounded-3xl border border-slate-200 bg-white p-0 shadow-2xl mx-4 overflow-hidden">
-            <div className="flex items-start justify-between border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-cyan-50 px-6 py-5">
+            <div className="flex items-start justify-between border-b border-slate-200 bg-linear-to-r from-emerald-50 to-cyan-50 px-6 py-5">
               <div>
                 <h2 className="text-xl font-bold text-slate-900">Create a new user</h2>
                 <p className="mt-1 text-sm text-slate-600">
@@ -1318,7 +1318,7 @@ export default function UsersPage() {
       {showEditModal && editingUser ? (
         <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-0 shadow-2xl mx-4 overflow-hidden">
-            <div className="flex items-start justify-between border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-cyan-50 px-6 py-5">
+            <div className="flex items-start justify-between border-b border-slate-200 bg-linear-to-r from-emerald-50 to-cyan-50 px-6 py-5">
               <div>
                 <h2 className="text-xl font-bold text-slate-900">Edit user</h2>
                 <p className="mt-1 text-sm text-slate-600">

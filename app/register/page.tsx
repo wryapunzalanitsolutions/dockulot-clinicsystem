@@ -502,7 +502,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isPending}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-700 via-emerald-600 to-green-500 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-lg shadow-emerald-900/40 transition hover:from-emerald-600 hover:via-emerald-500 hover:to-green-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-emerald-900 disabled:to-emerald-700 disabled:text-emerald-200"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-linear-to-r from-emerald-700 via-emerald-600 to-green-500 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-lg shadow-emerald-900/40 transition hover:from-emerald-600 hover:via-emerald-500 hover:to-green-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-emerald-900 disabled:to-emerald-700 disabled:text-emerald-200"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -589,7 +589,7 @@ function PolicyModalCard({
           </button>
         </div>
 
-        <div className="mt-4 h-px w-full bg-gradient-to-r from-emerald-400/0 via-emerald-400/45 to-emerald-400/0" />
+        <div className="mt-4 h-px w-full bg-linear-to-r from-emerald-400/0 via-emerald-400/45 to-emerald-400/0" />
 
         <div className="policy-scroll mt-4 max-h-[65vh] space-y-3 overflow-y-auto pr-1">
           {sections.map((section) => (

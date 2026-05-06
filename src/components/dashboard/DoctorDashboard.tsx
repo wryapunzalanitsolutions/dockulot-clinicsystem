@@ -73,9 +73,9 @@ export default function DoctorDashboard() {
       </div>
 
       {nextInQueue ? (
-        <section className="relative overflow-hidden rounded-[2.5rem] border-2 border-emerald-200 bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-cyan-50/20 p-8 shadow-[0_28px_54px_rgba(16,185,129,0.18)] animate-pop-in transition hover:-translate-y-1">
-          <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-gradient-to-br from-emerald-300/25 to-teal-300/15 blur-3xl" />
-          <div className="absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-gradient-to-r from-teal-300/20 to-cyan-300/10 blur-3xl" />
+        <section className="relative overflow-hidden rounded-[2.5rem] border-2 border-emerald-200 bg-linear-to-br from-emerald-50/80 via-teal-50/40 to-cyan-50/20 p-8 shadow-[0_28px_54px_rgba(16,185,129,0.18)] animate-pop-in transition hover:-translate-y-1">
+          <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-linear-to-br from-emerald-300/25 to-teal-300/15 blur-3xl" />
+          <div className="absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-linear-to-r from-teal-300/20 to-cyan-300/10 blur-3xl" />
           <div className="relative">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex-1 max-w-2xl">
@@ -116,7 +116,7 @@ export default function DoctorDashboard() {
                     href={nextInQueue.meetingLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-600 to-blue-600 px-6 py-3 text-sm font-bold text-white shadow-[0_16px_32px_rgba(14,165,233,0.3)] transition hover:-translate-y-1 hover:shadow-[0_24px_48px_rgba(14,165,233,0.4)]"
+                    className="inline-flex items-center gap-2 rounded-full bg-linear-to-r from-sky-600 to-blue-600 px-6 py-3 text-sm font-bold text-white shadow-[0_16px_32px_rgba(14,165,233,0.3)] transition hover:-translate-y-1 hover:shadow-[0_24px_48px_rgba(14,165,233,0.4)]"
                   >
                     <FaVideo />
                     Join meeting
@@ -163,11 +163,11 @@ export default function DoctorDashboard() {
                 href={`/consultations`}
                 className={`group relative overflow-hidden flex items-center justify-between gap-4 rounded-[1.25rem] border-2 border-transparent px-5 py-4 transition-all hover:border-emerald-200 hover:bg-emerald-50/60 hover:shadow-[0_12px_28px_rgba(16,185,129,0.12)] animate-slide-in-left stagger-${Math.min(i + 1, 8)}`}
               >
-                <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-gradient-to-br from-emerald-300/10 to-teal-300/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-linear-to-br from-emerald-300/10 to-teal-300/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative flex min-w-0 items-center gap-4">
                   <div
                     className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-base font-bold text-white ${
-                      appt.status === "Completed" ? "bg-gradient-to-br from-emerald-500 to-emerald-600" : "bg-gradient-to-br from-teal-600 to-cyan-600"
+                      appt.status === "Completed" ? "bg-linear-to-br from-emerald-500 to-emerald-600" : "bg-linear-to-br from-teal-600 to-cyan-600"
                     }`}
                   >
                     {appt.queueNumber}
@@ -211,7 +211,7 @@ export default function DoctorDashboard() {
                 className={`group flex items-center justify-between gap-4 rounded-[1.25rem] border-2 border-transparent px-5 py-4 transition-all hover:border-teal-200 hover:bg-teal-50/60 hover:shadow-[0_8px_20px_rgba(20,184,166,0.08)] animate-slide-in-left stagger-${Math.min(i + 1, 6)}`}
               >
                 <div className="flex min-w-0 items-center gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 text-white font-bold">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-teal-500 to-cyan-600 text-white font-bold">
                     {appt.queueNumber}
                   </div>
                   <div className="min-w-0">

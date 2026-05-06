@@ -265,6 +265,7 @@ create table if not exists public.system_settings (
 );
 alter table public.system_settings add column if not exists clinic_open_time time not null default '08:00';
 alter table public.system_settings add column if not exists clinic_close_time time not null default '17:00';
+alter table public.system_settings add column if not exists default_meeting_link text not null default '';
 insert into public.system_settings (id) values (true) on conflict do nothing;
 
 -- ---------- AUDIT LOG ----------

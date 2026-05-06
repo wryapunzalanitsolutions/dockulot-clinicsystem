@@ -375,6 +375,7 @@ export async function readSystemSettings(): Promise<SystemSettings> {
       max_patients_per_hour: number;
       clinic_open_time?: string | null;
       clinic_close_time?: string | null;
+      default_meeting_link?: string | null;
     }>();
   if (!data) return INITIAL_SYSTEM_SETTINGS;
   return {
@@ -386,6 +387,7 @@ export async function readSystemSettings(): Promise<SystemSettings> {
     maxPatientsPerHour: data.max_patients_per_hour,
     clinicOpenTime: data.clinic_open_time?.slice(0, 5) ?? INITIAL_SYSTEM_SETTINGS.clinicOpenTime,
     clinicCloseTime: data.clinic_close_time?.slice(0, 5) ?? INITIAL_SYSTEM_SETTINGS.clinicCloseTime,
+    defaultMeetingLink: data.default_meeting_link ?? "",
   };
 }
 
@@ -402,6 +404,7 @@ export async function saveSystemSettings(settings: SystemSettings): Promise<Syst
       max_patients_per_hour: settings.maxPatientsPerHour,
       clinic_open_time: settings.clinicOpenTime,
       clinic_close_time: settings.clinicCloseTime,
+      default_meeting_link: (settings.defaultMeetingLink ?? "").trim(),
       updated_at: new Date().toISOString(),
     })
     .eq("id", true);

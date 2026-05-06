@@ -167,7 +167,7 @@ export function PaymentHistoryModule() {
   const paginatedRows = currentRows.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE);
 
   return (
-    <section className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+    <section className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Payment History</p>
@@ -200,7 +200,7 @@ export function PaymentHistoryModule() {
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-emerald-100">
+      <div className="mt-6 overflow-hidden rounded-3xl border border-emerald-100">
         {activeTab === "online" ? (
           <HistoryTable
             columns={["Patient", "Details", "Amount", "Method", "Status", "Created", "Paid At"]}

@@ -42,6 +42,10 @@ export type SystemSettings = {
   maxPatientsPerHour: number;
   clinicOpenTime: string;
   clinicCloseTime: string;
+  // Permanent Google Meet (or other web-meeting) link the clinic uses for
+  // every Online consultation. Empty string means "not configured yet" — the
+  // UI surfaces a setup prompt and new bookings ship without a link.
+  defaultMeetingLink: string;
 };
 
 // All clinic data now lives in Supabase. Only INITIAL_SYSTEM_SETTINGS remains
@@ -55,4 +59,5 @@ export const INITIAL_SYSTEM_SETTINGS: SystemSettings = {
   maxPatientsPerHour: 5,
   clinicOpenTime: "08:00",
   clinicCloseTime: "17:00",
+  defaultMeetingLink: "",
 };

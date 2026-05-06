@@ -158,7 +158,7 @@ export default function ReceiptPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="mx-auto max-w-3xl rounded-[2rem] border border-emerald-100 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)] print:shadow-none">
+      <div className="mx-auto max-w-3xl rounded-4xl border border-emerald-100 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)] print:shadow-none">
         <div className="border-b border-dashed border-slate-200 pb-6 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-700">Clinic POS</p>
           <h2 className="mt-2 text-3xl font-black text-slate-900">Official Receipt</h2>

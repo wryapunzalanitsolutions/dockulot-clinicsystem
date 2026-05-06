@@ -62,6 +62,7 @@ const EMPTY_SETTINGS: SystemSettings = {
   maxPatientsPerHour: 5,
   clinicOpenTime: "08:00",
   clinicCloseTime: "17:00",
+  defaultMeetingLink: "",
 };
 
 function normalizeTime(value: string) {
@@ -381,7 +382,7 @@ export default function SchedulesPage() {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <section className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <section className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Requirement Check</p>
@@ -416,7 +417,7 @@ export default function SchedulesPage() {
           </div>
         </section>
 
-        <section className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <section className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Clinic Hours</p>
@@ -476,7 +477,7 @@ export default function SchedulesPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-        <section className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <section className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Editor</p>
@@ -615,7 +616,7 @@ export default function SchedulesPage() {
         </section>
 
         <section className="space-y-6">
-          <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+          <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Coverage Board</p>
@@ -632,7 +633,7 @@ export default function SchedulesPage() {
                 return (
                   <div
                     key={day}
-                    className="rounded-[1.5rem] border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4"
+                    className="rounded-3xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -687,7 +688,7 @@ export default function SchedulesPage() {
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+          <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Blocked Dates</p>
             <h2 className="mt-2 text-xl font-bold text-slate-900">Leave and blocked days</h2>
             <p className="mt-2 text-sm text-slate-600">
@@ -749,7 +750,7 @@ function RequirementCard({
   status: "met" | "improved";
 }) {
   return (
-    <div className="rounded-[1.5rem] border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4">
+    <div className="rounded-3xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-bold text-slate-900">{title}</p>
         <span

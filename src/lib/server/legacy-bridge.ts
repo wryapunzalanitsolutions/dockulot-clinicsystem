@@ -108,6 +108,15 @@ export function legacyStatusMatchesLiving(s: ApptStatus): boolean {
   return s !== "Cancelled" && s !== "NoShow";
 }
 
+// Pre-Google-Meet bookings stored a placeholder URL on `meet.chiara.clinic`
+// that was never a real meeting room. Hide those from the UI so the
+// missing-link banner shows instead, prompting staff to set the real link.
+function sanitizeMeetingLink(link: string | null): string | null {
+  if (!link) return null;
+  if (link.includes("meet.chiara.clinic")) return null;
+  return link;
+}
+
 type PatientPair = { full_name: string; email: string; phone: string | null };
 
 export async function mapV2RowToLegacy(
@@ -128,7 +137,7 @@ export async function mapV2RowToLegacy(
     reason: row.reason,
     status: deriveLegacyStatus(row),
     queueNumber: row.queue_number,
-    meetingLink: row.meeting_link,
+    meetingLink: sanitizeMeetingLink(row.meeting_link),
   };
 }
 

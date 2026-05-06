@@ -206,7 +206,7 @@ export default function PatientsPage() {
         <MetricCard label="Registered" value={registeredPatients} />
       </section>
 
-      <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+      <section className="rounded-4xl border border-emerald-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
         <div className="grid gap-4 md:grid-cols-3">
           <label className="block text-sm font-medium text-slate-700">
             Search patient
@@ -215,7 +215,7 @@ export default function PatientsPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Name, email, or phone"
-              className="mt-2 w-full rounded-[1rem] border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+              className="mt-2 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
             />
           </label>
 
@@ -224,7 +224,7 @@ export default function PatientsPage() {
             <select
               value={typeFilter}
               onChange={(event) => setTypeFilter(event.target.value as PatientFilter)}
-              className="mt-2 w-full rounded-[1rem] border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+              className="mt-2 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
             >
               <option value="all">All patients</option>
               <option value="registered">Registered only</option>
@@ -237,7 +237,7 @@ export default function PatientsPage() {
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-              className="mt-2 w-full rounded-[1rem] border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+              className="mt-2 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
             >
               <option value="all">All statuses</option>
               <option value="Active">Active</option>
@@ -258,7 +258,7 @@ export default function PatientsPage() {
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-md">
+      <div className="overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-md">
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-4">
           <div>
             <h2 className="text-base font-bold text-slate-900">Patient directory</h2>

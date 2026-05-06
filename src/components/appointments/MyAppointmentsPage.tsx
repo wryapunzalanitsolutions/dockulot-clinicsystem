@@ -68,7 +68,7 @@ export default function MyAppointmentsPage({
       </div>
 
       {nextAppointment ? (
-        <div className="rounded-[2rem] border border-emerald-200 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.14),_transparent_28%),linear-gradient(135deg,_#f0fdf4,_#ffffff_55%,_#ecfeff)] p-6 shadow-[0_20px_45px_rgba(16,185,129,0.12)] transition hover:-translate-y-0.5">
+        <div className="rounded-4xl border border-emerald-200 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.14),_transparent_28%),linear-gradient(135deg,_#f0fdf4,_#ffffff_55%,_#ecfeff)] p-6 shadow-[0_20px_45px_rgba(16,185,129,0.12)] transition hover:-translate-y-0.5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Next Appointment</p>
@@ -102,7 +102,7 @@ export default function MyAppointmentsPage({
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       ) : null}
 
-      <div className="rounded-[2rem] border border-emerald-100 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+      <div className="rounded-4xl border border-emerald-100 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
         <div className="flex items-center gap-2 border-b border-emerald-100 px-5 py-4">
           <TabButton label="Upcoming" active={activeTab === "upcoming"} onClick={() => setActiveTab("upcoming")} />
           <TabButton label="History" active={activeTab === "history"} onClick={() => setActiveTab("history")} />

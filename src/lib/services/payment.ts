@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 import { HttpError, isStaff, type Actor } from "@/src/lib/http";
 import type {
@@ -12,6 +12,7 @@ import { enqueueNotification } from "@/src/lib/services/notification";
 import { calculateOnlineConsultationCharge } from "@/src/lib/consultation-pricing";
 import { createPayMongoCheckoutSession, mapCheckoutMethods } from "@/src/lib/services/paymongo";
 import { createStripeCheckoutSessionForReservation } from "@/src/lib/services/stripe";
+import { readSystemSettings } from "@/src/lib/server/clinic-store";
 import {
   resolveBookingPatientId,
   resolveAssignedDoctorUuid,
@@ -20,13 +21,20 @@ import {
 } from "@/src/lib/server/appointments-store";
 import { addOneHour } from "@/src/lib/server/legacy-bridge";
 
-const MEETING_BASE = process.env.MEETING_BASE_URL ?? "https://meet.chiara.clinic";
 const DEFAULT_MANUAL_TRANSFER_INSTRUCTIONS =
   "Send the transfer to the clinic's bank account, then wait for staff verification. Your appointment stays unconfirmed until payment is marked as paid.";
 
+// All online consultation payments are processed by PayMongo:
+//   - paymongo_gcash → GCash + QR Ph (local QR-supported wallets/banks)
+//   - paymongo_card  → Visa / Mastercard / JCB
+//   - paymongo_bank  → Direct Online Banking (BPI, UnionBank, RCBC, Chinabank, etc.)
+// `stripe_card` and `bank_transfer` (manual) remain in the union for backward
+// compatibility with reservations created before the migration. New bookings
+// from the UI must use a paymongo_* option.
 export type OnlineCheckoutOption =
   | "paymongo_gcash"
   | "paymongo_card"
+  | "paymongo_bank"
   | "stripe_card"
   | "bank_transfer";
 
@@ -35,15 +43,39 @@ export type OnlineCheckoutBookingInput = Pick<
   "patientName" | "email" | "phone" | "doctorId" | "date" | "start" | "reason"
 >;
 
-function buildMeetingLink(appt: Appointment) {
-  const token = randomUUID().slice(0, 8);
-  return `${MEETING_BASE}/${appt.id}-${token}`;
+// Resolve the meeting link for a freshly confirmed Online consultation.
+// Strategy: read the clinic-wide default Google Meet link saved in
+// system_settings.default_meeting_link. If the doctor hasn't configured one
+// yet, return null — the appointment is still created, but the UI surfaces a
+// "meeting link not set" hint and notifications gently tell the patient the
+// link will arrive shortly.
+//
+// When we later swap to per-appointment auto-generated links (e.g. via the
+// Google Calendar API), accept the Appointment as a parameter again.
+async function resolveDefaultMeetingLink(): Promise<string | null> {
+  const settings = await readSystemSettings();
+  const link = settings.defaultMeetingLink?.trim() ?? "";
+  return link.length > 0 ? link : null;
 }
 
 function paymentMethodFromProvider(provider: string): PaymentMethod {
   if (provider === "paymongo_card" || provider === "stripe" || provider === "stripe_card") return "Card";
   if (provider === "paymongo_gcash" || provider === "gcash" || provider === "qr") return "QR";
+  // paymongo_bank (Direct Online Banking) and the legacy manual `bank_transfer`
+  // both surface to staff/patients as a bank transfer record.
   return "BankTransfer";
+}
+
+function paymongoMethodGroup(option: OnlineCheckoutOption): "gcash" | "card" | "bank" {
+  if (option === "paymongo_card" || option === "stripe_card") return "card";
+  if (option === "paymongo_bank") return "bank";
+  return "gcash";
+}
+
+function paymongoProviderTag(option: OnlineCheckoutOption): string {
+  if (option === "paymongo_card") return "paymongo_card";
+  if (option === "paymongo_bank") return "paymongo_bank";
+  return "paymongo_gcash";
 }
 
 function getManualTransferInstructions() {
@@ -78,7 +110,7 @@ async function findReservationByPaymentRef(
   return fallback ?? null;
 }
 
-async function notifyOnlineConfirmed(appt: Appointment, meetingLink: string) {
+async function notifyOnlineConfirmed(appt: Appointment, meetingLink: string | null) {
   await enqueueNotification({
     user_id: appt.patient_id,
     template: "appointment_confirmed",
@@ -191,7 +223,7 @@ export async function createOnlineCheckoutSession(
         customerEmail: input.email,
         customerName: input.patientName,
         customerPhone: input.phone,
-        paymentMethods: mapCheckoutMethods([checkoutOption === "paymongo_card" ? "Card" : "GCash"]),
+        paymentMethods: mapCheckoutMethods(paymongoMethodGroup(checkoutOption)),
         successPath: `/appointments?reservation_paid=${encodeURIComponent(existing.id)}`,
         metadata: { reservation_id: existing.id },
       });
@@ -199,7 +231,7 @@ export async function createOnlineCheckoutSession(
       const { data: updated, error: updateError } = await supabase
         .from("online_booking_reservations")
         .update({
-          payment_provider: checkoutOption === "paymongo_card" ? "paymongo_card" : "paymongo_gcash",
+          payment_provider: paymongoProviderTag(checkoutOption),
           payment_ref: checkout.sessionId,
         })
         .eq("id", existing.id)
@@ -300,7 +332,7 @@ export async function createOnlineCheckoutSession(
       customerEmail: input.email,
       customerName: input.patientName,
       customerPhone: input.phone,
-      paymentMethods: mapCheckoutMethods([checkoutOption === "paymongo_card" ? "Card" : "GCash"]),
+      paymentMethods: mapCheckoutMethods(paymongoMethodGroup(checkoutOption)),
       successPath: `/appointments?reservation_paid=${encodeURIComponent(reservation.id)}`,
       metadata: { reservation_id: reservation.id },
     });
@@ -308,7 +340,7 @@ export async function createOnlineCheckoutSession(
     const { data: updated, error: updateError } = await supabase
       .from("online_booking_reservations")
       .update({
-        payment_provider: checkoutOption === "paymongo_card" ? "paymongo_card" : "paymongo_gcash",
+        payment_provider: paymongoProviderTag(checkoutOption),
         payment_ref: checkout.sessionId,
       })
       .eq("id", reservation.id)
@@ -412,7 +444,7 @@ async function confirmReservationPayment(
     .single<Appointment>();
   if (appointmentError) throw appointmentError;
 
-  const meetingLink = buildMeetingLink(insertedAppointment);
+  const meetingLink = await resolveDefaultMeetingLink();
   const { data: updatedAppointment, error: updateAppointmentError } = await supabase
     .from("appointments")
     .update({ meeting_link: meetingLink })

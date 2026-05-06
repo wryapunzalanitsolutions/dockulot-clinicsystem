@@ -1,6 +1,31 @@
 "use client";
 
-import { type ReactNode, useState, useTransition } from "react";
+import Link from "next/link";
+import { type ReactNode, useMemo, useState, useTransition } from "react";
+import {
+  FaCalendarDay,
+  FaCalendarCheck,
+  FaCalendarDays,
+  FaCalendarPlus,
+  FaCalendarXmark,
+  FaCircleCheck,
+  FaCircleXmark,
+  FaClock,
+  FaEnvelope,
+  FaFilter,
+  FaHospital,
+  FaInbox,
+  FaListUl,
+  FaMagnifyingGlass,
+  FaPenToSquare,
+  FaPhone,
+  FaPlus,
+  FaTriangleExclamation,
+  FaUpRightFromSquare,
+  FaUser,
+  FaVideo,
+  FaXmark,
+} from "react-icons/fa6";
 import {
   deleteAppointmentAction,
   updateAppointmentAction,
@@ -16,12 +41,17 @@ import {
   getAppointmentSummary,
   getDoctorById,
   type AppointmentRecord,
+  type AppointmentStatus,
   type AppointmentType,
 } from "@/src/lib/appointments";
 import { getClinicToday } from "@/src/lib/timezone";
 
 const today = getClinicToday();
 const DEFAULT_DOCTOR_ID = "chiara-punzalan";
+
+type Timeframe = "today" | "upcoming" | "past" | "all";
+type StatusFilter = "all" | AppointmentStatus;
+type TypeFilter = "all" | AppointmentType;
 
 export default function AppointmentListPage() {
   const { accessToken, role } = useRole();
@@ -31,12 +61,81 @@ export default function AppointmentListPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AppointmentRecord | null>(null);
   const [isUpdating, startUpdateTransition] = useTransition();
+
+  // Filter / search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [timeframe, setTimeframe] = useState<Timeframe>("today");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  // Two-step cancel: clicking Cancel arms confirmation, second click commits.
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+
   const summary = getAppointmentSummary(appointments);
   const primaryDoctor = doctors[0] ?? null;
-  const sortedAppointments = [...appointments].sort((left, right) =>
-    `${left.date} ${left.start}`.localeCompare(`${right.date} ${right.start}`),
-  );
   const canManage = role !== "PATIENT";
+  const todaysCount = useMemo(
+    () => appointments.filter((appt) => appt.date === today).length,
+    [appointments],
+  );
+  const upcomingCount = useMemo(
+    () => appointments.filter((appt) => appt.date > today).length,
+    [appointments],
+  );
+
+  const sortedAppointments = useMemo(
+    () =>
+      [...appointments].sort((left, right) =>
+        `${left.date} ${left.start}`.localeCompare(`${right.date} ${right.start}`),
+      ),
+    [appointments],
+  );
+
+  const filteredAppointments = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return sortedAppointments.filter((appointment) => {
+      // Timeframe
+      if (timeframe === "today" && appointment.date !== today) return false;
+      if (timeframe === "upcoming" && appointment.date <= today) return false;
+      if (timeframe === "past" && appointment.date >= today) return false;
+
+      // Status
+      if (statusFilter !== "all" && appointment.status !== statusFilter) return false;
+
+      // Type
+      if (typeFilter !== "all" && appointment.type !== typeFilter) return false;
+
+      // Search across patient name, email, phone, doctor name
+      if (query) {
+        const doctor = doctors.find((item) => item.id === appointment.doctorId)
+          ?? (appointment.doctorId ? getDoctorById(appointment.doctorId) : null);
+        const haystack = [
+          appointment.patientName,
+          appointment.email,
+          appointment.phone,
+          appointment.reason,
+          doctor?.name ?? "",
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
+
+      return true;
+    });
+  }, [sortedAppointments, searchQuery, timeframe, statusFilter, typeFilter, doctors]);
+
+  // Group filtered list by date so the page reads as a timeline.
+  const grouped = useMemo(() => {
+    const map = new Map<string, AppointmentRecord[]>();
+    for (const appt of filteredAppointments) {
+      const list = map.get(appt.date) ?? [];
+      list.push(appt);
+      map.set(appt.date, list);
+    }
+    const sortDir = timeframe === "past" ? -1 : 1;
+    return [...map.entries()].sort(([a], [b]) => sortDir * a.localeCompare(b));
+  }, [filteredAppointments, timeframe]);
+
   const activeDraftDoctorId = primaryDoctor?.slug ?? draft?.doctorId ?? DEFAULT_DOCTOR_ID;
   const activeDraftDate = draft?.date ?? today;
   const activeDraftType = draft?.type ?? "Clinic";
@@ -54,6 +153,7 @@ export default function AppointmentListPage() {
       doctorId: primaryDoctor?.slug ?? appointment.doctorId ?? DEFAULT_DOCTOR_ID,
     });
     setFeedback(null);
+    setConfirmingDeleteId(null);
   }
 
   function updateDraft<K extends keyof AppointmentRecord>(field: K, value: AppointmentRecord[K]) {
@@ -85,6 +185,9 @@ export default function AppointmentListPage() {
         start: draft.start,
         type: draft.type,
         reason: draft.reason,
+        // Only send the override for Online appointments — server ignores it
+        // for Clinic visits, but skipping it here keeps the wire payload tidy.
+        meetingLink: draft.type === "Online" ? draft.meetingLink ?? "" : undefined,
       });
       setAppointments(result.appointments);
       setFeedback(result.message);
@@ -105,182 +208,920 @@ export default function AppointmentListPage() {
       const result = await deleteAppointmentAction(accessToken, appointmentId);
       setAppointments(result.appointments);
       setFeedback(result.message);
+      setConfirmingDeleteId(null);
     });
   }
 
+  function clearFilters() {
+    setSearchQuery("");
+    setStatusFilter("all");
+    setTypeFilter("all");
+    setTimeframe("all");
+  }
+
+  const hasActiveFilters =
+    searchQuery.trim() !== ""
+    || statusFilter !== "all"
+    || typeFilter !== "all"
+    || timeframe !== "today";
+
   return (
-    <div className="space-y-6 pb-8">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <SummaryCard label="Total" value={summary.total} tone="slate" />
-        <SummaryCard label="Confirmed / Completed" value={summary.confirmedCount} tone="emerald" />
-        <SummaryCard label="In Progress" value={summary.pendingCount} tone="amber" />
-        <SummaryCard label="Online" value={summary.onlineCount} tone="sky" />
+    <div className="space-y-6 pb-10">
+      {/* Hero header */}
+      <section className="overflow-hidden rounded-[2.25rem] border border-emerald-100 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.18),transparent_38%),linear-gradient(135deg,#f8fffb_0%,#ffffff_100%)] p-6 shadow-[0_24px_60px_rgba(16,185,129,0.10)]">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">
+              Manage Appointments
+            </p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              {canManage ? "All bookings, one timeline" : "Your bookings"}
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Search, filter, and update appointments grouped by date. Tap a card to edit details
+              or move it to a new slot.
+            </p>
+          </div>
+
+          {canManage ? (
+            <div className="flex flex-wrap gap-2.5">
+              <Link
+                href="/appointments"
+                className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_24px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_30px_rgba(16,185,129,0.30)]"
+              >
+                <FaPlus className="h-3 w-3" aria-hidden="true" />
+                New Appointment
+              </Link>
+              <Link
+                href="/appointments/calendar"
+                className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50"
+              >
+                <FaCalendarDays className="h-3 w-3" aria-hidden="true" />
+                Calendar View
+              </Link>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      {/* Stat dashboard */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Today"
+          value={todaysCount}
+          tone="emerald"
+          icon={<FaCalendarDay className="h-4 w-4" />}
+          hint={todaysCount === 0 ? "No bookings today" : "scheduled today"}
+        />
+        <StatCard
+          label="Upcoming"
+          value={upcomingCount}
+          tone="sky"
+          icon={<FaCalendarPlus className="h-4 w-4" />}
+          hint={upcomingCount === 0 ? "Nothing on deck" : "after today"}
+        />
+        <StatCard
+          label="Confirmed"
+          value={summary.confirmedCount}
+          tone="teal"
+          icon={<FaCircleCheck className="h-4 w-4" />}
+          hint="confirmed + done"
+        />
+        <StatCard
+          label="In Progress"
+          value={summary.pendingCount}
+          tone="amber"
+          icon={<FaClock className="h-4 w-4" />}
+          hint={summary.pendingCount === 0 ? "Queue is clear" : "active right now"}
+        />
       </div>
 
+      {/* Feedback / error banners */}
       {feedback ? (
-        <div className="rounded-2xl border-l-4 border-emerald-500 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-800 shadow-sm">
-          ✓ {feedback}
-        </div>
+        <Banner tone="success" icon={<FaCircleCheck className="h-4 w-4" />}>
+          {feedback}
+        </Banner>
       ) : null}
       {error ? (
-        <div className="rounded-2xl border-l-4 border-red-500 bg-red-50 px-5 py-4 text-sm font-medium text-red-800 shadow-sm">
-          ✕ {error}
-        </div>
+        <Banner tone="error" icon={<FaCircleXmark className="h-4 w-4" />}>
+          {error}
+        </Banner>
       ) : null}
 
-      <div className="space-y-4">
-        {sortedAppointments.map((appointment) => {
-          const doctor = doctors.find((item) => item.id === appointment.doctorId)
-            ?? (appointment.doctorId ? getDoctorById(appointment.doctorId) : null);
-          const isEditing = editingId === appointment.id && draft !== null;
+      {/* Filter / search bar */}
+      <div className="rounded-[1.75rem] border border-emerald-100 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4">
+          {/* Search */}
+          <div className="relative">
+            <FaMagnifyingGlass
+              className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search by patient name, email, phone, doctor, or reason…"
+              className="w-full rounded-full border border-slate-200 bg-slate-50 py-2.5 pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-200"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
+                <FaXmark className="h-3 w-3" aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
 
-          return (
-            <article key={appointment.id} className="overflow-hidden rounded-[2rem] border border-emerald-200 bg-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-lg">
-              <div className="flex flex-col gap-5 border-b border-emerald-50 px-6 py-5 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2.5 mb-3">
-                    <h2 className="text-lg font-bold text-slate-900">{appointment.patientName}</h2>
-                    <Badge tone={appointment.type === "Clinic" ? "emerald" : "sky"}>{appointment.type}</Badge>
-                    <Badge
-                      tone={
-                        appointment.status === "In Progress"
-                          ? "amber"
-                          : "emerald"
-                      }
-                    >
-                      {appointment.status}
-                    </Badge>
-                  </div>
-                  <p className="text-sm font-medium text-slate-700">
-                    {doctor?.name ?? "Assigned doctor"} · {formatDisplayDate(appointment.date)} · {formatRange(appointment.start, appointment.end)}
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-emerald-700 bg-emerald-50 w-fit px-3 py-1 rounded-full">Queue #{appointment.queueNumber}</p>
-                  <p className="mt-2 text-sm text-slate-600">{appointment.reason || "No consultation reason provided."}</p>
-                </div>
+          {/* Timeframe tabs */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex flex-wrap items-center gap-1 rounded-full bg-slate-100 p-1">
+              {(
+                [
+                  { key: "today", label: "Today", icon: FaCalendarDay },
+                  { key: "upcoming", label: "Upcoming", icon: FaCalendarPlus },
+                  { key: "past", label: "Past", icon: FaCalendarXmark },
+                  { key: "all", label: "All", icon: FaListUl },
+                ] as const
+              ).map((tab) => {
+                const isActive = timeframe === tab.key;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setTimeframe(tab.key)}
+                    aria-pressed={isActive}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                      isActive
+                        ? "bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-200"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <Icon className="h-3 w-3" aria-hidden="true" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  {appointment.meetingLink ? (
-                    <a href={appointment.meetingLink} target="_blank" rel="noreferrer" className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition">
-                      Open Meeting Link
-                    </a>
-                  ) : null}
-                  {canManage && !isEditing ? (
-                    <>
-                      <button type="button" onClick={() => beginEdit(appointment)} className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition">
-                        Edit
-                      </button>
-                      <button type="button" onClick={() => deleteAppointment(appointment.id)} className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 transition">
-                        Cancel
-                      </button>
-                    </>
-                  ) : null}
-                </div>
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <FaFilter className="h-2.5 w-2.5" aria-hidden="true" />
+              <span>{filteredAppointments.length} of {appointments.length}</span>
+            </div>
+          </div>
+
+          {/* Status + Type chips */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                Status
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <FilterChip
+                  active={statusFilter === "all"}
+                  onClick={() => setStatusFilter("all")}
+                  tone="slate"
+                >
+                  All
+                </FilterChip>
+                <FilterChip
+                  active={statusFilter === "Confirmed"}
+                  onClick={() => setStatusFilter("Confirmed")}
+                  tone="emerald"
+                  icon={<FaCircleCheck className="h-2.5 w-2.5" />}
+                >
+                  Confirmed
+                </FilterChip>
+                <FilterChip
+                  active={statusFilter === "In Progress"}
+                  onClick={() => setStatusFilter("In Progress")}
+                  tone="amber"
+                  icon={<FaClock className="h-2.5 w-2.5" />}
+                >
+                  In Progress
+                </FilterChip>
+                <FilterChip
+                  active={statusFilter === "Completed"}
+                  onClick={() => setStatusFilter("Completed")}
+                  tone="teal"
+                  icon={<FaCircleCheck className="h-2.5 w-2.5" />}
+                >
+                  Completed
+                </FilterChip>
               </div>
+            </div>
 
-              {isEditing ? (
-                <div className="space-y-6 px-6 py-6 bg-gradient-to-b from-white to-emerald-50/20">
-                  <div className="grid gap-5 lg:grid-cols-2">
-                    <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-50/40 p-5 shadow-sm">
-                      <p className="text-sm font-bold uppercase tracking-widest text-emerald-700">Patient Details</p>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <input value={draft.patientName} onChange={(event) => updateDraft("patientName", event.target.value)} className="w-full rounded-lg border border-emerald-300 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200" placeholder="Patient name" />
-                        <input value={draft.email} onChange={(event) => updateDraft("email", event.target.value)} className="w-full rounded-lg border border-emerald-300 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200" placeholder="Email" />
-                        <input value={draft.phone} onChange={(event) => updateDraft("phone", event.target.value)} className="w-full rounded-lg border border-emerald-300 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200" placeholder="Phone" />
-                        <input value={draft.reason} onChange={(event) => updateDraft("reason", event.target.value)} className="w-full rounded-lg border border-emerald-300 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200" placeholder="Reason" />
-                      </div>
-                    </div>
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                Visit Type
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <FilterChip
+                  active={typeFilter === "all"}
+                  onClick={() => setTypeFilter("all")}
+                  tone="slate"
+                >
+                  All
+                </FilterChip>
+                <FilterChip
+                  active={typeFilter === "Clinic"}
+                  onClick={() => setTypeFilter("Clinic")}
+                  tone="emerald"
+                  icon={<FaHospital className="h-2.5 w-2.5" />}
+                >
+                  Clinic
+                </FilterChip>
+                <FilterChip
+                  active={typeFilter === "Online"}
+                  onClick={() => setTypeFilter("Online")}
+                  tone="sky"
+                  icon={<FaVideo className="h-2.5 w-2.5" />}
+                >
+                  Online
+                </FilterChip>
+              </div>
+            </div>
+          </div>
 
-                    <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-50/40 p-5 shadow-sm">
-                      <p className="text-sm font-bold uppercase tracking-widest text-emerald-700">Schedule Details</p>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <div className="w-full rounded-lg border border-emerald-300 bg-emerald-100/50 px-4 py-3 text-sm font-bold text-slate-900">
-                          {primaryDoctor?.name ?? getDoctorById(DEFAULT_DOCTOR_ID)?.name ?? "Dra. Chiara C. Punzalan M.D."}
-                        </div>
-                        <select value={draft.type} onChange={(event) => updateDraft("type", event.target.value as AppointmentType)} className="w-full rounded-lg border border-emerald-300 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 bg-white">
-                          <option value="Clinic">Clinic</option>
-                          <option value="Online">Online</option>
-                        </select>
-                        <input type="date" min={today} value={draft.date} onChange={(event) => updateDraft("date", event.target.value)} className="w-full rounded-lg border border-emerald-300 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 bg-white" />
-                        {nextAvailableSlot ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              updateDraft("date", nextAvailableSlot.date);
-                              updateDraft("start", nextAvailableSlot.slot.start);
-                              updateDraft("end", nextAvailableSlot.slot.end);
-                            }}
-                            className="rounded-lg border-2 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-100"
-                          >
-                            Use next available
-                          </button>
-                        ) : (
-                          <div className="rounded-lg border border-emerald-300 bg-white px-4 py-3 text-sm text-slate-600">
-                            Pick a date to load times
-                          </div>
-                        )}
-                      </div>
-                      {blockedReason ? (
-                        <div className="mt-3 rounded-lg border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-                          ⚠ {blockedReason}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <SharedSlotPicker
-                    slotStatuses={slotStatuses}
-                    selectedStart={draft.start}
-                    onSelect={(start) => {
-                      const selected = slotStatuses.find((slot) => slot.start === start);
-                      updateDraft("start", start);
-                      updateDraft("end", selected?.end ?? "");
-                    }}
-                    disabled={isUpdating}
-                    loading={isLoadingAvailability}
-                  />
-
-                  <div className="flex flex-col gap-3 border-t border-emerald-100 pt-5 sm:flex-row sm:items-center sm:justify-end">
-                    <button type="button" onClick={() => { setEditingId(null); setDraft(null); }} className="order-2 sm:order-1 rounded-lg border border-emerald-300 px-6 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50">
-                      Cancel
-                    </button>
-                    <button type="button" onClick={saveDraft} disabled={isUpdating || !draft.start} className="order-1 sm:order-2 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg transition hover:-translate-y-1 disabled:cursor-not-allowed disabled:opacity-60">
-                      {isUpdating ? "Saving..." : "Save Changes"}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </article>
-          );
-        })}
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="self-start inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900"
+            >
+              <FaXmark className="h-2.5 w-2.5" aria-hidden="true" />
+              Reset filters
+            </button>
+          ) : null}
+        </div>
       </div>
 
-      {isLoading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm text-slate-500">Loading appointments...</div>
-      ) : null}
+      {/* Appointment list */}
+      {isLoading && appointments.length === 0 ? (
+        <LoadingSkeleton />
+      ) : filteredAppointments.length === 0 ? (
+        <EmptyState
+          hasAnyAppointments={appointments.length > 0}
+          onClearFilters={hasActiveFilters ? clearFilters : undefined}
+        />
+      ) : (
+        <div className="space-y-7">
+          {grouped.map(([date, items]) => (
+            <section key={date} className="space-y-3">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                    {dateBucketLabel(date)}
+                  </p>
+                  <h2 className="mt-1 text-base font-bold text-slate-900">
+                    {formatDisplayDate(date)}
+                  </h2>
+                </div>
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 shadow-sm">
+                  {items.length} {items.length === 1 ? "booking" : "bookings"}
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {items.map((appointment) => {
+                  const doctor = doctors.find((item) => item.id === appointment.doctorId)
+                    ?? (appointment.doctorId ? getDoctorById(appointment.doctorId) : null);
+                  const isEditing = editingId === appointment.id && draft !== null;
+                  const isConfirmingDelete = confirmingDeleteId === appointment.id;
+
+                  return (
+                    <article
+                      key={appointment.id}
+                      className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-200 ${
+                        isEditing
+                          ? "border-emerald-400 shadow-[0_18px_36px_rgba(16,185,129,0.16)] ring-2 ring-emerald-200"
+                          : "border-slate-200 hover:border-emerald-200 hover:shadow-md"
+                      }`}
+                    >
+                      {/* Card head */}
+                      <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-stretch sm:p-5">
+                        {/* Time anchor on the left */}
+                        <TimeAnchor
+                          start={appointment.start}
+                          end={appointment.end}
+                          type={appointment.type}
+                        />
+
+                        {/* Patient + meta */}
+                        <div className="flex flex-1 min-w-0 gap-3">
+                          <Avatar name={appointment.patientName} type={appointment.type} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <h3 className="truncate text-base font-bold text-slate-900">
+                                {appointment.patientName}
+                              </h3>
+                              <TypeBadge type={appointment.type} />
+                              <StatusBadge status={appointment.status} />
+                              <QueueBadge queueNumber={appointment.queueNumber} />
+                            </div>
+
+                            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                              <span className="inline-flex items-center gap-1">
+                                <FaUser className="h-2.5 w-2.5 text-slate-400" aria-hidden="true" />
+                                {doctor?.name ?? "Assigned doctor"}
+                              </span>
+                              {appointment.email ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <FaEnvelope className="h-2.5 w-2.5 text-slate-400" aria-hidden="true" />
+                                  <span className="truncate max-w-[18ch] sm:max-w-none">{appointment.email}</span>
+                                </span>
+                              ) : null}
+                              {appointment.phone ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <FaPhone className="h-2.5 w-2.5 text-slate-400" aria-hidden="true" />
+                                  {appointment.phone}
+                                </span>
+                              ) : null}
+                            </div>
+
+                            {appointment.reason ? (
+                              <p className="mt-2 line-clamp-2 text-xs text-slate-500">
+                                <span className="font-semibold text-slate-600">Reason:</span> {appointment.reason}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex flex-wrap items-start gap-2 sm:flex-col sm:items-stretch">
+                          {appointment.meetingLink ? (
+                            <a
+                              href={appointment.meetingLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-700"
+                            >
+                              <FaVideo className="h-3 w-3" aria-hidden="true" />
+                              Join Meeting
+                              <FaUpRightFromSquare className="h-2.5 w-2.5" aria-hidden="true" />
+                            </a>
+                          ) : null}
+                          {canManage && !isEditing && !isConfirmingDelete ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => beginEdit(appointment)}
+                                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50"
+                              >
+                                <FaPenToSquare className="h-3 w-3" aria-hidden="true" />
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmingDeleteId(appointment.id)}
+                                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-50"
+                              >
+                                <FaXmark className="h-3 w-3" aria-hidden="true" />
+                                Cancel
+                              </button>
+                            </>
+                          ) : null}
+                          {canManage && isConfirmingDelete ? (
+                            <ConfirmCancelInline
+                              isUpdating={isUpdating}
+                              onAbort={() => setConfirmingDeleteId(null)}
+                              onConfirm={() => deleteAppointment(appointment.id)}
+                            />
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* Missing meeting-link banner — only for Online without a link */}
+                      {appointment.type === "Online" && !appointment.meetingLink && !isEditing ? (
+                        <MissingMeetingLinkBanner canManage={canManage} />
+                      ) : null}
+
+                      {/* Inline edit form */}
+                      {isEditing ? (
+                        <div className="space-y-5 border-t border-emerald-100 bg-linear-to-b from-emerald-50/30 to-white px-4 py-5 sm:px-6">
+                          <div className="grid gap-4 lg:grid-cols-2">
+                            <div className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+                              <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">
+                                <FaUser className="h-3 w-3" aria-hidden="true" />
+                                Patient Details
+                              </p>
+                              <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                                <FormField label="Name">
+                                  <input
+                                    value={draft.patientName}
+                                    onChange={(event) => updateDraft("patientName", event.target.value)}
+                                    className={INPUT_CLASS}
+                                    placeholder="Patient name"
+                                  />
+                                </FormField>
+                                <FormField label="Email">
+                                  <input
+                                    value={draft.email}
+                                    onChange={(event) => updateDraft("email", event.target.value)}
+                                    className={INPUT_CLASS}
+                                    placeholder="email@example.com"
+                                    type="email"
+                                  />
+                                </FormField>
+                                <FormField label="Phone">
+                                  <input
+                                    value={draft.phone}
+                                    onChange={(event) => updateDraft("phone", event.target.value)}
+                                    className={INPUT_CLASS}
+                                    placeholder="+63 9XX XXX XXXX"
+                                  />
+                                </FormField>
+                                <FormField label="Reason">
+                                  <input
+                                    value={draft.reason}
+                                    onChange={(event) => updateDraft("reason", event.target.value)}
+                                    className={INPUT_CLASS}
+                                    placeholder="Consultation reason"
+                                  />
+                                </FormField>
+                              </div>
+                            </div>
+
+                            <div className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+                              <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">
+                                <FaCalendarDays className="h-3 w-3" aria-hidden="true" />
+                                Schedule Details
+                              </p>
+                              <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                                <FormField label="Doctor">
+                                  <div className={`${INPUT_CLASS} bg-emerald-50/60 font-semibold`}>
+                                    {primaryDoctor?.name ?? getDoctorById(DEFAULT_DOCTOR_ID)?.name ?? "Dra. Chiara C. Punzalan M.D."}
+                                  </div>
+                                </FormField>
+                                <FormField label="Visit Type">
+                                  <select
+                                    value={draft.type}
+                                    onChange={(event) => updateDraft("type", event.target.value as AppointmentType)}
+                                    className={`${INPUT_CLASS} bg-white`}
+                                  >
+                                    <option value="Clinic">Clinic</option>
+                                    <option value="Online">Online</option>
+                                  </select>
+                                </FormField>
+                                <FormField label="Date">
+                                  <input
+                                    type="date"
+                                    min={today}
+                                    value={draft.date}
+                                    onChange={(event) => updateDraft("date", event.target.value)}
+                                    className={`${INPUT_CLASS} bg-white`}
+                                  />
+                                </FormField>
+                                <FormField label="Quick pick">
+                                  {nextAvailableSlot ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        updateDraft("date", nextAvailableSlot.date);
+                                        updateDraft("start", nextAvailableSlot.slot.start);
+                                        updateDraft("end", nextAvailableSlot.slot.end);
+                                      }}
+                                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-emerald-400 bg-emerald-50/60 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50"
+                                    >
+                                      <FaCalendarCheck className="h-3 w-3" aria-hidden="true" />
+                                      Use next available
+                                    </button>
+                                  ) : (
+                                    <div className={`${INPUT_CLASS} text-slate-500`}>
+                                      Pick a date to load times
+                                    </div>
+                                  )}
+                                </FormField>
+                              </div>
+                              {blockedReason ? (
+                                <div className="mt-3 inline-flex items-start gap-2 rounded-lg border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                                  <FaTriangleExclamation className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                                  <span>{blockedReason}</span>
+                                </div>
+                              ) : null}
+
+                              {draft.type === "Online" ? (
+                                <div className="mt-4">
+                                  <FormField label="Meeting link override (optional)">
+                                    <input
+                                      type="url"
+                                      value={draft.meetingLink ?? ""}
+                                      onChange={(event) => updateDraft("meetingLink", event.target.value)}
+                                      placeholder="Leave blank to use the clinic default"
+                                      className={INPUT_CLASS}
+                                    />
+                                  </FormField>
+                                  <p className="mt-1.5 text-[11px] text-slate-500">
+                                    Saves a unique meeting URL for this appointment only. Clear the field to fall back to the clinic-wide default in Settings.
+                                  </p>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <SharedSlotPicker
+                            slotStatuses={slotStatuses}
+                            selectedStart={draft.start}
+                            onSelect={(start) => {
+                              const selected = slotStatuses.find((slot) => slot.start === start);
+                              updateDraft("start", start);
+                              updateDraft("end", selected?.end ?? "");
+                            }}
+                            disabled={isUpdating}
+                            loading={isLoadingAvailability}
+                          />
+
+                          <div className="flex flex-col gap-2 border-t border-emerald-100 pt-4 sm:flex-row sm:items-center sm:justify-end">
+                            <button
+                              type="button"
+                              onClick={() => { setEditingId(null); setDraft(null); }}
+                              className="inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                            >
+                              <FaXmark className="h-3 w-3" aria-hidden="true" />
+                              Discard
+                            </button>
+                            <button
+                              type="button"
+                              onClick={saveDraft}
+                              disabled={isUpdating || !draft.start}
+                              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-5 py-2 text-sm font-bold text-white shadow-[0_14px_24px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <FaCircleCheck className="h-3 w-3" aria-hidden="true" />
+                              {isUpdating ? "Saving…" : "Save Changes"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function SummaryCard({ label, value, tone }: { label: string; value: number; tone: "slate" | "emerald" | "amber" | "sky" }) {
-  const styles = {
-    slate: "from-slate-600 to-slate-700 text-slate-600",
-    emerald: "from-emerald-600 to-emerald-700 text-emerald-600",
-    amber: "from-amber-600 to-amber-700 text-amber-600",
-    sky: "from-sky-600 to-sky-700 text-sky-600",
-  };
+const INPUT_CLASS =
+  "w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200";
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  tone,
+  icon,
+  hint,
+}: {
+  label: string;
+  value: number;
+  tone: "emerald" | "sky" | "teal" | "amber";
+  icon: ReactNode;
+  hint?: string;
+}) {
+  const toneMap = {
+    emerald: {
+      iconBg: "bg-emerald-100 text-emerald-700",
+      number: "text-emerald-700",
+    },
+    sky: {
+      iconBg: "bg-sky-100 text-sky-700",
+      number: "text-sky-700",
+    },
+    teal: {
+      iconBg: "bg-teal-100 text-teal-700",
+      number: "text-teal-700",
+    },
+    amber: {
+      iconBg: "bg-amber-100 text-amber-700",
+      number: "text-amber-700",
+    },
+  } as const;
+  const t = toneMap[tone];
   return (
-    <div className="group overflow-hidden rounded-2xl border border-emerald-100 bg-white p-5 shadow-md transition-all hover:shadow-lg hover:-translate-y-1">
-      <p className="text-xs font-bold uppercase tracking-widest text-slate-500 group-hover:text-slate-700 transition">{label}</p>
-      <div className={`mt-4 text-4xl font-black bg-gradient-to-r ${styles[tone]} bg-clip-text text-transparent`}>{value}</div>
+    <div className="group relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+        <span
+          className={`inline-flex h-7 w-7 items-center justify-center rounded-lg ${t.iconBg}`}
+          aria-hidden="true"
+        >
+          {icon}
+        </span>
+      </div>
+      <p className={`mt-2 text-3xl font-black tracking-tight ${t.number}`}>{value}</p>
+      {hint ? <p className="mt-1 text-[11px] text-slate-500">{hint}</p> : null}
     </div>
   );
 }
 
-function Badge({ children, tone }: { children: ReactNode; tone: "emerald" | "amber" | "sky" }) {
-  const styles = {
-    emerald: "bg-emerald-100 text-emerald-700",
-    amber: "bg-amber-100 text-amber-700",
-    sky: "bg-sky-100 text-sky-700",
-  };
-  return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${styles[tone]}`}>{children}</span>;
+function FilterChip({
+  children,
+  active,
+  onClick,
+  tone,
+  icon,
+}: {
+  children: ReactNode;
+  active: boolean;
+  onClick: () => void;
+  tone: "slate" | "emerald" | "sky" | "amber" | "teal";
+  icon?: ReactNode;
+}) {
+  const activeMap = {
+    slate: "bg-slate-900 text-white border-slate-900",
+    emerald: "bg-emerald-600 text-white border-emerald-600",
+    sky: "bg-sky-600 text-white border-sky-600",
+    amber: "bg-amber-500 text-white border-amber-500",
+    teal: "bg-teal-600 text-white border-teal-600",
+  } as const;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+        active
+          ? activeMap[tone]
+          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
+  );
 }
+
+function TimeAnchor({
+  start,
+  end,
+  type,
+}: {
+  start: string;
+  end: string;
+  type: AppointmentType;
+}) {
+  const accent =
+    type === "Online"
+      ? "from-sky-500 to-blue-600 text-white"
+      : "from-emerald-500 to-teal-600 text-white";
+  return (
+    <div className={`shrink-0 rounded-xl bg-linear-to-br ${accent} px-3 py-2 sm:w-32 sm:px-4`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-80">
+        {type === "Online" ? "Online" : "Clinic"}
+      </p>
+      <p className="mt-1 text-base font-black leading-tight sm:text-lg">{start}</p>
+      <p className="text-[11px] font-medium opacity-90">to {end}</p>
+      <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider opacity-75">
+        {formatRange(start, end).split(" · ")[1] ?? ""}
+      </p>
+    </div>
+  );
+}
+
+function Avatar({ name, type }: { name: string; type: AppointmentType }) {
+  const ring = type === "Online" ? "ring-sky-200" : "ring-emerald-200";
+  const bg = type === "Online" ? "bg-sky-100 text-sky-700" : "bg-emerald-100 text-emerald-700";
+  return (
+    <span
+      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ring-2 ${ring} ${bg}`}
+      aria-hidden="true"
+    >
+      {getInitials(name)}
+    </span>
+  );
+}
+
+function TypeBadge({ type }: { type: AppointmentType }) {
+  if (type === "Online") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-700">
+        <FaVideo className="h-2.5 w-2.5" aria-hidden="true" />
+        Online
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+      <FaHospital className="h-2.5 w-2.5" aria-hidden="true" />
+      Clinic
+    </span>
+  );
+}
+
+function StatusBadge({ status }: { status: AppointmentStatus }) {
+  if (status === "In Progress") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+        <FaClock className="h-2.5 w-2.5" aria-hidden="true" />
+        In Progress
+      </span>
+    );
+  }
+  if (status === "Completed") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-teal-700">
+        <FaCircleCheck className="h-2.5 w-2.5" aria-hidden="true" />
+        Completed
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+      <FaCircleCheck className="h-2.5 w-2.5" aria-hidden="true" />
+      Confirmed
+    </span>
+  );
+}
+
+function QueueBadge({ queueNumber }: { queueNumber: number }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+      Queue #{queueNumber}
+    </span>
+  );
+}
+
+function ConfirmCancelInline({
+  isUpdating,
+  onAbort,
+  onConfirm,
+}: {
+  isUpdating: boolean;
+  onAbort: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="inline-flex flex-col gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+      <p className="inline-flex items-center gap-1.5 text-[11px] font-bold text-red-800">
+        <FaTriangleExclamation className="h-2.5 w-2.5" aria-hidden="true" />
+        Cancel this appointment?
+      </p>
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          onClick={onAbort}
+          className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          Keep
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={isUpdating}
+          className="rounded-md bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isUpdating ? "Cancelling…" : "Confirm cancel"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FormField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function MissingMeetingLinkBanner({ canManage }: { canManage: boolean }) {
+  return (
+    <div className="flex items-start gap-2.5 border-t border-amber-200 bg-amber-50 px-4 py-2.5 sm:px-5">
+      <FaTriangleExclamation
+        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600"
+        aria-hidden="true"
+      />
+      <div className="text-xs text-amber-900">
+        <p className="font-semibold">No meeting link yet for this online consultation.</p>
+        {canManage ? (
+          <p className="mt-0.5">
+            Set a clinic-wide default in{" "}
+            <Link href="/settings" className="font-semibold underline underline-offset-2 hover:text-amber-950">
+              Settings → Online Consultation
+            </Link>
+            , or click <span className="font-semibold">Edit</span> on this card to set a unique link for this patient.
+          </p>
+        ) : (
+          <p className="mt-0.5">The clinic will share the meeting link with you shortly.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Banner({
+  tone,
+  icon,
+  children,
+}: {
+  tone: "success" | "error" | "info";
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  const map = {
+    success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    error: "border-red-200 bg-red-50 text-red-800",
+    info: "border-sky-200 bg-sky-50 text-sky-800",
+  } as const;
+  return (
+    <div className={`flex items-start gap-2.5 rounded-2xl border px-4 py-3 text-sm font-medium ${map[tone]}`}>
+      <span className="mt-0.5 shrink-0">{icon}</span>
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function EmptyState({
+  hasAnyAppointments,
+  onClearFilters,
+}: {
+  hasAnyAppointments: boolean;
+  onClearFilters?: () => void;
+}) {
+  return (
+    <div className="rounded-[1.75rem] border border-dashed border-emerald-200 bg-white p-10 text-center shadow-sm">
+      <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+        <FaInbox className="h-6 w-6" aria-hidden="true" />
+      </span>
+      <h3 className="mt-4 text-lg font-bold text-slate-900">
+        {hasAnyAppointments ? "No appointments match your filters" : "No appointments yet"}
+      </h3>
+      <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
+        {hasAnyAppointments
+          ? "Try adjusting the search, status, or visit type — or reset the filters to see everything."
+          : "Once a patient or staff member books an appointment it will show up here."}
+      </p>
+      <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-2">
+        {onClearFilters ? (
+          <button
+            type="button"
+            onClick={onClearFilters}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <FaXmark className="h-3 w-3" aria-hidden="true" />
+            Clear filters
+          </button>
+        ) : null}
+        <Link
+          href="/appointments"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_24px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
+        >
+          <FaPlus className="h-3 w-3" aria-hidden="true" />
+          Book new appointment
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[0, 1, 2].map((index) => (
+        <div
+          key={index}
+          className="h-28 animate-pulse rounded-2xl border border-slate-100 bg-linear-to-r from-slate-100 via-white to-slate-100"
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getInitials(name: string): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
+}
+
+function dateBucketLabel(date: string): string {
+  if (date === today) return "Today";
+
+  const todayDate = new Date(`${today}T00:00:00`);
+  const targetDate = new Date(`${date}T00:00:00`);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const diffDays = Math.round((targetDate.getTime() - todayDate.getTime()) / dayMs);
+
+  if (diffDays === 1) return "Tomorrow";
+  if (diffDays === -1) return "Yesterday";
+  if (diffDays > 1 && diffDays <= 7) return "This week";
+  if (diffDays > 7 && diffDays <= 30) return "This month";
+  if (diffDays > 30) return "Future";
+  if (diffDays < -1 && diffDays >= -7) return "Last week";
+  return "Past";
+}
+

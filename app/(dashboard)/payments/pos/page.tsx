@@ -286,7 +286,7 @@ export default function POSBillingPage() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.18fr_0.82fr]">
         <div className="space-y-6">
-          <section className="rounded-[2rem] border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+          <section className="rounded-4xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 1</p>
@@ -320,7 +320,7 @@ export default function POSBillingPage() {
                 </select>
               </label>
 
-              <div className="rounded-[1.5rem] border border-dashed border-emerald-200 bg-emerald-50/40 px-4 py-4">
+              <div className="rounded-3xl border border-dashed border-emerald-200 bg-emerald-50/40 px-4 py-4">
                 {selectedAppt ? (
                   <>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Selected Patient</p>
@@ -341,7 +341,7 @@ export default function POSBillingPage() {
             </div>
           </section>
 
-          <section className="rounded-[2rem] border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+          <section className="rounded-4xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 2</p>
@@ -364,7 +364,7 @@ export default function POSBillingPage() {
               </div>
 
               {filteredCatalog.map((group) => (
-                <div key={group.category} className="rounded-[1.5rem] border border-emerald-100 bg-emerald-50/30 p-4 shadow-sm">
+                <div key={group.category} className="rounded-3xl border border-emerald-100 bg-emerald-50/30 p-4 shadow-sm">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-bold text-slate-900">{group.category}</p>
                     <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500">
@@ -399,7 +399,7 @@ export default function POSBillingPage() {
               ))}
             </div>
 
-            <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-emerald-100 shadow-sm">
+            <div className="mt-6 overflow-hidden rounded-3xl border border-emerald-100 shadow-sm">
               <div className="grid grid-cols-12 gap-3 border-b border-emerald-100 bg-emerald-50/60 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 <div className="col-span-12 md:col-span-4">Service</div>
                 <div className="col-span-4 md:col-span-2">Quantity</div>
@@ -419,7 +419,7 @@ export default function POSBillingPage() {
                           else updateLine(line.tempId, { pricing_id: null });
                         }}
                         disabled={!canUse || !!issuedBillingId}
-                        className="w-full rounded-[1rem] border border-emerald-100 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                        className="w-full rounded-2xl border border-emerald-100 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                       >
                         <option value="">Pick Consultation, Lab, or Medicine</option>
                         {posPricing.map((item) => (
@@ -428,13 +428,13 @@ export default function POSBillingPage() {
                             </option>
                           ))}
                       </select>
-                      <div className="mt-2 rounded-[1rem] border border-emerald-100 bg-emerald-50/40 px-3 py-2.5 text-sm text-slate-700">
+                      <div className="mt-2 rounded-2xl border border-emerald-100 bg-emerald-50/40 px-3 py-2.5 text-sm text-slate-700">
                         {line.description || "No service selected"}
                       </div>
                     </div>
 
                     <div className="col-span-4 md:col-span-2">
-                      <div className="flex items-center rounded-[1rem] border border-emerald-100 bg-white">
+                      <div className="flex items-center rounded-2xl border border-emerald-100 bg-white">
                         <button
                           type="button"
                           onClick={() => updateLine(line.tempId, { quantity: Math.max(1, line.quantity - 1) })}
@@ -472,7 +472,7 @@ export default function POSBillingPage() {
                         value={line.unit_price}
                         onChange={(event) => updateLine(line.tempId, { unit_price: Number(event.target.value) || 0 })}
                         disabled={!canUse || !!issuedBillingId}
-                        className="w-full rounded-[1rem] border border-emerald-100 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                        className="w-full rounded-2xl border border-emerald-100 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                       />
                     </div>
 
@@ -528,14 +528,14 @@ export default function POSBillingPage() {
         </div>
 
         <div className="space-y-6">
-          <section className="sticky top-24 overflow-hidden rounded-[2rem] border border-emerald-300 bg-[linear-gradient(180deg,#ecfdf5_0%,#d1fae5_100%)] text-slate-900 shadow-[0_20px_70px_rgba(16,185,129,0.18)]">
+          <section className="sticky top-24 overflow-hidden rounded-4xl border border-emerald-300 bg-[linear-gradient(180deg,#ecfdf5_0%,#d1fae5_100%)] text-slate-900 shadow-[0_20px_70px_rgba(16,185,129,0.18)]">
             <div className="border-b border-emerald-200 px-6 py-5">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">POS Terminal</p>
               <h2 className="mt-2 text-2xl font-bold">Clinic Billing</h2>
             </div>
 
             <div className="space-y-5 px-6 py-6">
-              <div className="rounded-[1.5rem] border border-emerald-200 bg-white px-4 py-4">
+              <div className="rounded-3xl border border-emerald-200 bg-white px-4 py-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">Appointment</p>
                 {selectedAppt ? (
                   <>
@@ -563,7 +563,7 @@ export default function POSBillingPage() {
                   <p className="text-xs text-slate-500">{validItems.length} valid line(s)</p>
                 </div>
 
-                <div className="max-h-72 space-y-2 overflow-y-auto rounded-[1.5rem] border border-emerald-200 bg-white p-3">
+                <div className="max-h-72 space-y-2 overflow-y-auto rounded-3xl border border-emerald-200 bg-white p-3">
                   {validItems.length > 0 ? (
                     validItems.map((line) => (
                       <div key={line.tempId} className="rounded-2xl border border-emerald-100 bg-emerald-50/50 px-3 py-3">
@@ -588,7 +588,7 @@ export default function POSBillingPage() {
                 </div>
               </div>
 
-              <div className="rounded-[1.5rem] border border-emerald-200 bg-white px-4 py-4">
+              <div className="rounded-3xl border border-emerald-200 bg-white px-4 py-4">
                 <div className="flex items-center justify-between text-sm text-slate-600">
                   <span>Consultation Base Fee</span>
                   <span>{peso(consultationBaseFee)}</span>
@@ -699,7 +699,7 @@ function AppointmentOption({ appt }: { appt: AppointmentRecord }) {
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[1.5rem] border border-white/10 bg-white/8 px-4 py-4 backdrop-blur">
+    <div className="rounded-3xl border border-white/10 bg-white/8 px-4 py-4 backdrop-blur">
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300">{label}</p>
       <p className="mt-2 text-sm font-bold text-white">{value}</p>
     </div>

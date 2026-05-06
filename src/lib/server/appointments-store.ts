@@ -37,7 +37,13 @@ type AppointmentCreateContext = {
   actor?: AuthenticatedUser;
 };
 
-export type AppointmentUpdatePayload = AppointmentCreatePayload & { id: string };
+// `meetingLink` is optional on update — when omitted we keep whatever's in DB.
+// When present and the appointment is Online, it overrides the clinic-wide
+// default link. When present and the appointment is Clinic, it's ignored.
+export type AppointmentUpdatePayload = AppointmentCreatePayload & {
+  id: string;
+  meetingLink?: string | null;
+};
 const ASSIGNED_DOCTOR_SLUG = "chiara-punzalan";
 
 export async function resolveAssignedDoctorUuid() {
@@ -434,7 +440,20 @@ export async function updatePersistedAppointment(payload: AppointmentUpdatePaylo
           ? "Completed"
           : "Confirmed";
 
-    const meeting_link = payload.type === "Online" ? existing.meeting_link : null;
+    // Resolve the meeting_link to persist:
+    //   - Clinic visit → always null
+    //   - Online + caller passed an explicit link  → save the trimmed override
+    //     (empty string clears it back to the default)
+    //   - Online + no override passed              → keep what's already in DB
+    let meeting_link: string | null;
+    if (payload.type !== "Online") {
+      meeting_link = null;
+    } else if (payload.meetingLink === undefined) {
+      meeting_link = existing.meeting_link;
+    } else {
+      const trimmed = (payload.meetingLink ?? "").trim();
+      meeting_link = trimmed.length > 0 ? trimmed : null;
+    }
 
     const { error: updateErr } = await supabase
       .from("appointments")

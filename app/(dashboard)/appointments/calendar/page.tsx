@@ -59,7 +59,7 @@ export default function CalendarViewPage() {
         </div>
       ) : null}
 
-      <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in">
+      <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-900">{selectedDoctor.name}</h2>
@@ -112,7 +112,7 @@ export default function CalendarViewPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-[1.5rem] border border-emerald-100">
+        <div className="overflow-x-auto rounded-3xl border border-emerald-100">
           <table className="min-w-[900px] w-full text-sm">
             <thead>
               <tr>
