@@ -78,12 +78,12 @@ export async function POST(req: Request) {
       .single();
     if (error) throw error;
 
-    // Notify patient via email (profile was created if it didn't exist)
+    // Notify patient via email and SMS (profile was created if it didn't exist)
     try {
       await enqueueNotification({
         user_id: patientId,
         template: "appointment_booked",
-        channels: ["email"],
+        channels: ["email", "sms"],
         payload: {
           reservation_id: reservation.id,
           appointment_date: reservation.appointment_date,
