@@ -286,6 +286,7 @@ export async function createOnlineCheckoutSession(
     start_time,
     end_time,
     type: "Online",
+    patientId,
   });
 
   const { data: reservation, error: reservationError } = await supabase
@@ -448,6 +449,7 @@ async function confirmReservationPayment(
     start_time: reservation.start_time,
     end_time: reservation.end_time,
     type: "Online",
+    patientId: reservation.patient_id,
     ignoreReservationId: reservation.id,
   });
 

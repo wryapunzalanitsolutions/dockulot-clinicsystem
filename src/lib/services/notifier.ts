@@ -44,18 +44,18 @@ export async function sendEmail(input: EmailInput): Promise<void> {
 
 export async function sendSms(input: SmsInput): Promise<void> {
   const apiKey = process.env.SEMAPHORE_API_KEY;
+  const sender = process.env.SEMAPHORE_SENDER_NAME;
 
   if (!apiKey) {
     console.log(`[sms:stub] to=${input.to} body="${input.body.slice(0, 60)}"`);
     return;
   }
 
-  // Note: sendername parameter is only included if pre-approved by Semaphore
-  // While waiting for approval, we omit it to use the default sender
   const body = new URLSearchParams({
     apikey: apiKey,
     number: input.to,
     message: input.body,
+    ...(sender ? { sendername: sender } : {}),
   });
   const res = await fetch("https://api.semaphore.co/api/v4/messages", {
     method: "POST",

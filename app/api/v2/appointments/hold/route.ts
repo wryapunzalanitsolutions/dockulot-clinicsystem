@@ -39,17 +39,18 @@ export async function POST(req: Request) {
     const start_time = `${start}:00`;
     const end_time = `${addOneHour(start)}:00`;
 
+    const patientId = await resolveBookingPatientId({ email, patientName, phone }, {
+      actorRole: actor?.profile.role === "patient" ? "PATIENT" : undefined,
+      actorUserId: actor?.profile.role === "patient" ? actor.id : undefined,
+    });
+
     const { queueNumber } = await validateSharedSlotOrThrow({
       doctorUuid,
       date,
       start_time,
       end_time,
       type,
-    });
-
-    const patientId = await resolveBookingPatientId({ email, patientName, phone }, {
-      actorRole: actor?.profile.role === "patient" ? "PATIENT" : undefined,
-      actorUserId: actor?.profile.role === "patient" ? actor.id : undefined,
+      patientId,
     });
 
     let amount = 0;

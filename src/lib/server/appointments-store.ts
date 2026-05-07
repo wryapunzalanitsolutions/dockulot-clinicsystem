@@ -109,6 +109,7 @@ export async function validateSharedSlotOrThrow(input: {
   start_time: string;
   end_time: string;
   type: AppointmentType;
+  patientId?: string;
   ignoreAppointmentId?: string;
   ignoreReservationId?: string;
 }) {
@@ -154,6 +155,29 @@ export async function validateSharedSlotOrThrow(input: {
 
   const { data: existing, error } = await query;
   if (error) throw error;
+
+  if (input.patientId) {
+    let patientQuery = supabase
+      .from("appointments")
+      .select("id, status, start_time, end_time")
+      .eq("patient_id", input.patientId)
+      .eq("appointment_date", input.date);
+
+    if (input.ignoreAppointmentId) {
+      patientQuery = patientQuery.neq("id", input.ignoreAppointmentId);
+    }
+
+    const { data: patientAppointments, error: patientError } = await patientQuery;
+    if (patientError) throw patientError;
+
+    const overlappingPatientAppointment = (patientAppointments ?? [])
+      .filter((row) => legacyStatusMatchesLiving(row.status as V2Appointment["status"]))
+      .some((row) => overlapsSlot(input.start_time, input.end_time, row.start_time, row.end_time));
+
+    if (overlappingPatientAppointment) {
+      throw new Error("You already have another appointment that overlaps this timeslot.");
+    }
+  }
 
   let reservationQuery = supabase
     .from("online_booking_reservations")
@@ -350,6 +374,7 @@ export async function createPersistedAppointmentWithContext(
       start_time,
       end_time,
       type: payload.type,
+      patientId: patientUuid,
     });
 
     const { data: inserted, error: insertErr } = await supabase
@@ -430,6 +455,7 @@ export async function updatePersistedAppointment(payload: AppointmentUpdatePaylo
       start_time,
       end_time,
       type: payload.type,
+      patientId: existing.patient_id,
       ignoreAppointmentId: payload.id,
     });
 
