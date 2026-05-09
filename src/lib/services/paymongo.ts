@@ -120,6 +120,7 @@ export async function createPayMongoCheckoutSession(input: {
   paymentMethods: PayMongoMethod[];
   successPath: string;
   metadata?: Record<string, string>;
+  lineItemName?: string;
 }) {
   const response = await fetch(`${PAYMONGO_API}/checkout_sessions`, {
     method: "POST",
@@ -141,7 +142,7 @@ export async function createPayMongoCheckoutSession(input: {
               currency: "PHP",
               amount: Math.round(input.amount * 100),
               description: input.description,
-              name: "Online Consultation",
+              name: input.lineItemName ?? "Online Consultation",
               quantity: 1,
             },
           ],

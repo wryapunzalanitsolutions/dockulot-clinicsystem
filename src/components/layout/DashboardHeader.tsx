@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FaArrowRightFromBracket,
   FaBars,
@@ -34,6 +34,13 @@ type NotificationItem = {
   sent_at: string | null;
   subject: string;
   body: string;
+  is_read: boolean;
+  href?: string | null;
+};
+
+type NotificationFeedResponse = {
+  notifications: NotificationItem[];
+  count: number;
 };
 
 type DashboardHeaderProps = {
@@ -50,7 +57,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/appointments/calendar": "Appointment Calendar",
   "/appointments/my": "My Appointments",
   "/patients": "Patients",
-  "/patients/add": "Add Patient",
+  "/patients/add": "Add Walk-In Patient",
   "/patients/records": "Patient Records",
   "/consultations": "Consultations",
   "/consultations/history": "Consultation History",
@@ -103,7 +110,12 @@ function mapTemplateToLabel(template: string) {
     case "welcome":
       return "Registration";
     case "appointment_booked":
+    case "appointment_staff_booked":
       return "Appointment Booking";
+    case "appointment_staff_confirmed":
+      return "Appointment Confirmed";
+    case "appointment_staff_rescheduled":
+      return "Appointment Rescheduled";
     case "appointment_confirmed":
       return "Appointment Confirmed";
     case "appointment_payment_success":
@@ -117,9 +129,18 @@ function mapTemplateToLabel(template: string) {
       return "24-Hour Reminder";
     case "appointment_reminder_6h":
       return "Upcoming Reminder";
+    case "appointment_staff_checked_in":
+      return "Patient Check-In";
+    case "appointment_staff_in_progress":
+      return "Consultation Started";
+    case "appointment_staff_completed":
+      return "Consultation Completed";
+    case "appointment_staff_payment_failed":
+      return "Payment Issue";
     case "billing_issued":
       return "Billing Notice";
     case "appointment_cancelled":
+    case "appointment_staff_cancelled":
       return "Appointment Update";
     default:
       return "Notification";
@@ -143,9 +164,14 @@ export function DashboardHeader({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
+  const [notifPulse, setNotifPulse] = useState(false);
   const [isNotifLoading, setIsNotifLoading] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const notifMenuRef = useRef<HTMLDivElement | null>(null);
+  const notificationIdsRef = useRef<Set<string>>(new Set());
+  const hasLoadedNotificationsRef = useRef(false);
+  const notificationCountRef = useRef(0);
+  const notifPulseTimerRef = useRef<number | null>(null);
 
   const pageTitle = PAGE_TITLES[pathname] ?? "Workspace";
   const roleLabel = getRoleProfile(role).label.toUpperCase();
@@ -154,9 +180,121 @@ export function DashboardHeader({
   const displayEmail = profile?.email ?? "";
   const initials = getInitials(displayName);
   const canSeeSettings = canAccessPath(role, "/settings");
-  const notifCount = useMemo(
-    () => items.filter((item) => item.status === "queued" || item.status === "sent").length,
-    [items],
+  const notifCount = useMemo(() => items.filter((item) => !item.is_read).length, [items]);
+  const hasNotifications = items.length > 0;
+
+  async function markNotificationAsRead(notificationId: string) {
+    if (!accessToken) return;
+
+    try {
+      const response = await fetch("/api/v2/notifications", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ notification_id: notificationId }),
+      });
+
+      if (!response.ok) throw new Error("Failed to mark notification as read");
+
+      // Update local state
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === notificationId ? { ...item, is_read: true } : item,
+        ),
+      );
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  }
+
+  async function openNotification(item: NotificationItem) {
+    if (!item.is_read) {
+      await markNotificationAsRead(item.id);
+    }
+    setIsNotifOpen(false);
+    setNotifPulse(false);
+    if (item.href) {
+      router.push(item.href);
+    }
+  }
+
+  async function markAllRead() {
+    if (!accessToken) return;
+    try {
+      const response = await fetch("/api/v2/notifications", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ action: "mark_all_read" }),
+      });
+      if (!response.ok) throw new Error("Failed to mark all notifications as read");
+      setItems((prev) => prev.map((i) => ({ ...i, is_read: true })));
+    } catch (err) {
+      console.error("Error marking all notifications as read:", err);
+    }
+  }
+
+  function triggerNotificationAlert() {
+    if (notifPulseTimerRef.current != null) {
+      window.clearTimeout(notifPulseTimerRef.current);
+    }
+
+    setNotifPulse(true);
+    notifPulseTimerRef.current = window.setTimeout(() => {
+      setNotifPulse(false);
+      notifPulseTimerRef.current = null;
+    }, 2200);
+
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([120, 60, 120]);
+    }
+  }
+
+  const loadNotifications = useCallback(
+    async ({ showLoading }: { showLoading: boolean }) => {
+      if (!accessToken) return;
+
+      if (showLoading) {
+        setIsNotifLoading(true);
+      }
+
+      try {
+        const response = await fetch("/api/v2/notifications", {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!response.ok) throw new Error("Failed to load notifications.");
+
+        const payload = (await response.json()) as NotificationFeedResponse;
+        const nextItems = payload.notifications;
+        const previousIds = notificationIdsRef.current;
+        const newItemCount = hasLoadedNotificationsRef.current
+          ? nextItems.filter((item) => !previousIds.has(item.id)).length
+          : 0;
+        const nextCount = typeof payload.count === "number" ? payload.count : nextItems.length;
+        const countIncreased = hasLoadedNotificationsRef.current && nextCount > notificationCountRef.current;
+
+        notificationIdsRef.current = new Set(nextItems.map((item) => item.id));
+        hasLoadedNotificationsRef.current = true;
+        notificationCountRef.current = nextCount;
+        setItems(nextItems);
+
+        if (countIncreased || newItemCount > 0) {
+          triggerNotificationAlert();
+        }
+      } catch {
+        setItems([]);
+      } finally {
+        if (showLoading) {
+          setIsNotifLoading(false);
+        }
+      }
+    },
+    [accessToken],
   );
 
   useEffect(() => {
@@ -175,33 +313,31 @@ export function DashboardHeader({
   }, []);
 
   useEffect(() => {
-    if (!accessToken || !isNotifOpen) return;
-    let active = true;
+    if (!accessToken) return;
 
-    void fetch("/api/v2/notifications", {
-      cache: "no-store",
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Failed to load notifications.");
-        return (await response.json()) as { notifications: NotificationItem[] };
-      })
-      .then((payload) => {
-        if (!active) return;
-        setItems(payload.notifications);
-      })
-      .catch(() => {
-        if (!active) return;
-        setItems([]);
-      })
-      .finally(() => {
-        if (active) setIsNotifLoading(false);
-      });
+    notificationIdsRef.current = new Set();
+    hasLoadedNotificationsRef.current = false;
+    notificationCountRef.current = 0;
+
+    void loadNotifications({ showLoading: true });
+
+    const pollId = window.setInterval(() => {
+      void loadNotifications({ showLoading: false });
+    }, 10000);
 
     return () => {
-      active = false;
+      window.clearInterval(pollId);
+      if (notifPulseTimerRef.current != null) {
+        window.clearTimeout(notifPulseTimerRef.current);
+      }
     };
-  }, [accessToken, isNotifOpen]);
+  }, [accessToken, loadNotifications]);
+
+  useEffect(() => {
+    if (!accessToken || !isNotifOpen) return;
+
+    void loadNotifications({ showLoading: true });
+  }, [accessToken, isNotifOpen, loadNotifications]);
 
   async function handleLogoutClick() {
     setIsMenuOpen(false);
@@ -232,34 +368,81 @@ export function DashboardHeader({
           <div className="relative" ref={notifMenuRef}>
             <button
               type="button"
-              className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-600 bg-white text-emerald-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-700 sm:h-12 sm:w-12"
+              className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-600 bg-white text-emerald-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-700 sm:h-12 sm:w-12 ${
+                notifPulse ? "ring-4 ring-rose-200 ring-offset-2 ring-offset-white animate-pulse" : ""
+              }`}
               aria-label="Notifications"
               onClick={() => {
-                if (!isNotifOpen) {
-                  setIsNotifLoading(true);
-                }
                 setIsNotifOpen((current) => !current);
                 setIsMenuOpen(false);
+                setNotifPulse(false);
               }}
             >
               <FaBell className="h-4 w-4" />
               {notifCount > 0 ? (
                 <span className="absolute right-1.5 top-1.5 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white sm:right-2 sm:top-2">
-                  {Math.min(notifCount, 9)}
+                  {notifCount > 99 ? "99+" : notifCount}
                 </span>
               ) : null}
             </button>
 
             {isNotifOpen ? (
-              <div className="absolute right-0 mt-3 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.14)]">
-                <div className="border-b border-slate-100 bg-slate-50/80 px-5 py-4">
-                  <p className="text-sm font-semibold text-slate-900">Notification Center</p>
-                  <p className="mt-1 text-xs text-slate-500">In-app updates for your account activity.</p>
+              <button
+                type="button"
+                className="fixed inset-0 z-30 bg-slate-900/20 backdrop-blur-[1px] sm:hidden"
+                aria-label="Close notifications"
+                onClick={() => setIsNotifOpen(false)}
+              />
+            ) : null}
+
+            {isNotifOpen ? (
+              <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top,0px)+4.3rem)] z-40 max-h-[calc(100svh-5.5rem)] w-auto overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.14)] sm:absolute sm:right-0 sm:inset-x-auto sm:top-auto sm:mt-3 sm:max-h-[32rem] sm:w-[min(24rem,calc(100vw-2rem))]">
+                <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-5">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Notification Center</p>
+                    <p className="mt-1 text-xs text-slate-500">In-app updates for your account activity.</p>
+                  </div>
+                  <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:justify-start">
+                    <button
+                      type="button"
+                      className="rounded-2xl border border-slate-100 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => {
+                        void markAllRead();
+                      }}
+                      disabled={!hasNotifications}
+                    >
+                      Mark all read
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-2xl border border-slate-100 bg-white px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={async () => {
+                        if (!accessToken) return;
+                        try {
+                          const res = await fetch("/api/v2/notifications", {
+                            method: "PATCH",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: `Bearer ${accessToken}`,
+                            },
+                            body: JSON.stringify({ action: "delete_all" }),
+                          });
+                          if (!res.ok) throw new Error("Failed to delete notifications");
+                          setItems([]);
+                        } catch (err) {
+                          console.error(err);
+                        }
+                      }}
+                      disabled={!hasNotifications}
+                    >
+                      Clear all
+                    </button>
+                  </div>
                 </div>
 
-                <div className="max-h-96 overflow-y-auto">
+                <div className="max-h-[calc(100svh-12rem)] overflow-y-auto sm:max-h-96">
                   {isNotifLoading ? (
-                    <div className="space-y-3 p-5">
+                    <div className="space-y-3 p-4 sm:p-5">
                       {[0, 1, 2].map((key) => (
                         <div key={key} className="rounded-2xl border border-slate-100 p-4">
                           <div className="h-3 w-24 animate-pulse rounded bg-slate-100" />
@@ -269,20 +452,50 @@ export function DashboardHeader({
                       ))}
                     </div>
                   ) : items.length > 0 ? (
-                    <div className="p-3">
+                    <div className="space-y-2 p-3">
                       {items.map((item) => (
-                        <div key={item.id} className="rounded-2xl border border-slate-100 px-4 py-3 transition hover:border-teal-100 hover:bg-teal-50/40">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
+                        <div key={item.id} className={`rounded-2xl border px-3 py-3 transition sm:px-4 ${
+                          item.is_read
+                            ? "border-slate-100 hover:border-teal-100 hover:bg-teal-50/40"
+                            : "border-amber-200 bg-amber-50/50 hover:border-amber-300 hover:bg-amber-50/70"
+                        }`}>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0 flex-1">
                               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
                                 {mapTemplateToLabel(item.template)}
                               </p>
                               <p className="mt-1 text-sm font-semibold text-slate-900">{item.subject}</p>
                               <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{item.body}</p>
                             </div>
-                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-                              {formatChannels(item.channels)}
-                            </span>
+                            <div className="flex shrink-0 flex-row flex-wrap items-center gap-2 sm:max-w-[8.5rem] sm:flex-col sm:items-end">
+                              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                                {formatChannels(item.channels)}
+                              </span>
+                              {!item.is_read && (
+                                <button
+                                  type="button"
+                                  className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700 transition hover:bg-amber-200"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void markNotificationAsRead(item.id);
+                                  }}
+                                >
+                                  Mark Read
+                                </button>
+                              )}
+                              {item.href ? (
+                                <button
+                                  type="button"
+                                  className="rounded-full border border-emerald-200 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700 transition hover:bg-emerald-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void openNotification(item);
+                                  }}
+                                >
+                                  Open
+                                </button>
+                              ) : null}
+                            </div>
                           </div>
                           <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
                             <span>{formatRelativeDate(item.created_at)}</span>

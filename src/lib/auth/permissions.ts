@@ -21,7 +21,7 @@ const PERMISSION_MAP: Record<PermissionAction, UserRole[]> = {
   "appointments.manage": ["SUPER_ADMIN", "SECRETARY", "DOCTOR"],
   "patients.read": ["SUPER_ADMIN", "SECRETARY", "DOCTOR", "PATIENT"],
   "patients.manage": ["SUPER_ADMIN", "SECRETARY", "DOCTOR"],
-  "consultations.read": ["SUPER_ADMIN", "DOCTOR"],
+  "consultations.read": ["SUPER_ADMIN", "DOCTOR", "PATIENT"],
   "consultations.manage": ["SUPER_ADMIN", "DOCTOR"],
   "schedules.read": ["SUPER_ADMIN", "DOCTOR"],
   "schedules.manage": ["SUPER_ADMIN", "DOCTOR"],

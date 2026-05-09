@@ -220,7 +220,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
       href: "/consultations",
       icon: FaRegMessage,
       subItems: [
-        { label: "Join Online Consultation", href: "/appointments/my?filter=online", icon: FaVideo },
+        { label: "Join Online Consultation", href: "/consultations", icon: FaVideo },
         { label: "Consultation History", href: "/consultations/history", icon: FaClockRotateLeft },
       ],
     },

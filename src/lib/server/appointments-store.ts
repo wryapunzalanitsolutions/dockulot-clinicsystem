@@ -19,7 +19,10 @@ import {
   getUnavailabilityForDate,
 } from "@/src/lib/services/schedule";
 import { findNextAvailableSharedSlot } from "@/src/lib/services/appointment-availability";
-import { enqueueNotification } from "@/src/lib/services/notification";
+import {
+  enqueueAppointmentTeamNotifications,
+  enqueueNotification,
+} from "@/src/lib/services/notification";
 import { recalculateQueueNumbersForSlot } from "@/src/lib/services/maintenance";
 
 export type AppointmentCreatePayload = {
@@ -35,6 +38,7 @@ export type AppointmentCreatePayload = {
 
 type AppointmentCreateContext = {
   actor?: AuthenticatedUser;
+  initialStatus?: "Confirmed" | "CheckedIn";
 };
 
 // `meetingLink` is optional on update — when omitted we keep whatever's in DB.
@@ -93,7 +97,6 @@ async function buildConflictHint(doctorUuid: string, date: string, type: Appoint
 function supportsType(mode: "Clinic" | "Online" | "Both", type: AppointmentType) {
   return mode === "Both" || mode === type;
 }
-
 function matchesExactSlot(
   slot: { start: string; end: string },
   start: string,
@@ -387,7 +390,7 @@ export async function createPersistedAppointmentWithContext(
         end_time,
         appointment_type: payload.type,
         reason: payload.reason,
-        status: "Confirmed",
+        status: context.initialStatus ?? "Confirmed",
         queue_number: queueNumber,
       })
       .select()
@@ -401,10 +404,27 @@ export async function createPersistedAppointmentWithContext(
       payload: { appointment_id: inserted.id, appointment_type: payload.type },
     });
 
+    await enqueueAppointmentTeamNotifications({
+      appointment_id: inserted.id,
+      appointment_type: payload.type,
+      patient_user_id: patientUuid,
+      patient_name: payload.patientName,
+      appointment_date: payload.date,
+      start_time,
+      doctor_user_id: inserted.doctor_id,
+      excludeUserIds: [patientUuid, context.actor?.user.id].filter((value): value is string => !!value),
+      template: "appointment_staff_booked",
+    });
+
     const appointment = (await hydrateRows([inserted]))[0];
     return {
       ok: true as const,
-      message: payload.type === "Clinic" ? "Clinic appointment confirmed." : "Appointment booked successfully.",
+      message:
+        context.initialStatus === "CheckedIn"
+          ? "Walk-in patient added to the live queue."
+          : payload.type === "Clinic"
+            ? "Clinic appointment confirmed."
+            : "Appointment booked successfully.",
       appointment,
       appointments: context.actor?.role === "PATIENT"
         ? await readAppointments({ patientId: patientUuid })
@@ -503,6 +523,17 @@ export async function updatePersistedAppointment(payload: AppointmentUpdatePaylo
       };
     }
 
+    await enqueueAppointmentTeamNotifications({
+      appointment_id: payload.id,
+      appointment_type: payload.type,
+      patient_user_id: existing.patient_id,
+      appointment_date: payload.date,
+      start_time,
+      doctor_user_id: doctorUuid,
+      excludeUserIds: [existing.patient_id],
+      template: "appointment_staff_rescheduled",
+    });
+
     const appointments = await readAppointments();
     const appointment = appointments.find((a) => a.id === payload.id);
     return {
@@ -524,7 +555,7 @@ export async function deletePersistedAppointment(appointmentId: string) {
   const supabase = getSupabaseAdmin();
   const { data: appt, error: fetchErr } = await supabase
     .from("appointments")
-    .select("id, patient_id, doctor_id, appointment_date, start_time, end_time")
+    .select("id, patient_id, doctor_id, appointment_date, start_time, end_time, appointment_type")
     .eq("id", appointmentId)
     .maybeSingle<{
       id: string;
@@ -533,6 +564,7 @@ export async function deletePersistedAppointment(appointmentId: string) {
       appointment_date: string;
       start_time: string;
       end_time: string;
+      appointment_type: AppointmentType;
     }>();
   
   if (fetchErr || !appt) {
@@ -569,6 +601,17 @@ export async function deletePersistedAppointment(appointmentId: string) {
       template: "appointment_cancelled",
       channels: ["email", "sms"],
       payload: { appointment_id: appointmentId },
+    });
+
+    await enqueueAppointmentTeamNotifications({
+      appointment_id: appointmentId,
+      appointment_type: appt.appointment_type,
+      patient_user_id: appt.patient_id,
+      appointment_date: appt.appointment_date,
+      start_time: appt.start_time,
+      doctor_user_id: appt.doctor_id,
+      excludeUserIds: [appt.patient_id],
+      template: "appointment_staff_cancelled",
     });
   }
 

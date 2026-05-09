@@ -1,4 +1,5 @@
 import { httpError, ok, requireActor } from "@/src/lib/http";
+import { INITIAL_SYSTEM_SETTINGS } from "@/src/lib/clinic";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 
 /**
@@ -28,10 +29,10 @@ type ClinicInfo = {
 
 function rowToInfo(row: ClinicInfoRow | null): ClinicInfo {
   return {
-    name: row?.clinic_name ?? "",
-    email: row?.email ?? "",
-    phone: row?.phone ?? "",
-    address: row?.address ?? "",
+    name: row?.clinic_name?.trim() || INITIAL_SYSTEM_SETTINGS.clinicName,
+    email: row?.email?.trim() || INITIAL_SYSTEM_SETTINGS.email,
+    phone: row?.phone?.trim() || INITIAL_SYSTEM_SETTINGS.phone,
+    address: row?.address?.trim() || INITIAL_SYSTEM_SETTINGS.address,
   };
 }
 

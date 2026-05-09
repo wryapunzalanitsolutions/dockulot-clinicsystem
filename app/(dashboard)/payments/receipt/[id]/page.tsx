@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useParams } from "next/navigation";
 import { FaCircleCheck, FaPenToSquare, FaXmark } from "react-icons/fa6";
 import { useRole } from "@/src/components/layout/RoleProvider";
 
@@ -65,8 +66,6 @@ type ClinicInfo = {
 
 const EMPTY_CLINIC: ClinicInfo = { name: "", email: "", phone: "", address: "" };
 
-type PageProps = { params: Promise<{ id: string }> };
-
 function money(value: number) {
   return `PHP ${Number(value).toFixed(2)}`;
 }
@@ -106,8 +105,9 @@ function Barcode({ value }: { value: string }) {
   );
 }
 
-export default function ReceiptPage({ params }: PageProps) {
-  const { id } = use(params);
+export default function ReceiptPage() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
   const { accessToken, isLoading: authLoading, role } = useRole();
   const [billing, setBilling] = useState<Billing | null>(null);
   const [clinic, setClinic] = useState<ClinicInfo>(EMPTY_CLINIC);
@@ -177,6 +177,10 @@ export default function ReceiptPage({ params }: PageProps) {
     setIsEditingClinic(true);
   }
 
+  function closeEditClinic() {
+    setIsEditingClinic(false);
+  }
+
   function saveClinic() {
     if (!accessToken) return;
     startSavingClinic(async () => {
@@ -189,6 +193,8 @@ export default function ReceiptPage({ params }: PageProps) {
         body: JSON.stringify({
           name: clinicDraft.name,
           address: clinicDraft.address,
+          phone: clinicDraft.phone,
+          email: clinicDraft.email,
         }),
       });
       const body = (await res.json().catch(() => ({}))) as {
@@ -239,6 +245,28 @@ export default function ReceiptPage({ params }: PageProps) {
             margin: 0 !important;
             padding: 0 !important;
             background: #fff !important;
+            width: 80mm !important;
+            min-height: auto !important;
+          }
+          body * {
+            visibility: hidden !important;
+          }
+          .print-receipt, .print-receipt * {
+            visibility: visible !important;
+          }
+          .print-receipt {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 72mm !important;
+            max-width: 72mm !important;
+            margin: 0 !important;
+            padding: 1.5mm 1.5mm 2mm !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            background: #fff !important;
+            font-size: 9px !important;
+            line-height: 1.3 !important;
           }
         }
       `}</style>
@@ -276,54 +304,95 @@ export default function ReceiptPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Inline clinic-header edit panel — sits above the receipt, never inside it. */}
       {canEditClinic && isEditingClinic ? (
-        <div className="mx-auto max-w-md rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 print:hidden">
-          <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Edit Clinic Header</p>
-          <div className="mt-3 grid gap-3">
-            <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Clinic name</span>
-              <input
-                value={clinicDraft.name}
-                onChange={(e) => setClinicDraft((c) => ({ ...c, name: e.target.value }))}
-                placeholder="CHIARA Clinic"
-                className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Clinic address</span>
-              <textarea
-                value={clinicDraft.address}
-                onChange={(e) => setClinicDraft((c) => ({ ...c, address: e.target.value }))}
-                placeholder="123 Medical Avenue, Quezon City"
-                rows={2}
-                className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
-              />
-            </label>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 print:hidden">
+          <button
+            type="button"
+            aria-label="Close clinic header editor"
+            className="absolute inset-0 bg-slate-950/50 backdrop-blur-[2px]"
+            onClick={closeEditClinic}
+          />
+          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-emerald-200 bg-white p-5 shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Edit Clinic Header</p>
+                <h2 className="mt-1 text-lg font-bold text-slate-900">Popup editor for the receipt header</h2>
+                <p className="mt-1 text-sm text-slate-500">Update the name, phone, email, and address shown on every receipt.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEditClinic}
+                className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+              >
+                <FaXmark className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Clinic name</span>
+                <input
+                  value={clinicDraft.name}
+                  onChange={(e) => setClinicDraft((c) => ({ ...c, name: e.target.value }))}
+                  placeholder="CHIARA Clinic"
+                  className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Clinic phone</span>
+                <input
+                  value={clinicDraft.phone}
+                  onChange={(e) => setClinicDraft((c) => ({ ...c, phone: e.target.value }))}
+                  placeholder="+1 (555) 123-4567"
+                  className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Clinic email</span>
+                <input
+                  value={clinicDraft.email}
+                  onChange={(e) => setClinicDraft((c) => ({ ...c, email: e.target.value }))}
+                  placeholder="admin@chiara.test"
+                  type="email"
+                  className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Clinic address</span>
+                <textarea
+                  value={clinicDraft.address}
+                  onChange={(e) => setClinicDraft((c) => ({ ...c, address: e.target.value }))}
+                  placeholder="123 Medical Avenue, Quezon City"
+                  rows={2}
+                  className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeEditClinic}
+                disabled={isSavingClinic}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              >
+                <FaXmark className="h-3 w-3" aria-hidden="true" />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveClinic}
+                disabled={isSavingClinic}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FaCircleCheck className="h-3 w-3" aria-hidden="true" />
+                {isSavingClinic ? "Saving…" : "Save"}
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-slate-500">
+              Changes apply to every receipt and the clinic-wide settings.
+            </p>
           </div>
-          <div className="mt-3 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setIsEditingClinic(false)}
-              disabled={isSavingClinic}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              <FaXmark className="h-3 w-3" aria-hidden="true" />
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={saveClinic}
-              disabled={isSavingClinic}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <FaCircleCheck className="h-3 w-3" aria-hidden="true" />
-              {isSavingClinic ? "Saving…" : "Save"}
-            </button>
-          </div>
-          <p className="mt-2 text-[11px] text-slate-500">
-            Changes apply to every receipt and the clinic-wide settings.
-          </p>
         </div>
       ) : null}
 
@@ -340,29 +409,29 @@ export default function ReceiptPage({ params }: PageProps) {
         so the very first line doesn't touch the printer's tear-off edge.
       */}
       <div
-        className="mx-auto w-72 max-w-full border border-slate-300 bg-white px-4 py-5 font-mono text-[10px] leading-relaxed text-slate-900 shadow-sm print:mx-0 print:w-[76mm] print:max-w-none print:border-0 print:px-2 print:py-2 print:shadow-none"
+        className="print-receipt mx-auto w-[260px] max-w-full border border-slate-300 bg-white px-3 py-4 font-mono text-[9px] leading-snug text-slate-900 shadow-sm print:mx-0 print:w-[72mm] print:max-w-none print:border-0 print:px-1.5 print:py-1.5 print:shadow-none"
       >
         {/* Clinic header — centered cap-style heading like a real OR. */}
         <div className="text-center">
-          <p className="text-base font-black uppercase tracking-[0.18em] leading-tight">
+          <p className="text-[13px] font-black uppercase tracking-[0.16em] leading-tight">
             {clinic.name || "CLINIC NAME"}
           </p>
           {clinic.address ? (
-            <p className="mt-1 whitespace-pre-line text-[10px] leading-snug text-slate-700">
+            <p className="mt-0.5 whitespace-pre-line text-[9px] leading-tight text-slate-700">
               {clinic.address}
             </p>
           ) : null}
-          {clinic.phone ? <p className="text-[10px] text-slate-700">{clinic.phone}</p> : null}
-          {clinic.email ? <p className="text-[10px] text-slate-700">{clinic.email}</p> : null}
+          {clinic.phone ? <p className="text-[9px] text-slate-700">{clinic.phone}</p> : null}
+          {clinic.email ? <p className="text-[9px] text-slate-700">{clinic.email}</p> : null}
         </div>
 
         {/* Issued date prominent, like the reference receipt's "14/10/2025 11:55" line. */}
-        <p className="mt-3 text-center font-bold tracking-wider">
+        <p className="mt-2 text-center font-bold tracking-wide">
           {formatThermalDate(billing.issued_at ?? billing.created_at)}
         </p>
 
         {/* Patient + physician + visit metadata block. */}
-        <div className="mt-3 border-t border-dashed border-slate-400 pt-2 space-y-0.5 uppercase">
+        <div className="mt-2 border-t border-dashed border-slate-400 pt-1.5 space-y-0 uppercase">
           <Row label="Patient" value={billing.patient?.full_name ?? "—"} />
           <Row label="Visit #" value={billing.appointment_id?.slice(0, 8).toUpperCase() ?? "—"} />
           {billing.doctor ? (
@@ -378,7 +447,7 @@ export default function ReceiptPage({ params }: PageProps) {
 
         {/* Line items — name on left, amount on right. The server-prepended
             consultation line is already in billing_items, so nothing extra to do. */}
-        <div className="mt-3 border-t border-dashed border-slate-400 pt-2 space-y-0.5 uppercase">
+        <div className="mt-2 border-t border-dashed border-slate-400 pt-1.5 space-y-0 uppercase">
           {billing.billing_items.map((item) => (
             <div key={item.id} className="flex items-baseline justify-between gap-2">
               <span className="min-w-0 flex-1 truncate">
@@ -393,7 +462,7 @@ export default function ReceiptPage({ params }: PageProps) {
         </div>
 
         {/* Totals block. */}
-        <div className="mt-3 border-t border-dashed border-slate-400 pt-2 space-y-0.5 uppercase">
+        <div className="mt-2 border-t border-dashed border-slate-400 pt-1.5 space-y-0 uppercase">
           <Row label="Subtotal" value={money(billing.subtotal)} />
           <Row
             label={
@@ -427,7 +496,7 @@ export default function ReceiptPage({ params }: PageProps) {
         </div>
 
         {/* Payment details — mirrors the reference's CARD/TYPE/ENTRY/TIME/REF/STATUS block. */}
-        <div className="mt-3 border-t border-dashed border-slate-400 pt-2 space-y-0.5 uppercase">
+        <div className="mt-2 border-t border-dashed border-slate-400 pt-1.5 space-y-0 uppercase">
           <Row label="Method" value={paidPayment?.method ?? "—"} />
           {paidPayment?.tendered_amount != null ? (
             <>
@@ -463,7 +532,7 @@ export default function ReceiptPage({ params }: PageProps) {
         ) : null}
 
         {/* Footer message + barcode. */}
-        <p className="mt-4 text-center text-[10px] uppercase leading-snug text-slate-700">
+        <p className="mt-3 text-center text-[9px] uppercase leading-tight text-slate-700">
           Please keep this receipt for your medical and financial records.
         </p>
 

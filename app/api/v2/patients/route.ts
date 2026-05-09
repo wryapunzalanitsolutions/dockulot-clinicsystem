@@ -61,6 +61,7 @@ export async function POST(req: Request) {
         dob: body.dob ?? null,
         gender: body.gender ?? null,
         address: body.address ?? null,
+        family_history: body.family_history ?? null,
       })
       .select()
       .single();

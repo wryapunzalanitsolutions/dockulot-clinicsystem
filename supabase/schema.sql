@@ -58,7 +58,9 @@ create table if not exists public.patients (
   dob date,
   gender text,
   address text,
-  emergency_contact text
+  emergency_contact text,
+  family_history text,
+  is_walk_in boolean not null default false
 );
 
 create table if not exists public.doctors (

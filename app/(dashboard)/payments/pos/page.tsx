@@ -4,11 +4,15 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   FaBan,
+  FaBuildingColumns,
   FaCircleCheck,
   FaCircleExclamation,
   FaEnvelope,
+  FaLock,
+  FaQrcode,
   FaPhone,
   FaReceipt,
+  FaCreditCard,
   FaTriangleExclamation,
   FaXmark,
 } from "react-icons/fa6";
@@ -35,7 +39,16 @@ type Line = {
   unit_price: number;
 };
 
-type PaymentMethod = "Cash" | "Card" | "BankTransfer";
+type PaymentMethod = "Cash" | "QR" | "Card" | "BankTransfer";
+
+type PaymentOptionConfig = {
+  value: PaymentMethod;
+  label: string;
+  detail: string;
+  icon: React.ReactNode;
+  available: boolean;
+  unavailableNote?: string;
+};
 
 // Cashier discount UX. Senior Citizen / PWD apply a 20% discount and 0 VAT
 // per RA 9994 / RA 10754 — the math is enforced on the server so the cashier
@@ -65,6 +78,71 @@ function peso(amount: number) {
 // Quick-tender denominations the cashier is most likely to handle. The bill
 // total is always the cleanest "Exact" option, surfaced first.
 const QUICK_TENDER_AMOUNTS = [100, 200, 500, 1000] as const;
+
+function roundUpToNearest(amount: number, step: number) {
+  return Math.ceil(amount / step) * step;
+}
+
+function getCashShortcutAmounts(total: number) {
+  if (total <= 0) return [];
+  const candidates = [
+    total,
+    roundUpToNearest(total, 50),
+    roundUpToNearest(total, 100),
+    roundUpToNearest(total, 500),
+    roundUpToNearest(total, 1000),
+    ...QUICK_TENDER_AMOUNTS.filter((amount) => amount >= total),
+  ];
+  return [...new Set(candidates.map((value) => Math.round(value * 100) / 100))]
+    .sort((left, right) => left - right)
+    .slice(0, 6);
+}
+
+function getPaymentMethodLabel(method: PaymentMethod) {
+  if (method === "QR") return "QR Ph";
+  return method === "BankTransfer" ? "Transfer" : method;
+}
+
+function getReferenceLabel(method: PaymentMethod) {
+  return method === "Card" ? "Card reference" : "Transfer reference";
+}
+
+function getReferencePlaceholder(method: PaymentMethod) {
+  return method === "Card" ? "Terminal approval code" : "Bank / wallet reference no.";
+}
+
+const POS_PAYMENT_OPTIONS: PaymentOptionConfig[] = [
+  {
+    value: "Cash",
+    label: "Cash",
+    detail: "Accept cash at the cashier and compute change here in the POS.",
+    icon: <span className="text-[11px] font-black">PHP</span>,
+    available: true,
+  },
+  {
+    value: "QR",
+    label: "QR Ph",
+    detail: "Open PayMongo checkout so the patient can scan with GCash, Maya, or any supported banking app.",
+    icon: <FaQrcode className="h-4 w-4" aria-hidden="true" />,
+    available: true,
+  },
+  {
+    value: "BankTransfer",
+    label: "Transfer",
+    detail: "Direct online banking is already wired to PayMongo, but the merchant account is still pending activation.",
+    icon: <FaBuildingColumns className="h-4 w-4" aria-hidden="true" />,
+    available: false,
+    unavailableNote: "Not yet activated on PayMongo. Please use QR Ph for now.",
+  },
+  {
+    value: "Card",
+    label: "Card",
+    detail: "Card checkout is already wired to PayMongo, but card processing is still pending activation on the merchant account.",
+    icon: <FaCreditCard className="h-4 w-4" aria-hidden="true" />,
+    available: false,
+    unavailableNote: "Not yet activated on PayMongo. Please use QR Ph for now.",
+  },
+];
 
 function formatClock(date: Date) {
   return new Intl.DateTimeFormat("en-PH", {
@@ -107,6 +185,7 @@ export default function POSBillingPage() {
   const [discountIdNumber, setDiscountIdNumber] = useState<string>("");
   const [catalogQuery, setCatalogQuery] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Cash");
+  const [paymentReference, setPaymentReference] = useState("");
   const [tenderedInput, setTenderedInput] = useState<string>("");
   const [feedback, setFeedback] = useState<{ message: string; tone: "success" | "error" } | null>(null);
   const [issuedBillingId, setIssuedBillingId] = useState<string | null>(null);
@@ -163,6 +242,61 @@ export default function POSBillingPage() {
     void refreshRecent();
   }, [refreshRecent]);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !accessToken) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const billingPaid = params.get("billing_paid");
+    if (!billingPaid) return;
+
+    let cancelled = false;
+    setFeedback({ message: "Finalizing POS payment with PayMongo…", tone: "success" });
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/v2/billings/${billingPaid}/reconcile`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        const payload = (await res.json().catch(() => ({}))) as { message?: string };
+        if (cancelled) return;
+
+        if (!res.ok) {
+          setFeedback({
+            message: payload.message ?? "Could not finalize the POS payment. Please reconcile it from the cashier screen.",
+            tone: "error",
+          });
+          return;
+        }
+
+        setIssuedBillingId(billingPaid);
+        setPaymentMethod("QR");
+        setFeedback({
+          message: "QR Ph payment confirmed through PayMongo. Receipt is ready and the clinic appointment is now completed.",
+          tone: "success",
+        });
+        void refreshRecent();
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete("billing_paid");
+        window.history.replaceState({}, "", url.toString());
+      } catch (error) {
+        if (cancelled) return;
+        setFeedback({
+          message: error instanceof Error ? error.message : "Network error while finalizing the POS payment.",
+          tone: "error",
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, refreshRecent]);
+
   const clinicAppointments = useMemo(
     () =>
       appointments
@@ -183,7 +317,7 @@ export default function POSBillingPage() {
   );
 
   const selectedAppt = billableAppointments.find((a) => a.id === selectedApptId) ?? null;
-  const { fees: selectedDoctorFees } = useDoctorFees(selectedAppt?.doctorId ?? "chiara-punzalan");
+  const { fees: selectedDoctorFees } = useDoctorFees(selectedAppt?.doctorId);
   const posPricing = useMemo(
     () => pricing.filter((item) => item.is_active && isPOSCategory(item.category)),
     [pricing],
@@ -225,12 +359,25 @@ export default function POSBillingPage() {
 
   const tenderedNumber = Number(tenderedInput || 0);
   const isCash = paymentMethod === "Cash";
+  const isQR = paymentMethod === "QR";
   // For non-cash methods, the patient tenders exactly the total. Card and
   // bank transfer don't have "change."
   const effectiveTendered = isCash ? tenderedNumber : total;
   const changeDue = Math.max(0, effectiveTendered - total);
   const tenderShortfall = total - effectiveTendered;
-  const canAcceptPayment = !isCash || tenderedNumber >= total;
+  const trimmedPaymentReference = paymentReference.trim();
+  const paymentMethodLabel = getPaymentMethodLabel(paymentMethod);
+  const activePaymentOption = POS_PAYMENT_OPTIONS.find((option) => option.value === paymentMethod) ?? POS_PAYMENT_OPTIONS[0];
+  const canAcceptPayment =
+    total > 0 && (
+      isCash
+        ? tenderedNumber >= total
+        : isQR
+          ? !!issuedBillingId
+          : activePaymentOption.available && trimmedPaymentReference.length > 0
+    );
+  const cashShortcutAmounts = useMemo(() => getCashShortcutAmounts(total), [total]);
+  const currentStep = issuedBillingId ? 2 : 1;
 
   function updateLine(tempId: string, patch: Partial<Line>) {
     setLines((current) => current.map((line) => (line.tempId === tempId ? { ...line, ...patch } : line)));
@@ -283,6 +430,7 @@ export default function POSBillingPage() {
     setDiscountKind("None");
     setDiscountIdNumber("");
     setPaymentMethod("Cash");
+    setPaymentReference("");
     setTenderedInput("");
     setIssuedBillingId(null);
     setFeedback(null);
@@ -362,7 +510,35 @@ export default function POSBillingPage() {
       setFeedback({ message: `Tendered amount must be at least ${peso(total)}.`, tone: "error" });
       return;
     }
+    if (!isCash && !isQR && !trimmedPaymentReference) {
+      setFeedback({ message: `${paymentMethodLabel} reference is required before payment can be recorded.`, tone: "error" });
+      return;
+    }
     startTransition(async () => {
+      if (isQR) {
+        const res = await fetch(`/api/v2/billings/${issuedBillingId}/checkout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ checkout_option: "paymongo_qr" }),
+        });
+
+        const payload = (await res.json().catch(() => ({}))) as { message?: string; url?: string };
+        if (!res.ok) {
+          setFeedback({ message: payload.message ?? "Could not start PayMongo QR checkout.", tone: "error" });
+          return;
+        }
+        if (!payload.url) {
+          setFeedback({ message: "PayMongo checkout link was not returned.", tone: "error" });
+          return;
+        }
+
+        window.location.href = payload.url;
+        return;
+      }
+
       const res = await fetch(`/api/v2/billings/${issuedBillingId}/pay`, {
         method: "POST",
         headers: {
@@ -371,6 +547,7 @@ export default function POSBillingPage() {
         },
         body: JSON.stringify({
           method: paymentMethod,
+          provider_ref: isCash ? null : trimmedPaymentReference,
           tendered_amount: isCash ? tenderedNumber : null,
         }),
       });
@@ -386,6 +563,7 @@ export default function POSBillingPage() {
         message: `Payment accepted.${changeMsg} Receipt is ready and the clinic appointment is now completed.`,
         tone: "success",
       });
+      setPaymentReference("");
       void refreshRecent();
     });
   }
@@ -595,6 +773,39 @@ export default function POSBillingPage() {
           </div>
         </section>
       ) : null}
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">POS Flow</p>
+            <h2 className="mt-1 text-sm font-bold text-slate-900">Build Bill, accept payment, then print the receipt.</h2>
+          </div>
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">
+            {issuedBillingId ? "Step 2 of 3" : "Step 1 of 3"}
+          </span>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <POSStepCard
+            step={1}
+            title="Build Bill"
+            description="Select the clinic appointment and add lab or medicine items before issuing the bill."
+            state={currentStep === 1 ? "current" : "complete"}
+          />
+          <POSStepCard
+            step={2}
+            title="Accept Payment"
+            description="Choose Cash, Transfer, or Card. Enter amount received or the payment reference."
+            state={currentStep === 2 ? "current" : "upcoming"}
+          />
+          <POSStepCard
+            step={3}
+            title="Print Receipt"
+            description="Open the receipt and print once payment is accepted and the clinic visit is completed."
+            state="upcoming"
+          />
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_0.7fr]">
         <div className="space-y-4">
@@ -982,68 +1193,155 @@ export default function POSBillingPage() {
 
             <div className="space-y-2 px-3 py-3">
               {/* Method selector — disabled until issued. */}
-              <div className="grid grid-cols-3 gap-1">
-                {[
-                  { value: "Cash", label: "Cash" },
-                  { value: "BankTransfer", label: "Transfer" },
-                  { value: "Card", label: "Card" },
-                ].map((method) => (
+              <div className="grid grid-cols-2 gap-2">
+                {POS_PAYMENT_OPTIONS.map((method) => (
                   <button
                     key={method.value}
                     type="button"
-                    disabled={!issuedBillingId}
+                    disabled={!issuedBillingId || !method.available}
                     onClick={() => {
-                      setPaymentMethod(method.value as PaymentMethod);
+                      setPaymentMethod(method.value);
                       if (method.value !== "Cash") setTenderedInput("");
+                      if (method.value === "Cash" || method.value === "QR") setPaymentReference("");
                     }}
-                    className={`rounded-md border px-2 py-2 text-xs font-bold transition ${
+                    className={`rounded-xl border px-3 py-2.5 text-left text-xs transition ${
                       paymentMethod === method.value
                         ? "border-emerald-600 bg-emerald-600 text-white"
-                        : "border-slate-300 bg-white text-slate-700 hover:border-emerald-400"
-                    } disabled:cursor-not-allowed disabled:opacity-50`}
+                        : method.available
+                          ? "border-slate-300 bg-white text-slate-700 hover:border-emerald-400"
+                          : "border-slate-200 bg-slate-100 text-slate-400"
+                    } disabled:cursor-not-allowed disabled:opacity-70`}
                   >
-                    {method.label}
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 text-slate-900">
+                        {method.icon}
+                      </span>
+                      {!method.available ? (
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                          paymentMethod === method.value ? "bg-white/20 text-white" : "bg-white text-amber-700"
+                        }`}>
+                          Soon
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 font-bold">{method.label}</p>
+                    <p className={`mt-1 text-[10px] leading-4 ${
+                      paymentMethod === method.value ? "text-white/80" : "text-slate-500"
+                    }`}>
+                      {method.available ? method.detail : method.unavailableNote ?? method.detail}
+                    </p>
                   </button>
                 ))}
               </div>
 
-              {issuedBillingId && isCash ? (
-                <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Tendered ₱</span>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      inputMode="decimal"
-                      value={tenderedInput}
-                      onChange={(event) => setTenderedInput(event.target.value)}
-                      placeholder={total.toFixed(2)}
-                      className="w-32 rounded-md border border-slate-300 bg-white px-2 py-1 text-right font-mono text-base font-bold outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
-                    />
-                  </div>
-                  <div className="mt-2 grid grid-cols-5 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setTenderedInput(total.toFixed(2))}
-                      className="rounded border border-emerald-400 bg-emerald-50 px-1 py-1 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100"
-                    >Exact</button>
-                    {QUICK_TENDER_AMOUNTS.map((amount) => (
-                      <button
-                        key={amount}
-                        type="button"
-                        onClick={() => setTenderedInput(String(amount))}
-                        disabled={amount < total}
-                        className="rounded border border-slate-300 bg-white px-1 py-1 font-mono text-[10px] font-bold text-slate-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40"
-                      >{amount}</button>
-                    ))}
-                  </div>
-                  <div className="mt-2 flex items-center justify-between rounded-md bg-slate-900 px-3 py-2 text-white">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Change</span>
-                    <span className="font-mono text-lg font-black tabular-nums">
-                      {tenderShortfall > 0 ? `Short ${peso(tenderShortfall)}` : peso(changeDue)}
+              {issuedBillingId ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Payment Entry</span>
+                    <span className="rounded-full bg-white px-2 py-0.5 font-mono text-[10px] font-bold text-slate-700">
+                      {paymentMethodLabel}
                     </span>
                   </div>
+
+                  {isCash ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Amount received</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          inputMode="decimal"
+                          value={tenderedInput}
+                          onChange={(event) => setTenderedInput(event.target.value)}
+                          placeholder={total.toFixed(2)}
+                          className="w-32 rounded-md border border-slate-300 bg-white px-2 py-1 text-right font-mono text-base font-bold outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+                        />
+                      </div>
+                      <div className="mt-2 grid grid-cols-3 gap-1.5">
+                        {cashShortcutAmounts.map((amount, index) => (
+                          <button
+                            key={`${amount}-${index}`}
+                            type="button"
+                            onClick={() => setTenderedInput(amount.toFixed(2))}
+                            className={`rounded border px-1 py-1 text-[10px] font-bold ${
+                              index === 0
+                                ? "border-emerald-400 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                                : "border-slate-300 bg-white font-mono text-slate-700 hover:bg-emerald-50"
+                            }`}
+                          >
+                            {index === 0 ? `Exact ${amount.toFixed(2)}` : amount.toFixed(2)}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div className="rounded-md bg-white px-3 py-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Amount due</p>
+                          <p className="mt-1 font-mono text-lg font-black text-slate-900">{peso(total)}</p>
+                        </div>
+                        <div className="rounded-md bg-slate-900 px-3 py-2 text-white">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                            {tenderShortfall > 0 ? "Short" : "Change"}
+                          </p>
+                          <p className="mt-1 font-mono text-lg font-black tabular-nums">
+                            {tenderShortfall > 0 ? peso(tenderShortfall) : peso(changeDue)}
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  ) : isQR ? (
+                    <div className="space-y-2">
+                      <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-3 text-sm text-sky-900">
+                        <div className="flex items-start gap-2">
+                          <FaQrcode className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                          <div>
+                            <p className="font-bold">QR Ph via PayMongo</p>
+                            <p className="mt-1 text-xs leading-5 text-sky-800">
+                              This opens a PayMongo QR Ph checkout that works today for GCash, Maya, and banking apps while direct Card and Transfer activation is still pending.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-md bg-white px-3 py-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Amount due</p>
+                          <p className="mt-1 font-mono text-lg font-black text-slate-900">{peso(total)}</p>
+                        </div>
+                        <div className="rounded-md bg-white px-3 py-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Checkout</p>
+                          <p className="mt-1 flex items-center gap-1 text-sm font-black text-slate-900">
+                            <FaLock className="h-3 w-3" aria-hidden="true" />
+                            Secure · PayMongo
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <label className="block">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                          {getReferenceLabel(paymentMethod)}
+                        </span>
+                        <input
+                          type="text"
+                          value={paymentReference}
+                          onChange={(event) => setPaymentReference(event.target.value)}
+                          placeholder={getReferencePlaceholder(paymentMethod)}
+                          className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+                        />
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-md bg-white px-3 py-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Amount due</p>
+                          <p className="mt-1 font-mono text-lg font-black text-slate-900">{peso(total)}</p>
+                        </div>
+                        <div className="rounded-md bg-white px-3 py-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Recorded as</p>
+                          <p className="mt-1 font-mono text-sm font-black text-slate-900">{paymentMethodLabel}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : null}
 
@@ -1074,7 +1372,7 @@ export default function POSBillingPage() {
                     disabled={isWorking || !canAcceptPayment}
                     className="flex w-full items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
                   >
-                    {isWorking ? "Processing…" : `Accept ${paymentMethod === "BankTransfer" ? "Transfer" : paymentMethod}`}
+                    {isWorking ? "Processing…" : isQR ? "Open QR Ph Checkout" : `Accept ${paymentMethodLabel}`}
                     <kbd className="rounded border border-emerald-400 bg-emerald-700 px-1 font-mono text-[9px] text-emerald-100">F2</kbd>
                   </button>
                   <Link
@@ -1084,6 +1382,13 @@ export default function POSBillingPage() {
                     <FaReceipt className="h-3 w-3" aria-hidden="true" />
                     View Receipt
                   </Link>
+                  <p className="rounded-md bg-slate-50 px-2.5 py-2 text-[11px] text-slate-500">
+                    {isCash
+                      ? "Enter the amount received from the patient, confirm the computed change, then accept cash."
+                      : isQR
+                        ? "This opens PayMongo's QR Ph checkout. When payment succeeds, the bill is finalized automatically when you land back here."
+                        : `Enter the ${paymentMethodLabel.toLowerCase()} reference before recording the payment.`}
+                  </p>
                   <div className="flex gap-1.5">
                     {canVoid ? (
                       <button
@@ -1273,6 +1578,51 @@ function AppointmentOption({ appt }: { appt: AppointmentRecord }) {
     <option value={appt.id}>
       {appt.patientName} - {formatDisplayDate(appt.date)} - {formatRange(appt.start, appt.end)}
     </option>
+  );
+}
+
+function POSStepCard({
+  step,
+  title,
+  description,
+  state,
+}: {
+  step: number;
+  title: string;
+  description: string;
+  state: "complete" | "current" | "upcoming";
+}) {
+  const styles = {
+    complete: {
+      shell: "border-emerald-200 bg-emerald-50/70",
+      badge: "bg-emerald-600 text-white",
+      title: "text-emerald-900",
+      body: "text-emerald-800/80",
+    },
+    current: {
+      shell: "border-slate-900 bg-slate-900",
+      badge: "bg-white text-slate-900",
+      title: "text-white",
+      body: "text-slate-300",
+    },
+    upcoming: {
+      shell: "border-slate-200 bg-slate-50",
+      badge: "bg-white text-slate-500",
+      title: "text-slate-700",
+      body: "text-slate-500",
+    },
+  }[state];
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${styles.shell}`}>
+      <div className="flex items-center gap-2">
+        <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black ${styles.badge}`}>
+          {step}
+        </span>
+        <h3 className={`text-sm font-bold ${styles.title}`}>{title}</h3>
+      </div>
+      <p className={`mt-2 text-xs leading-5 ${styles.body}`}>{description}</p>
+    </div>
   );
 }
 

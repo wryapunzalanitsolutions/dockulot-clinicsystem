@@ -35,6 +35,22 @@ export async function createAppointmentAction(
   });
 }
 
+export async function createWalkInAppointmentAction(
+  accessToken: string,
+  payload: AppointmentCreatePayload,
+) {
+  const authenticatedUser = await requireAuthenticatedUser(accessToken);
+
+  if (!hasPermission(authenticatedUser.role, "appointments.create")) {
+    return unauthorized("You are not allowed to add walk-in appointments.");
+  }
+
+  return createPersistedAppointmentWithContext(payload, {
+    actor: authenticatedUser,
+    initialStatus: "CheckedIn",
+  });
+}
+
 export async function updateAppointmentAction(
   accessToken: string,
   payload: AppointmentUpdatePayload,

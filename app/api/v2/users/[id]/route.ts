@@ -2,6 +2,8 @@ import { HttpError, httpError, ok, requireRole } from "@/src/lib/http";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 import type { DbRole } from "@/src/lib/db/types";
 
+const CANONICAL_DOCTOR_SPECIALTY = "General Medicine";
+
 type UpdateUserBody = {
   full_name?: string;
   phone?: string | null;
@@ -29,10 +31,41 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     }
 
     const supabase = getSupabaseAdmin();
+    const { data: currentUser, error: currentUserError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", id)
+      .maybeSingle<{ role: DbRole }>();
+    if (currentUserError) throw currentUserError;
 
     // Prevent locking yourself out accidentally
     if (actor.id === id && updates.is_active === false) {
       throw new HttpError(400, "You cannot deactivate your own account.");
+    }
+    if (currentUser?.role === "doctor" && body.role && body.role !== "doctor") {
+      throw new HttpError(400, "The clinic doctor account must remain assigned to the doctor role.");
+    }
+
+    if (body.role === "doctor" && currentUser?.role !== "doctor") {
+      const { data: existingDoctor, error: existingDoctorError } = await supabase
+        .from("doctors")
+        .select("id")
+        .limit(1)
+        .maybeSingle<{ id: string }>();
+      if (existingDoctorError) throw existingDoctorError;
+      if (existingDoctor) {
+        throw new HttpError(400, "This clinic is configured for a single doctor only.");
+      }
+
+      const { error: insertDoctorError } = await supabase.from("doctors").insert({
+        id,
+        slug: "chiara-punzalan",
+        specialty: CANONICAL_DOCTOR_SPECIALTY,
+        license_no: `AUTO-${id}`,
+        consultation_fee_clinic: 0,
+        consultation_fee_online: 0,
+      });
+      if (insertDoctorError) throw insertDoctorError;
     }
 
     const { data, error } = await supabase

@@ -1,9 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { type ReactNode, useMemo, useState, useTransition } from "react";
+import {
+  FaArrowUpRightFromSquare,
+  FaCalendarDay,
+  FaCircleCheck,
+  FaClock,
+  FaFileWaveform,
+  FaHeartPulse,
+  FaNotesMedical,
+  FaPhone,
+  FaUserDoctor,
+  FaVideo,
+} from "react-icons/fa6";
 import { useAppointments } from "@/src/components/appointments/useAppointments";
-import { useConsultationNotes } from "@/src/components/clinic/useClinicData";
+import { useConsultationNotes, usePatients } from "@/src/components/clinic/useClinicData";
 import { VitalSignsForm } from "@/src/components/clinic/VitalSignsForm";
 import { useRole } from "@/src/components/layout/RoleProvider";
 import {
@@ -12,7 +24,7 @@ import {
   getDoctorById,
   type AppointmentRecord,
 } from "@/src/lib/appointments";
-import type { ConsultationProgress } from "@/src/lib/clinic";
+import type { ConsultationProgress, PatientRecordItem } from "@/src/lib/clinic";
 
 type DraftState = {
   note: string;
@@ -24,6 +36,7 @@ export default function OnlineConsultationPage() {
   const { accessToken, role } = useRole();
   const { appointments, setAppointments } = useAppointments();
   const { data: notes, setData: setNotes, isLoading, error } = useConsultationNotes();
+  const { data: patients, setData: setPatients } = usePatients();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [activeAppointmentId, setActiveAppointmentId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>({
@@ -31,34 +44,70 @@ export default function OnlineConsultationPage() {
     prescription: "",
     status: "Ready",
   });
+  const [familyHistoryDraft, setFamilyHistoryDraft] = useState("");
   const [isSaving, startTransition] = useTransition();
 
-  const eligibleAppointments = appointments
-    .filter((appointment) => {
-      if (appointment.type === "Clinic") {
-        return (
-          appointment.status === "Confirmed" ||
-          appointment.status === "In Progress" ||
-          appointment.status === "Completed"
-        );
-      }
-      return appointment.status === "Confirmed" || appointment.status === "In Progress" || appointment.status === "Completed";
-    })
-    .sort((left, right) => `${left.date} ${left.start}`.localeCompare(`${right.date} ${right.start}`));
+  const canManage = role !== "PATIENT";
+
+  const eligibleAppointments = useMemo(
+    () =>
+      appointments
+        .filter(
+          (appointment) =>
+            appointment.status === "Confirmed"
+            || appointment.status === "In Progress"
+            || appointment.status === "Completed",
+        )
+        .sort((left, right) => {
+          const byDateTime = `${left.date} ${left.start}`.localeCompare(
+            `${right.date} ${right.start}`,
+          );
+          if (byDateTime !== 0) return byDateTime;
+          return left.queueNumber - right.queueNumber;
+        }),
+    [appointments],
+  );
+
+  const activeAppointment = eligibleAppointments.find(
+    (appointment) => appointment.id === activeAppointmentId,
+  ) ?? null;
+  const activeNote = activeAppointment
+    ? notes.find((note) => note.appointmentId === activeAppointment.id) ?? null
+    : null;
+  const activePatientRecord = activeAppointment
+    ? findPatientRecord(patients, activeAppointment)
+    : null;
+  const familyHistoryDirty = familyHistoryDraft !== (activePatientRecord?.familyHistory ?? "");
+
   const onlineReady = appointments.filter(
     (appointment) => appointment.type === "Online" && appointment.status === "Confirmed",
   );
+  const inProgressCount = appointments.filter((appointment) => appointment.status === "In Progress").length;
   const completedCount = notes.filter((note) => note.status === "Completed").length;
-  const canManage = role !== "PATIENT";
+
+  if (role === "PATIENT") {
+    return (
+      <PatientConsultationLobby appointments={appointments} notes={notes} isLoading={isLoading} error={error} />
+    );
+  }
 
   function openConsultation(appointment: AppointmentRecord) {
     const existing = notes.find((note) => note.appointmentId === appointment.id);
+    const patientRecord = findPatientRecord(patients, appointment);
+    const inferredStatus: ConsultationProgress =
+      existing?.status
+      ?? (appointment.status === "Completed"
+        ? "Completed"
+        : appointment.status === "In Progress"
+          ? "In Progress"
+          : "Ready");
     setActiveAppointmentId(appointment.id);
     setDraft({
       note: existing?.note ?? "",
       prescription: existing?.prescription ?? "",
-      status: existing?.status ?? "Ready",
+      status: inferredStatus,
     });
+    setFamilyHistoryDraft(patientRecord?.familyHistory ?? "");
     setFeedback(null);
 
     if (appointment.meetingLink) {
@@ -106,11 +155,9 @@ export default function OnlineConsultationPage() {
                 status:
                   draft.status === "Completed"
                     ? "Completed"
-                        : draft.status === "In Progress"
-                          ? "In Progress"
-                          : appointment.type === "Online"
-                        ? "Confirmed"
-                        : "Confirmed",
+                    : draft.status === "In Progress"
+                      ? "In Progress"
+                      : "Confirmed",
               }
             : item,
         ),
@@ -119,122 +166,302 @@ export default function OnlineConsultationPage() {
     });
   }
 
+  function saveFamilyHistory(appointment: AppointmentRecord) {
+    if (!accessToken) {
+      setFeedback("Your session expired. Please sign in again.");
+      return;
+    }
+
+    const patientRecord = findPatientRecord(patients, appointment);
+    if (!patientRecord) {
+      setFeedback("Unable to find the matching patient record for this consultation.");
+      return;
+    }
+
+    startTransition(async () => {
+      const response = await fetch("/api/patient-records", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          patientId: patientRecord.id,
+          familyHistory: familyHistoryDraft,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { message?: string }
+        | { ok: true }
+        | null;
+
+      if (!response.ok) {
+        const message =
+          payload && "message" in payload && typeof payload.message === "string"
+            ? payload.message
+            : "Unable to save family history.";
+        setFeedback(message);
+        return;
+      }
+
+      setPatients((current) =>
+        current.map((patient) =>
+          patient.id === patientRecord.id
+            ? { ...patient, familyHistory: familyHistoryDraft.trim() }
+            : patient,
+        ),
+      );
+      setFeedback("Family history saved.");
+    });
+  }
+
   return (
     <div className="space-y-6 pb-8">
-      <section className="overflow-hidden rounded-[2.25rem] border border-emerald-100 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),linear-gradient(135deg,#f8fffb_0%,#ffffff_100%)] p-6 shadow-[0_24px_60px_rgba(16,185,129,0.10)] animate-fade-in-down">
+      <section className="overflow-hidden rounded-[2.25rem] border border-emerald-100 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.14),transparent_28%),linear-gradient(135deg,#f8fffb_0%,#ffffff_56%,#ecfeff_100%)] p-6 shadow-[0_24px_60px_rgba(16,185,129,0.10)] animate-fade-in-down">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">Consultations</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900">Move from queue to note-taking without extra clicks</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">
+              Consultations
+            </p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              Start sessions and document care without losing the queue
+            </h1>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Start sessions, write notes, and keep progress organized with a calmer live-workflow layout.
+              Review who is ready, open the meeting when needed, and keep vitals, family history,
+              notes, and follow-up plans in one focused workspace.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Shortcut href="/consultations/history" label="History" />
-            <Shortcut href="/appointments/list" label="Appointments" />
+            <Shortcut href="/appointments/my" label="Appointments" />
             <Shortcut href="/schedules" label="Schedules" />
           </div>
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="animate-fade-in-up stagger-1">
-          <Metric label="Ready Online Consultations" value={onlineReady.length.toString()} tone="sky" />
-        </div>
-        <div className="animate-fade-in-up stagger-2">
-          <Metric label="Consultation Notes Saved" value={notes.length.toString()} tone="emerald" />
-        </div>
-        <div className="animate-fade-in-up stagger-3">
-          <Metric label="Completed Notes" value={completedCount.toString()} tone="slate" />
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Metric
+          label="Ready Online"
+          value={onlineReady.length.toString()}
+          tone="sky"
+          icon={<FaVideo className="h-4 w-4" />}
+        />
+        <Metric
+          label="In Progress"
+          value={inProgressCount.toString()}
+          tone="amber"
+          icon={<FaClock className="h-4 w-4" />}
+        />
+        <Metric
+          label="Completed Notes"
+          value={completedCount.toString()}
+          tone="emerald"
+          icon={<FaCircleCheck className="h-4 w-4" />}
+        />
       </div>
 
       {feedback ? (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          {feedback}
-        </div>
+        <Banner tone="info">{feedback}</Banner>
       ) : null}
       {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
+        <Banner tone="error">{error}</Banner>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-6">
-        <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] hover-lift animate-fade-in-up stagger-4">
-          <h2 className="text-lg font-bold text-slate-900">Consultation Queue</h2>
-          <div className="mt-5 space-y-4">
-            {eligibleAppointments.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 px-6 py-10 text-center">
-                <div className="mx-auto h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-2">
-                  <svg className="h-6 w-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <p className="text-sm text-slate-400">No consultations ready yet.</p>
-              </div>
-            ) : null}
-            {eligibleAppointments.map((appointment, i) => {
-              const doctor = getDoctorById(appointment.doctorId);
-              const note = notes.find((item) => item.appointmentId === appointment.id);
-              const isActive = activeAppointmentId === appointment.id;
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-1 flex h-full flex-col overflow-hidden xl:h-[38rem]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Consultation Queue
+              </p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">Patients ready for review</h2>
+            </div>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+              {eligibleAppointments.length} total
+            </span>
+          </div>
 
-              return (
-                <div
-                  key={appointment.id}
-                  className={`rounded-2xl border border-slate-200 p-4 transition-all hover:border-teal-300 hover:shadow-md animate-slide-in-left stagger-${Math.min(i + 1, 6)} ${
-                    isActive ? "ring-2 ring-teal-300 border-teal-300" : ""
-                  }`}
-                >
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <p className="font-semibold text-slate-900">{appointment.patientName}</p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {doctor?.name} · {formatDisplayDate(appointment.date)} ·{" "}
-                        {formatRange(appointment.start, appointment.end)}
+          <div className="mt-5 flex min-h-0 flex-1 flex-col overflow-hidden">
+            {eligibleAppointments.length === 0 ? (
+              <EmptyQueue />
+            ) : (
+              <div className="flex-1 space-y-2 overflow-y-auto pr-2">
+                {eligibleAppointments.map((appointment, index) => {
+                const doctor = getDoctorById(appointment.doctorId);
+                const note = notes.find((item) => item.appointmentId === appointment.id);
+                const isActive = activeAppointmentId === appointment.id;
+                const isOnlineReady = appointment.type === "Online" && Boolean(appointment.meetingLink);
+
+                return (
+                  <article
+                    key={appointment.id}
+                    className={`rounded-xl border p-3 transition-all animate-slide-in-left stagger-${Math.min(index + 1, 6)} ${
+                      isActive
+                        ? "border-emerald-400 bg-emerald-50/70 ring-2 ring-emerald-200"
+                        : "border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/40"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-base font-bold text-slate-900">{appointment.patientName}</p>
+                          <QueueFlag
+                            label={appointment.status === "In Progress" ? "Live" : index === 0 ? "Next up" : `Queue #${appointment.queueNumber}`}
+                            tone={appointment.status === "In Progress" ? "amber" : "emerald"}
+                          />
+                        </div>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {doctor?.name ?? "Assigned doctor"} • {formatDisplayDate(appointment.date)}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {formatRange(appointment.start, appointment.end)}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge tone={appointment.type === "Online" ? "sky" : "emerald"}>
+                          {appointment.type}
+                        </Badge>
+                        <Badge tone={statusTone(note?.status ?? appointment.status)}>
+                          {note?.status ?? appointment.status}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {appointment.reason ? (
+                      <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                        {appointment.reason}
                       </p>
-                      {appointment.reason ? (
-                        <p className="mt-2 text-sm text-slate-500 italic">&quot;{appointment.reason}&quot;</p>
+                    ) : null}
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openConsultation(appointment)}
+                        className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(16,185,129,0.20)] transition hover:-translate-y-0.5"
+                      >
+                        <FaNotesMedical className="h-3.5 w-3.5" aria-hidden="true" />
+                        {appointment.meetingLink ? "Open Workspace" : "Write Notes"}
+                      </button>
+                      {appointment.meetingLink ? (
+                        <a
+                          href={appointment.meetingLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition ${
+                            isOnlineReady
+                              ? "border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-300"
+                              : "border-slate-200 bg-white text-slate-600"
+                          }`}
+                        >
+                          <FaArrowUpRightFromSquare className="h-3.5 w-3.5" aria-hidden="true" />
+                          Open Meeting
+                        </a>
                       ) : null}
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge tone={appointment.type === "Online" ? "sky" : "emerald"}>
-                        {appointment.type}
-                      </Badge>
-                      <Badge tone={note?.status === "Completed" ? "emerald" : "amber"}>
-                        {note?.status ?? "Ready"}
-                      </Badge>
+                  </article>
+                );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-2 flex h-full flex-col overflow-hidden xl:h-[38rem]">
+          {activeAppointment ? (
+            <div className="space-y-5 overflow-y-auto flex-1">
+              <div className="flex flex-col gap-4 rounded-[1.5rem] border border-emerald-100 bg-[linear-gradient(135deg,#f8fffb_0%,#ffffff_100%)] p-5 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={activeAppointment.type === "Online" ? "sky" : "emerald"}>
+                      {activeAppointment.type}
+                    </Badge>
+                    <Badge tone={statusTone(draft.status)}>{draft.status}</Badge>
+                  </div>
+                  <h2 className="mt-3 text-2xl font-black text-slate-900">
+                    {activeAppointment.patientName}
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-600">
+                    {getDoctorById(activeAppointment.doctorId)?.name ?? "Assigned doctor"} •{" "}
+                    {formatDisplayDate(activeAppointment.date)} •{" "}
+                    {formatRange(activeAppointment.start, activeAppointment.end)}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    {activeAppointment.reason || "No consultation reason recorded."}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {activeAppointment.meetingLink ? (
+                    <a
+                      href={activeAppointment.meetingLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700"
+                    >
+                      <FaVideo className="h-3.5 w-3.5" aria-hidden="true" />
+                      Launch Meeting
+                    </a>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setActiveAppointmentId(null)}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <SummaryCard
+                  icon={<FaCalendarDay className="h-4 w-4" />}
+                  label="Schedule"
+                  value={formatDisplayDate(activeAppointment.date)}
+                  hint={formatRange(activeAppointment.start, activeAppointment.end)}
+                />
+                <SummaryCard
+                  icon={<FaPhone className="h-4 w-4" />}
+                  label="Contact"
+                  value={activeAppointment.phone || activeAppointment.email || "No contact info"}
+                  hint={activeAppointment.email && activeAppointment.phone ? activeAppointment.email : undefined}
+                />
+                <SummaryCard
+                  icon={<FaUserDoctor className="h-4 w-4" />}
+                  label="Patient Record"
+                  value={activePatientRecord ? "Matched" : "Needs review"}
+                  hint={activePatientRecord ? "Family history can be updated here" : "No patient record match found"}
+                />
+              </div>
+
+              {canManage ? (
+                <div className="grid gap-5">
+                  <div className="rounded-[1.5rem] border border-emerald-100 bg-slate-50/70 p-4">
+                    <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      <FaHeartPulse className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                      Vitals and visit context
+                    </p>
+                    <div className="mt-4">
+                      <VitalSignsForm appointmentId={activeAppointment.id} />
                     </div>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => openConsultation(appointment)}
-                      className="rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(16,185,129,0.20)] transition-all hover:-translate-y-0.5"
-                    >
-                      {appointment.meetingLink ? "Start Online Consultation" : "Open Note Editor"}
-                    </button>
-                    {appointment.meetingLink ? (
-                      <a
-                        href={appointment.meetingLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-full border border-sky-200 px-4 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 transition-colors"
-                      >
-                        Meeting Link →
-                      </a>
-                    ) : null}
-                  </div>
-
-                  {isActive && canManage ? (
-                    <div className="mt-4 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      {/* Vitals first — typical workflow is: secretary
-                          captures at check-in, doctor reviews / amends
-                          before writing the clinical note. */}
-                      <VitalSignsForm appointmentId={appointment.id} />
+                  <div className="grid gap-5 xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
+                    <div className="rounded-[1.5rem] border border-emerald-100 bg-white p-4">
                       <label className="block text-sm font-medium text-slate-700">
+                        Family History
+                        <textarea
+                          value={familyHistoryDraft}
+                          onChange={(event) => setFamilyHistoryDraft(event.target.value)}
+                          className="mt-2 min-h-32 w-full rounded-2xl border border-emerald-100 px-3 py-2.5 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                          placeholder="Relevant illnesses or risks in the family, such as hypertension, diabetes, stroke, asthma, or cancer"
+                        />
+                        <span className="mt-2 block text-xs leading-5 text-slate-500">
+                          This updates the shared patient record, while vitals remain attached to this specific visit.
+                        </span>
+                      </label>
+
+                      <label className="mt-4 block text-sm font-medium text-slate-700">
                         Consultation Status
                         <select
                           value={draft.status}
@@ -251,6 +478,20 @@ export default function OnlineConsultationPage() {
                           <option value="Completed">Completed</option>
                         </select>
                       </label>
+
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => saveFamilyHistory(activeAppointment)}
+                          disabled={isSaving || !activePatientRecord || !familyHistoryDirty}
+                          className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isSaving ? "Saving..." : "Save Family History"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-emerald-100 bg-white p-4">
                       <label className="block text-sm font-medium text-slate-700">
                         Consultation Notes
                         <textarea
@@ -258,11 +499,12 @@ export default function OnlineConsultationPage() {
                           onChange={(event) =>
                             setDraft((current) => ({ ...current, note: event.target.value }))
                           }
-                          className="mt-2 min-h-32 w-full rounded-2xl border border-emerald-100 px-3 py-2.5 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                          className="mt-2 min-h-40 w-full rounded-2xl border border-emerald-100 px-3 py-2.5 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                           placeholder="Assessment, progress, symptoms, and recommendations"
                         />
                       </label>
-                      <label className="block text-sm font-medium text-slate-700">
+
+                      <label className="mt-4 block text-sm font-medium text-slate-700">
                         Prescription / Plan
                         <textarea
                           value={draft.prescription}
@@ -272,37 +514,297 @@ export default function OnlineConsultationPage() {
                               prescription: event.target.value,
                             }))
                           }
-                          className="mt-2 min-h-24 w-full rounded-2xl border border-emerald-100 px-3 py-2.5 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
-                          placeholder="Medication, tests, or follow-up plan"
+                          className="mt-2 min-h-28 w-full rounded-2xl border border-emerald-100 px-3 py-2.5 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                          placeholder="Medication, tests, referrals, or follow-up plan"
                         />
                       </label>
-                      <div className="flex gap-3">
+
+                      <div className="mt-5 flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => saveConsultation(appointment)}
+                          onClick={() => saveConsultation(activeAppointment)}
                           disabled={isSaving}
-                          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-400"
+                          className="rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:bg-slate-400"
                         >
                           {isSaving ? "Saving..." : "Save Consultation Note"}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setActiveAppointmentId(null)}
-                          className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
-                        >
-                          Close
-                        </button>
+                        {activeNote?.updatedAt ? (
+                          <p className="self-center text-xs text-slate-500">
+                            Last saved {new Date(activeNote.updatedAt).toLocaleString("en-US")}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
-                  ) : null}
+                  </div>
                 </div>
-              );
-            })}
+              ) : null}
+            </div>
+          ) : (
+            <div className="flex min-h-[460px] flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-emerald-200 bg-[linear-gradient(135deg,#f8fffb_0%,#ffffff_100%)] p-8 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600">
+                <FaFileWaveform className="h-7 w-7" aria-hidden="true" />
+              </div>
+              <h2 className="mt-5 text-2xl font-black text-slate-900">Choose a consultation to begin</h2>
+              <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">
+                Select a patient from the queue to open the note-taking workspace, review vitals,
+                update family history, and save the care plan.
+              </p>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {isLoading ? <p className="text-sm text-slate-500">Loading consultation notes...</p> : null}
+    </div>
+  );
+}
+
+function findPatientRecord(patients: PatientRecordItem[], appointment: AppointmentRecord) {
+  return patients.find((patient) => patient.email === appointment.email)
+    ?? patients.find(
+      (patient) =>
+        patient.fullName === appointment.patientName
+        && (patient.phone === appointment.phone || !patient.phone || !appointment.phone),
+    )
+    ?? null;
+}
+
+function PatientConsultationLobby({
+  appointments,
+  notes,
+  isLoading,
+  error,
+}: {
+  appointments: AppointmentRecord[];
+  notes: Awaited<ReturnType<typeof useConsultationNotes>>["data"];
+  isLoading: boolean;
+  error: string | null;
+}) {
+  const [activeAppointmentId, setActiveAppointmentId] = useState<string | null>(null);
+
+  const eligible = useMemo(
+    () =>
+      appointments
+        .filter(
+          (appointment) =>
+            appointment.type === "Online"
+            && ["Confirmed", "In Progress", "Completed"].includes(appointment.status),
+        )
+        .sort((left, right) => `${left.date} ${left.start}`.localeCompare(`${right.date} ${right.start}`)),
+    [appointments],
+  );
+
+  const activeAppointment = eligible.find((appointment) => appointment.id === activeAppointmentId) ?? null;
+  const activeNote = activeAppointment
+    ? notes.find((note) => note.appointmentId === activeAppointment.id) ?? null
+    : null;
+
+  return (
+    <div className="space-y-6 pb-8">
+      <section className="overflow-hidden rounded-[2.25rem] border border-emerald-100 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.14),transparent_28%),linear-gradient(135deg,#f8fffb_0%,#ffffff_56%,#ecfeff_100%)] p-6 shadow-[0_24px_60px_rgba(16,185,129,0.10)] animate-fade-in-down">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">
+              Consultations
+            </p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              Join online consultations and review your visit notes
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Open your meeting link, check the consultation details, and keep your visit history in one place.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Shortcut href="/consultations/history" label="History" />
+            <Shortcut href="/appointments/my" label="Appointments" />
           </div>
         </div>
+      </section>
 
+      {error ? <Banner tone="error">{error}</Banner> : null}
+
+      <div className="grid gap-4 lg:grid-cols-2 lg:h-[calc(100vh-24rem)]">
+        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-1 flex flex-col overflow-hidden">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Available Sessions
+              </p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">Online appointments ready for you</h2>
+            </div>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+              {eligible.length} total
+            </span>
+          </div>
+
+          <div className="mt-5 flex-1 overflow-hidden flex flex-col">
+            {eligible.length === 0 ? (
+              <EmptyQueue message="No online sessions found yet." />
+            ) : (
+              <div className="overflow-y-auto space-y-3 pr-2 flex-1">
+                {eligible.map((appointment, index) => {
+                  const doctor = getDoctorById(appointment.doctorId);
+                  const note = notes.find((item) => item.appointmentId === appointment.id);
+                  const isActive = activeAppointmentId === appointment.id;
+
+                  return (
+                    <article
+                      key={appointment.id}
+                      className={`rounded-[1.5rem] border p-4 transition-all animate-slide-in-left stagger-${Math.min(index + 1, 6)} ${
+                        isActive
+                          ? "border-emerald-400 bg-emerald-50/70 ring-2 ring-emerald-200"
+                          : "border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/40"
+                      }`}
+                    >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-base font-bold text-slate-900">{appointment.patientName}</p>
+                          <QueueFlag label={appointment.status} tone={appointment.status === "In Progress" ? "amber" : "emerald"} />
+                        </div>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {doctor?.name ?? "Assigned doctor"} • {formatDisplayDate(appointment.date)}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {formatRange(appointment.start, appointment.end)}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge tone="sky">Online</Badge>
+                        <Badge tone={statusTone(note?.status ?? appointment.status)}>
+                          {note?.status ?? appointment.status}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {appointment.reason ? (
+                      <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                        {appointment.reason}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {appointment.meetingLink ? (
+                        <a
+                          href={appointment.meetingLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#0284c7,#0ea5e9)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(14,165,233,0.22)] transition hover:-translate-y-0.5"
+                        >
+                          <FaVideo className="h-3.5 w-3.5" aria-hidden="true" />
+                          Join Consultation
+                        </a>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => setActiveAppointmentId(isActive ? null : appointment.id)}
+                        className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50"
+                      >
+                        Details
+                      </button>
+                    </div>
+                  </article>
+                );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-2 flex flex-col overflow-hidden">
+          {activeAppointment ? (
+            <div className="space-y-5 overflow-y-auto flex-1">
+              <div className="flex flex-col gap-4 rounded-[1.5rem] border border-emerald-100 bg-[linear-gradient(135deg,#f8fffb_0%,#ffffff_100%)] p-5 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone="sky">Online</Badge>
+                    <Badge tone={statusTone(activeNote?.status ?? activeAppointment.status)}>
+                      {activeNote?.status ?? activeAppointment.status}
+                    </Badge>
+                  </div>
+                  <h2 className="mt-3 text-2xl font-black text-slate-900">
+                    {activeAppointment.patientName}
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-600">
+                    {getDoctorById(activeAppointment.doctorId)?.name ?? "Assigned doctor"} • {formatDisplayDate(activeAppointment.date)} • {formatRange(activeAppointment.start, activeAppointment.end)}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    {activeAppointment.reason || "No consultation reason recorded."}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {activeAppointment.meetingLink ? (
+                    <a
+                      href={activeAppointment.meetingLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700"
+                    >
+                      <FaArrowUpRightFromSquare className="h-3.5 w-3.5" aria-hidden="true" />
+                      Open Meeting
+                    </a>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setActiveAppointmentId(null)}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              {activeNote ? (
+                <div className="rounded-[1.5rem] border border-emerald-100 bg-white p-4">
+                  <p className="text-sm font-semibold text-slate-900">Consultation Notes</p>
+                  <p className="mt-2 text-sm text-slate-600">{activeNote.note}</p>
+                  <p className="mt-4 text-sm font-semibold text-slate-900">Prescription / Plan</p>
+                  <p className="mt-2 text-sm text-slate-600">{activeNote.prescription || "No prescription recorded."}</p>
+                  <p className="mt-3 text-xs text-slate-500">
+                    Updated {new Date(activeNote.updatedAt).toLocaleString("en-US")}
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-[1.5rem] border border-dashed border-slate-200 px-6 py-10 text-center text-sm text-slate-500">
+                  No consultation notes saved for this visit yet.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex min-h-[460px] flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-emerald-200 bg-[linear-gradient(135deg,#f8fffb_0%,#ffffff_100%)] p-8 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600">
+                <FaFileWaveform className="h-7 w-7" aria-hidden="true" />
+              </div>
+              <h2 className="mt-5 text-2xl font-black text-slate-900">Choose a consultation to begin</h2>
+              <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">
+                Select an appointment to open the meeting link and review the consultation notes.
+              </p>
+            </div>
+          )}
+        </section>
       </div>
+
       {isLoading ? <p className="text-sm text-slate-500">Loading consultation notes...</p> : null}
+    </div>
+  );
+}
+
+function statusTone(
+  status: ConsultationProgress | AppointmentRecord["status"],
+): "sky" | "emerald" | "amber" {
+  if (status === "Completed") return "emerald";
+  if (status === "In Progress") return "amber";
+  return "sky";
+}
+
+function EmptyQueue({ message = "No consultations ready yet." }: { message?: string }) {
+  return (
+    <div className="rounded-[1.5rem] border border-dashed border-slate-200 px-6 py-10 text-center">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+        <FaNotesMedical className="h-5 w-5 text-slate-400" aria-hidden="true" />
+      </div>
+      <p className="mt-3 text-sm text-slate-500">{message}</p>
     </div>
   );
 }
@@ -311,27 +813,26 @@ function Metric({
   label,
   value,
   tone,
+  icon,
 }: {
   label: string;
   value: string;
-  tone: "sky" | "emerald" | "slate";
+  tone: "sky" | "emerald" | "amber";
+  icon: ReactNode;
 }) {
   const styles = {
-    sky: "text-sky-600",
-    emerald: "text-emerald-600",
-    slate: "text-slate-900",
-  };
-  const accent = {
-    sky: "bg-sky-500",
-    emerald: "bg-emerald-500",
-    slate: "bg-slate-400",
-  };
+    sky: "bg-sky-50 text-sky-700 border-sky-100",
+    emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    amber: "bg-amber-50 text-amber-700 border-amber-100",
+  } as const;
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover-lift">
-      <div className={`absolute -top-4 -right-4 h-16 w-16 rounded-full opacity-10 ${accent[tone]}`} />
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-      <p className={`mt-2 text-3xl font-bold ${styles[tone]}`}>{value}</p>
+    <div className="relative overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm hover-lift">
+      <div className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${styles[tone]}`}>
+        {icon}
+      </div>
+      <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-black text-slate-900">{value}</p>
     </div>
   );
 }
@@ -340,16 +841,67 @@ function Badge({
   children,
   tone,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   tone: "sky" | "emerald" | "amber";
 }) {
   const styles = {
     sky: "bg-sky-100 text-sky-700",
     emerald: "bg-emerald-100 text-emerald-700",
     amber: "bg-amber-100 text-amber-700",
-  };
+  } as const;
 
   return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${styles[tone]}`}>{children}</span>;
+}
+
+function QueueFlag({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "emerald" | "amber";
+}) {
+  const styles = {
+    emerald: "bg-emerald-100 text-emerald-700",
+    amber: "bg-amber-100 text-amber-700",
+  } as const;
+  return <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] ${styles[tone]}`}>{label}</span>;
+}
+
+function SummaryCard({
+  icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4">
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-emerald-700 shadow-sm">
+        {icon}
+      </span>
+      <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-2 text-sm font-bold text-slate-900">{value}</p>
+      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+    </div>
+  );
+}
+
+function Banner({
+  children,
+  tone,
+}: {
+  children: ReactNode;
+  tone: "info" | "error";
+}) {
+  const styles = {
+    info: "border-slate-200 bg-slate-50 text-slate-700",
+    error: "border-red-200 bg-red-50 text-red-700",
+  } as const;
+  return <div className={`rounded-2xl border px-4 py-3 text-sm ${styles[tone]}`}>{children}</div>;
 }
 
 function Shortcut({ href, label }: { href: string; label: string }) {

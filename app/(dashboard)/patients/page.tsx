@@ -9,28 +9,15 @@ import type { PatientRecordItem } from "@/src/lib/clinic";
 import { GENDER_OPTIONS, validatePatientRegistrationFields } from "@/src/lib/patient-registration";
 
 type PatientDraft = PatientRecordItem;
-type NewPatientForm = Omit<PatientRecordItem, "id" | "status">;
 type PatientFilter = "all" | "registered" | "walk-in";
 type StatusFilter = "all" | "Active" | "Inactive";
-
-const EMPTY_NEW_PATIENT: NewPatientForm = {
-  fullName: "",
-  email: "",
-  phone: "",
-  dateOfBirth: "",
-  gender: "",
-  address: "",
-  isWalkIn: false,
-};
 
 export default function PatientsPage() {
   const { accessToken, role } = useRole();
   const { data: patients, setData: setPatients, isLoading, error } = usePatients();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isMutating, startTransition] = useTransition();
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [newPatient, setNewPatient] = useState<NewPatientForm>(EMPTY_NEW_PATIENT);
   const [draft, setDraft] = useState<PatientDraft | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PatientRecordItem | null>(null);
   const [search, setSearch] = useState("");
@@ -132,68 +119,26 @@ export default function PatientsPage() {
     });
   }
 
-  function submitNewPatient(event: React.FormEvent) {
-    event.preventDefault();
-    if (!accessToken) {
-      setFeedback("Your session expired. Please sign in again.");
-      return;
-    }
-
-    const validationError = validatePatientRegistrationFields(newPatient);
-    if (validationError) {
-      setFeedback(validationError);
-      return;
-    }
-
-    startTransition(async () => {
-      const response = await fetch("/api/patients", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(newPatient),
-      });
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { message?: string } | null;
-        setFeedback(body?.message ?? "Unable to add patient.");
-        return;
-      }
-
-      const payload = (await response.json()) as { data: PatientRecordItem[] };
-      setPatients(payload.data);
-      setNewPatient(EMPTY_NEW_PATIENT);
-      setShowAddModal(false);
-      setFeedback(newPatient.isWalkIn ? "Walk-in patient added successfully." : "Patient added successfully.");
-    });
-  }
-
   return (
     <div className="space-y-6 pb-8">
-      <section className="overflow-hidden rounded-[2.25rem] border border-emerald-100 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.22),_transparent_34%),linear-gradient(135deg,_#f8fffb,_#effcf3_52%,_#dcfce7)] p-6 shadow-[0_28px_70px_rgba(16,185,129,0.12)]">
+      <section className="overflow-hidden rounded-[2.5rem] border border-emerald-100 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.24),_transparent_34%),linear-gradient(135deg,_#f8fffb,_#effcf3_48%,_#dcfce7)] p-6 shadow-[0_30px_80px_rgba(16,185,129,0.14)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">Patient Management</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900">Manage registered and walk-in patients</h1>
-            <p className="mt-3 text-sm leading-6 text-slate-600">Search, update, and organize patient records in one place.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">Front Desk Patients</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900">Manage patient records and send walk-ins straight to intake</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
+              Keep patient records clean here, then use the walk-in intake flow to assign an arrival to an available clinic slot and queue number.
+            </p>
           </div>
 
           {canManage ? (
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/patients/add"
-                className="rounded-full border border-emerald-200 bg-white px-5 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
-              >
-                Walk-In Intake
-              </Link>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(true)}
                 className="rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_28px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(16,185,129,0.28)]"
               >
-                Add Patient
-              </button>
+                Add Walk-In Patient
+              </Link>
             </div>
           ) : null}
         </div>
@@ -285,7 +230,7 @@ export default function PatientsPage() {
               {filteredPatients.length === 0 && !isLoading ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-10 text-center text-slate-400">
-                    No patients matched the current search and filters.
+                    No patient records matched the current search and filters.
                   </td>
                 </tr>
               ) : null}
@@ -306,7 +251,17 @@ export default function PatientsPage() {
                       {patient.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{patient.isWalkIn ? "Walk-in" : "Registered"}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        patient.isWalkIn
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-sky-100 text-sky-800"
+                      }`}
+                    >
+                      {patient.isWalkIn ? "Walk-in" : "Registered"}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     {canManage ? (
                       <div className="flex gap-2">
@@ -337,22 +292,6 @@ export default function PatientsPage() {
       </div>
 
       {isLoading ? <p className="text-sm text-slate-500">Loading patient records...</p> : null}
-
-      {showAddModal ? (
-        <PatientFormModal
-          title="Add New Patient"
-          confirmLabel={isMutating ? "Saving..." : "Save Patient"}
-          patient={newPatient}
-          maxBirthDate={maxBirthDate}
-          onClose={() => {
-            setShowAddModal(false);
-            setNewPatient(EMPTY_NEW_PATIENT);
-          }}
-          onChange={(field, value) => setNewPatient((current) => ({ ...current, [field]: value }))}
-          onSubmit={submitNewPatient}
-          isMutating={isMutating}
-        />
-      ) : null}
 
       {showEditModal && draft ? (
         <PatientFormModal
@@ -418,7 +357,7 @@ function MetricCard({ label, value }: { label: string; value: number }) {
 type PatientFormModalProps = {
   title: string;
   confirmLabel: string;
-  patient: NewPatientForm | PatientDraft;
+  patient: PatientDraft;
   maxBirthDate: string;
   onClose: () => void;
   onChange: (field: keyof PatientDraft, value: string | boolean) => void;
@@ -528,27 +467,37 @@ function PatientFormModal({
             )}
           </div>
 
-          <Field label="Address">
-            <input
-              type="text"
-              value={patient.address}
-              onChange={(event) => onChange("address", event.target.value)}
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Address">
+              <input
+                type="text"
+                value={patient.address}
+                onChange={(event) => onChange("address", event.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-teal-400"
+                required
+              />
+            </Field>
+            <Field label="Patient Type">
+              <select
+                value={patient.isWalkIn ? "walk-in" : "registered"}
+                onChange={(event) => onChange("isWalkIn", event.target.value === "walk-in")}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-teal-400"
+              >
+                <option value="registered">Registered</option>
+                <option value="walk-in">Walk-in</option>
+              </select>
+            </Field>
+          </div>
+
+          <Field label="Family History">
+            <textarea
+              value={patient.familyHistory}
+              onChange={(event) => onChange("familyHistory", event.target.value)}
+              rows={4}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-teal-400"
-              required
+              placeholder="Hypertension, diabetes, stroke, cancer, asthma, or other relevant family conditions"
             />
           </Field>
-
-          {!showStatus ? (
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={patient.isWalkIn}
-                onChange={(event) => onChange("isWalkIn", event.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-400"
-              />
-              Walk-in Patient
-            </label>
-          ) : null}
 
           <div className="flex justify-end gap-3 pt-2">
             <button

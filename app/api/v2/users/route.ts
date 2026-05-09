@@ -3,6 +3,9 @@ import { HttpError, httpError, ok, requireRole } from "@/src/lib/http";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 import type { DbRole, Profile } from "@/src/lib/db/types";
 
+const CANONICAL_DOCTOR_SLUG = "chiara-punzalan";
+const CANONICAL_DOCTOR_SPECIALTY = "General Medicine";
+
 type CreateUserBody = {
   email: string;
   full_name: string;
@@ -94,10 +97,21 @@ export async function POST(req: Request) {
     if (profileError) throw profileError;
 
     if (body.role === "doctor") {
+      const { data: existingDoctor, error: existingDoctorError } = await supabase
+        .from("doctors")
+        .select("id")
+        .limit(1)
+        .maybeSingle<{ id: string }>();
+      if (existingDoctorError) throw existingDoctorError;
+      if (existingDoctor) {
+        throw new HttpError(400, "This clinic is configured for a single doctor only.");
+      }
+
       const doctorPayload = body.doctor;
       const { error: doctorError } = await supabase.from("doctors").insert({
         id: created.user.id,
-        specialty: doctorPayload?.specialty?.trim() || "General Doctor",
+        slug: CANONICAL_DOCTOR_SLUG,
+        specialty: doctorPayload?.specialty?.trim() || CANONICAL_DOCTOR_SPECIALTY,
         // doctors.license_no is unique + non-null in schema, so fallback must be unique.
         license_no: doctorPayload?.license_no?.trim() || `AUTO-${created.user.id}`,
         consultation_fee_clinic: doctorPayload?.consultation_fee_clinic ?? 0,

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useEffect, useMemo, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
+import { type ReactNode, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   FaCalendarDay,
   FaCalendarCheck,
@@ -39,6 +40,7 @@ import { SharedSlotPicker } from "@/src/components/appointments/SharedSlotPicker
 import { useAppointmentAvailability } from "@/src/components/appointments/useAppointmentAvailability";
 import { useAppointments } from "@/src/components/appointments/useAppointments";
 import { useDoctors } from "@/src/components/appointments/useDoctors";
+import { usePatients } from "@/src/components/clinic/useClinicData";
 import { VitalSignsForm } from "@/src/components/clinic/VitalSignsForm";
 import { useRole } from "@/src/components/layout/RoleProvider";
 import {
@@ -50,6 +52,7 @@ import {
   type AppointmentStatus,
   type AppointmentType,
 } from "@/src/lib/appointments";
+import type { PatientRecordItem } from "@/src/lib/clinic";
 import { getClinicToday } from "@/src/lib/timezone";
 
 const today = getClinicToday();
@@ -61,6 +64,7 @@ type TypeFilter = "all" | AppointmentType;
 
 export default function AppointmentListPage() {
   const { accessToken, role } = useRole();
+  const searchParams = useSearchParams();
   const { doctors } = useDoctors();
   const { appointments, setAppointments, isLoading, error } = useAppointments();
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -75,6 +79,8 @@ export default function AppointmentListPage() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   // Two-step cancel: clicking Cancel arms confirmation, second click commits.
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const highlightedAppointmentId = searchParams.get("appointment");
+  const highlightedRef = useRef<HTMLElement | null>(null);
   // Vitals modal: holds the appointment id whose vitals are being edited.
   // null = closed. Used by the secretary at check-in (and the doctor too,
   // though the doctor more often edits via the consultation page).
@@ -145,6 +151,21 @@ export default function AppointmentListPage() {
     const sortDir = timeframe === "past" ? -1 : 1;
     return [...map.entries()].sort(([a], [b]) => sortDir * a.localeCompare(b));
   }, [filteredAppointments, timeframe]);
+
+  useEffect(() => {
+    if (!highlightedAppointmentId) return;
+    const match = appointments.find((appointment) => appointment.id === highlightedAppointmentId);
+    if (!match) return;
+    setTimeframe("all");
+    setSearchQuery("");
+    setStatusFilter("all");
+    setTypeFilter("all");
+  }, [appointments, highlightedAppointmentId]);
+
+  useEffect(() => {
+    if (!highlightedAppointmentId || !highlightedRef.current) return;
+    highlightedRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [grouped.length, highlightedAppointmentId, timeframe]);
 
   const activeDraftDoctorId = primaryDoctor?.slug ?? draft?.doctorId ?? DEFAULT_DOCTOR_ID;
   const activeDraftDate = draft?.date ?? today;
@@ -593,12 +614,16 @@ export default function AppointmentListPage() {
                     ?? (appointment.doctorId ? getDoctorById(appointment.doctorId) : null);
                   const isEditing = editingId === appointment.id && draft !== null;
                   const isConfirmingDelete = confirmingDeleteId === appointment.id;
+                  const isHighlighted = appointment.id === highlightedAppointmentId;
 
                   return (
                     <article
                       key={appointment.id}
+                      ref={isHighlighted ? highlightedRef : null}
                       className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-200 ${
-                        isEditing
+                        isHighlighted
+                          ? "border-emerald-400 shadow-[0_18px_36px_rgba(16,185,129,0.16)] ring-2 ring-emerald-300"
+                          : isEditing
                           ? "border-emerald-400 shadow-[0_18px_36px_rgba(16,185,129,0.16)] ring-2 ring-emerald-200"
                           : "border-slate-200 hover:border-emerald-200 hover:shadow-md"
                       }`}
@@ -696,7 +721,7 @@ export default function AppointmentListPage() {
                                   className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50"
                                 >
                                   <FaHeartPulse className="h-3 w-3" aria-hidden="true" />
-                                  Vitals
+                                  Vitals & History
                                 </button>
                               ) : null}
                               {/* Start Consultation: Clinic visits need CheckedIn first;
@@ -811,7 +836,7 @@ export default function AppointmentListPage() {
                               <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
                                 <FormField label="Doctor">
                                   <div className={`${INPUT_CLASS} bg-emerald-50/60 font-semibold`}>
-                                    {primaryDoctor?.name ?? getDoctorById(DEFAULT_DOCTOR_ID)?.name ?? "Dra. Chiara C. Punzalan M.D."}
+                                    {primaryDoctor?.name ?? getDoctorById(DEFAULT_DOCTOR_ID)?.name ?? "Assigned doctor"}
                                   </div>
                                 </FormField>
                                 <FormField label="Visit Type">
@@ -929,6 +954,8 @@ export default function AppointmentListPage() {
         <VitalsModal
           appointmentId={vitalsApptId}
           patientName={appointments.find((a) => a.id === vitalsApptId)?.patientName ?? ""}
+          patientEmail={appointments.find((a) => a.id === vitalsApptId)?.email ?? ""}
+          patientPhone={appointments.find((a) => a.id === vitalsApptId)?.phone ?? ""}
           onClose={() => setVitalsApptId(null)}
         />
       ) : null}
@@ -939,15 +966,81 @@ export default function AppointmentListPage() {
 function VitalsModal({
   appointmentId,
   patientName,
+  patientEmail,
+  patientPhone,
   onClose,
 }: {
   appointmentId: string;
   patientName: string;
+  patientEmail: string;
+  patientPhone: string;
   onClose: () => void;
 }) {
   // Esc closes the modal — small but expected affordance for keyboard users
   // (front-desk staff are usually keyboard-heavy).
+  const { accessToken } = useRole();
+  const { data: patients, setData: setPatients } = usePatients();
+  const [familyHistoryDraft, setFamilyHistoryDraft] = useState("");
+  const [familyFeedback, setFamilyFeedback] = useState<string | null>(null);
+  const [isSavingFamilyHistory, startSavingFamilyHistory] = useTransition();
   useEffectEsc(onClose);
+  const patientRecord =
+    patients.find((patient) => patient.email === patientEmail)
+    ?? patients.find(
+      (patient) =>
+        patient.fullName === patientName
+        && (patient.phone === patientPhone || !patient.phone || !patientPhone),
+    )
+    ?? null;
+
+  useEffect(() => {
+    setFamilyHistoryDraft(patientRecord?.familyHistory ?? "");
+    setFamilyFeedback(null);
+  }, [patientRecord?.id, patientRecord?.familyHistory]);
+
+  function saveFamilyHistory() {
+    if (!accessToken) {
+      setFamilyFeedback("Your session expired. Please sign in again.");
+      return;
+    }
+    if (!patientRecord) {
+      setFamilyFeedback("No matching patient record was found for this appointment.");
+      return;
+    }
+
+    startSavingFamilyHistory(async () => {
+      const response = await fetch("/api/patient-records", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          patientId: patientRecord.id,
+          familyHistory: familyHistoryDraft,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as { message?: string } | { ok: true } | null;
+      if (!response.ok) {
+        const message =
+          payload && "message" in payload && typeof payload.message === "string"
+            ? payload.message
+            : "Unable to save family history.";
+        setFamilyFeedback(message);
+        return;
+      }
+      setPatients((current) =>
+        current.map((patient) =>
+          patient.id === patientRecord.id
+            ? { ...patient, familyHistory: familyHistoryDraft.trim() }
+            : patient,
+        ),
+      );
+      setFamilyFeedback("Family history saved.");
+    });
+  }
+
+  const familyHistoryDirty = familyHistoryDraft !== (patientRecord?.familyHistory ?? "");
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-6 backdrop-blur-sm"
@@ -959,8 +1052,8 @@ function VitalsModal({
       >
         <div className="flex items-center justify-between border-b border-emerald-100 bg-emerald-50/60 px-5 py-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Patient Check-in</p>
-            <h3 className="text-base font-bold text-slate-900">{patientName || "Vital Signs"}</h3>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Clinic Intake</p>
+            <h3 className="text-base font-bold text-slate-900">{patientName || "Vitals & History"}</h3>
           </div>
           <button
             type="button"
@@ -970,8 +1063,44 @@ function VitalsModal({
             Close
           </button>
         </div>
-        <div className="p-4">
+        <div className="space-y-4 p-4">
           <VitalSignsForm appointmentId={appointmentId} onSaved={() => undefined} />
+          <section className="rounded-xl border border-emerald-100 bg-white p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Family History</h4>
+                <p className="text-xs text-slate-500">Shared patient history for clinic visits.</p>
+              </div>
+              <button
+                type="button"
+                onClick={saveFamilyHistory}
+                disabled={isSavingFamilyHistory || !patientRecord || !familyHistoryDirty}
+                className="rounded-full border border-emerald-200 bg-white px-4 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSavingFamilyHistory ? "Saving..." : "Save Family History"}
+              </button>
+            </div>
+            <textarea
+              value={familyHistoryDraft}
+              onChange={(e) => {
+                setFamilyHistoryDraft(e.target.value);
+                setFamilyFeedback(null);
+              }}
+              rows={4}
+              placeholder="Hypertension, diabetes, stroke, asthma, cancer, or other conditions reported in the family"
+              className="mt-3 w-full rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            />
+            {familyFeedback ? (
+              <p className={`mt-2 text-xs font-semibold ${familyFeedback.includes("saved") ? "text-emerald-700" : "text-red-700"}`}>
+                {familyFeedback}
+              </p>
+            ) : null}
+            {!patientRecord ? (
+              <p className="mt-2 text-xs text-amber-700">
+                This appointment did not match a patient record, so family history cannot be saved here yet.
+              </p>
+            ) : null}
+          </section>
         </div>
       </div>
     </div>

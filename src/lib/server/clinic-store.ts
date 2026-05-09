@@ -135,6 +135,8 @@ type PatientJoinRow = {
   dob: string | null;
   gender: string | null;
   address: string | null;
+  family_history: string | null;
+  is_walk_in: boolean | null;
   profiles: {
     full_name: string;
     email: string;
@@ -153,7 +155,8 @@ function mapPatientRow(row: PatientJoinRow): PatientRecordItem {
     dateOfBirth: row.dob ?? "",
     gender: row.gender ?? "",
     address: row.address ?? "",
-    isWalkIn: false,
+    familyHistory: row.family_history ?? "",
+    isWalkIn: row.is_walk_in ?? false,
     status: row.profiles?.is_active === false ? "Inactive" : "Active",
   };
 }
@@ -162,7 +165,7 @@ export async function readPatients(): Promise<PatientRecordItem[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("patients")
-    .select("id, dob, gender, address, profiles!inner(full_name, email, phone, is_active, role)")
+    .select("id, dob, gender, address, family_history, is_walk_in, profiles!inner(full_name, email, phone, is_active, role)")
     .eq("profiles.role", "patient")
     .order("id");
   if (error) throw error;
@@ -219,6 +222,8 @@ export async function createPatient(
       dob: normalized.dateOfBirth || null,
       gender: normalized.gender || null,
       address: normalized.address || null,
+      family_history: payload.familyHistory?.trim() || null,
+      is_walk_in: payload.isWalkIn,
     });
 
   return readPatients();
@@ -245,6 +250,8 @@ export async function updatePatient(
       dob: normalized.dateOfBirth || null,
       gender: normalized.gender || null,
       address: normalized.address || null,
+      family_history: updatedPatient.familyHistory.trim() || null,
+      is_walk_in: updatedPatient.isWalkIn,
     })
     .eq("id", updatedPatient.id);
   return readPatients();
@@ -277,6 +284,11 @@ type NoteJoinRow = {
   } | null;
 };
 
+export type ConsultationNotesFilter = {
+  patientId?: string;
+  doctorId?: string;
+};
+
 function deriveLegacyNoteStatus(apptStatus: string): ConsultationNote["status"] {
   if (apptStatus === "Completed") return "Completed";
   if (apptStatus === "InProgress") return "In Progress";
@@ -296,9 +308,11 @@ async function mapNoteRow(row: NoteJoinRow, slugsById: Map<string, string>): Pro
   };
 }
 
-export async function readConsultationNotes(): Promise<ConsultationNote[]> {
+export async function readConsultationNotes(
+  filter: ConsultationNotesFilter = {},
+): Promise<ConsultationNote[]> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  let query = supabase
     .from("consultation_notes")
     .select(`
       id, appointment_id, doctor_id, chief_complaint, diagnosis, prescription, notes, updated_at,
@@ -309,6 +323,15 @@ export async function readConsultationNotes(): Promise<ConsultationNote[]> {
       )
     `)
     .order("updated_at", { ascending: false });
+
+  if (filter.doctorId) {
+    query = query.eq("doctor_id", filter.doctorId);
+  }
+  if (filter.patientId) {
+    query = query.eq("appointments.patient_id", filter.patientId);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
 
   const rows = (data ?? []) as unknown as NoteJoinRow[];

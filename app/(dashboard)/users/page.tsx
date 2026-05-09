@@ -1305,11 +1305,19 @@ export default function UsersPage() {
                   className={INPUT_CLASS}
                 >
                   <option value="secretary">Secretary / Admin Staff</option>
-                  <option value="doctor">Doctor</option>
+                  <option value="doctor" disabled={doctorUsers > 0}>
+                    Doctor{doctorUsers > 0 ? " (already assigned)" : ""}
+                  </option>
                   <option value="super_admin">Super Admin</option>
                 </select>
               </Field>
             </div>
+
+            {doctorUsers > 0 ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                This clinic is configured for one doctor only: Dra. Chiara C. Punzalan M.D.
+              </p>
+            ) : null}
 
             <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
               The new user will receive a temporary password to share securely. Patient accounts self-register from the public site.
@@ -1370,7 +1378,9 @@ export default function UsersPage() {
                 className={INPUT_CLASS}
               >
                 <option value="super_admin">Super Admin</option>
-                <option value="doctor">Doctor</option>
+                <option value="doctor" disabled={doctorUsers > 0 && editingUser.role !== "doctor"}>
+                  Doctor{doctorUsers > 0 && editingUser.role !== "doctor" ? " (already assigned)" : ""}
+                </option>
                 <option value="secretary">Secretary / Admin Staff</option>
                 <option value="patient">Patient</option>
                 <option value="admin">Admin (legacy)</option>

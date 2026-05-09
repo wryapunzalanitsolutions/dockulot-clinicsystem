@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { useDoctors } from "@/src/components/appointments/useDoctors";
 import { useAppointments } from "@/src/components/appointments/useAppointments";
 import { useDoctorUnavailability } from "@/src/components/clinic/useClinicData";
 import { useRole } from "@/src/components/layout/RoleProvider";
 import {
   buildBlockedDayLookup,
-  DOCTORS,
   formatDisplayDate,
   formatRange,
   getSlotStatuses,
@@ -16,14 +16,12 @@ import {
 import type { AvailabilityReason } from "@/src/lib/clinic";
 
 type BlockForm = {
-  doctorId: string;
   date: string;
   reason: AvailabilityReason;
   note: string;
 };
 
 const INITIAL_FORM: BlockForm = {
-  doctorId: "chiara-punzalan",
   date: "2026-04-15",
   reason: "Not Available",
   note: "",
@@ -31,6 +29,7 @@ const INITIAL_FORM: BlockForm = {
 
 export default function TimeSlotsPage() {
   const { accessToken, role } = useRole();
+  const { doctors } = useDoctors();
   const { appointments } = useAppointments();
   const { data: blockedDates, setData: setBlockedDates, isLoading, error } = useDoctorUnavailability();
   const [form, setForm] = useState<BlockForm>(INITIAL_FORM);
@@ -39,14 +38,23 @@ export default function TimeSlotsPage() {
   const [viewType, setViewType] = useState<AppointmentType>("Clinic");
   const [isSaving, startTransition] = useTransition();
 
-  const doctor = DOCTORS.find((item) => item.id === form.doctorId) ?? DOCTORS[0];
-  const blockedLookup = buildBlockedDayLookup(blockedDates, doctor.id);
-  const statuses = getSlotStatuses(doctor.id, form.date, viewType, appointments, blockedLookup);
+  const doctor = doctors[0] ?? null;
+  const doctorId = doctor?.slug ?? doctor?.id ?? "";
+  const blockedLookup = doctor ? buildBlockedDayLookup(blockedDates, doctorId) : {};
+  const statuses = doctor ? getSlotStatuses(doctorId, form.date, viewType, appointments, blockedLookup) : [];
   const doctorBlocks = blockedDates
-    .filter((item) => item.doctorId === doctor.id)
+    .filter((item) => item.doctorId === doctorId)
     .sort((left, right) => left.date.localeCompare(right.date));
   const canManage = role !== "PATIENT";
   const blockedCount = doctorBlocks.length;
+
+  if (!doctor) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-sm">
+        Loading doctor schedule...
+      </div>
+    );
+  }
 
   function updateField<K extends keyof BlockForm>(field: K, value: BlockForm[K]) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -73,7 +81,11 @@ export default function TimeSlotsPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify(editingBlockId ? { id: editingBlockId, ...form } : form),
+        body: JSON.stringify(
+          editingBlockId
+            ? { id: editingBlockId, doctorId: doctor.id, ...form }
+            : { doctorId: doctor.id, ...form },
+        ),
       });
 
       if (!response.ok) {
@@ -96,7 +108,6 @@ export default function TimeSlotsPage() {
   function startEdit(record: (typeof blockedDates)[number]) {
     setEditingBlockId(record.id);
     setForm({
-      doctorId: record.doctorId,
       date: record.date,
       reason: record.reason,
       note: record.note ?? "",
@@ -138,8 +149,8 @@ export default function TimeSlotsPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">Blocked Dates</p>
             <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">Manage leave and blocked dates</h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Use this page to block one-off leave days or blocked dates while keeping live slot
-              visibility for the selected doctor.
+              Use this page to block one-off leave days or unavailable dates for the selected
+              doctor while keeping live slot visibility in view.
             </p>
           </div>
 
@@ -193,18 +204,9 @@ export default function TimeSlotsPage() {
 
           <form className="mt-5 space-y-4" onSubmit={saveBlockedDay}>
             <Field label="Doctor">
-              <select
-                value={form.doctorId}
-                onChange={(event) => updateField("doctorId", event.target.value)}
-                disabled={!canManage || isSaving}
-                className="mt-2 w-full rounded-[1.15rem] border border-emerald-100 bg-white px-4 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50"
-              >
-                {DOCTORS.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-2 rounded-[1.15rem] border border-emerald-100 bg-emerald-50 px-4 py-3 font-semibold text-emerald-900">
+                {doctor.name}
+              </div>
             </Field>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

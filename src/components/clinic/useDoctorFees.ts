@@ -14,10 +14,10 @@ export type DoctorFees = {
 };
 
 /**
- * Reads consultation hourly rates for the currently-active doctor (slug = 'chiara-punzalan').
- * Falls back to the system_settings default if no doctor row is found.
+ * Reads consultation hourly rates for the currently-active doctor.
+ * Falls back to the first active doctor returned by the API when no slug is provided.
  */
-export function useDoctorFees(slug = "chiara-punzalan"): {
+export function useDoctorFees(slug?: string): {
   fees: DoctorFees;
   isLoading: boolean;
 } {
@@ -47,7 +47,7 @@ export function useDoctorFees(slug = "chiara-punzalan"): {
           }>;
         };
         const match =
-          payload.doctors.find((d) => d.slug === slug) ??
+          (slug ? payload.doctors.find((d) => d.slug === slug) : undefined) ??
           payload.doctors[0];
         if (match && active) {
           setFees({

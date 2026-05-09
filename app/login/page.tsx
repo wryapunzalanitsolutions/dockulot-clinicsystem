@@ -9,6 +9,7 @@ import { getSupabaseBrowserClient } from "@/src/lib/supabase/client";
 const MAX_SIGNIN_ATTEMPTS = 5;
 const LOCK_MINUTES = 5;
 const RESET_COOLDOWN_SECONDS = 60;
+const VERIFY_RESEND_COOLDOWN_SECONDS = 60;
 
 function getAuthEmailErrorMessage(message: string) {
   if (/email rate limit exceeded|rate limit/i.test(message)) {
@@ -35,6 +36,7 @@ export default function LoginPage() {
   const [signInAttempts, setSignInAttempts] = useState(0);
   const [lockUntil, setLockUntil] = useState<number | null>(null);
   const [resetCooldownUntil, setResetCooldownUntil] = useState<number | null>(null);
+  const [verifyCooldownUntil, setVerifyCooldownUntil] = useState<number | null>(null);
   const [nowTs, setNowTs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -47,17 +49,60 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    if (!resetCooldownUntil) return;
-    if (resetCooldownUntil <= nowTs) return;
+    const nextExpiry = [resetCooldownUntil, verifyCooldownUntil]
+      .filter((value): value is number => value != null)
+      .find((value) => value > nowTs);
+    if (!nextExpiry) return;
 
     const timer = window.setInterval(() => {
       setNowTs(Date.now());
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [resetCooldownUntil, nowTs]);
+  }, [resetCooldownUntil, verifyCooldownUntil, nowTs]);
 
   const isResetCoolingDown = resetCooldownUntil != null && resetCooldownUntil > nowTs;
+  const isVerifyCoolingDown = verifyCooldownUntil != null && verifyCooldownUntil > nowTs;
+
+  function getNormalizedEmailForVerification() {
+    const candidate = email.trim().toLowerCase();
+    if (!candidate || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate)) {
+      setFeedback("Enter your email address first so we can resend the verification link.");
+      return null;
+    }
+    return candidate;
+  }
+
+  function resendVerificationEmail() {
+    const now = Date.now();
+    if (verifyCooldownUntil && verifyCooldownUntil > now) {
+      const secsLeft = Math.max(1, Math.ceil((verifyCooldownUntil - now) / 1000));
+      setFeedback(`Please wait ${secsLeft} second(s) before requesting another verification email.`);
+      return;
+    }
+
+    const normalizedEmail = getNormalizedEmailForVerification();
+    if (!normalizedEmail) return;
+
+    startTransition(async () => {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: normalizedEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm?next=/login&verified=1`,
+        },
+      });
+
+      if (error) {
+        setFeedback(getAuthEmailErrorMessage(error.message));
+        return;
+      }
+
+      setVerifyCooldownUntil(Date.now() + VERIFY_RESEND_COOLDOWN_SECONDS * 1000);
+      setFeedback("A fresh verification email has been sent. Open the confirmation link before signing in.");
+    });
+  }
 
   function submitReset(event: React.FormEvent) {
     event.preventDefault();
@@ -269,6 +314,17 @@ export default function LoginPage() {
               >
                 {feedback}
               </div>
+            ) : null}
+
+            {feedback && /verify your email/i.test(feedback) ? (
+              <button
+                type="button"
+                onClick={resendVerificationEmail}
+                disabled={isPending || isVerifyCoolingDown}
+                className="w-full rounded-lg border border-emerald-300/50 bg-emerald-500/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-100 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isVerifyCoolingDown ? "Verification Email Sent" : "Resend Verification Email"}
+              </button>
             ) : null}
 
             <button

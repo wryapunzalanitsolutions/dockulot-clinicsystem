@@ -7,8 +7,13 @@ import type { SystemSettings } from "@/src/lib/clinic";
 
 type DoctorOption = {
   id: string;
+  slug?: string;
+  name?: string;
+  full_name?: string;
   specialty: string;
   profiles?: {
+    full_name?: string;
+  } | {
     full_name?: string;
   }[];
 };
@@ -71,6 +76,22 @@ function normalizeTime(value: string) {
 
 function formatMode(mode: ScheduleMode) {
   return mode === "Both" ? "Clinic + Online" : mode;
+}
+
+function formatMinutes(totalMinutes: number) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (!hours) return `${minutes} min`;
+  if (!minutes) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
+
+function doctorDisplayName(doctor: DoctorOption | null) {
+  if (!doctor) return "Doctor";
+  if (doctor.full_name?.trim()) return doctor.full_name.trim();
+  if (doctor.name?.trim()) return doctor.name.trim();
+  if (Array.isArray(doctor.profiles)) return doctor.profiles[0]?.full_name?.trim() || "Doctor";
+  return doctor.profiles?.full_name?.trim() || "Doctor";
 }
 
 export default function SchedulesPage() {
@@ -195,10 +216,19 @@ export default function SchedulesPage() {
   );
 
   const activeScheduleCount = schedules.filter((item) => item.is_active).length;
-  const blockedDayRequirementMet = true;
-  const doctorRequirementMet = schedules.length > 0;
-  const clinicHoursRequirementMet = Boolean(settings.clinicOpenTime && settings.clinicCloseTime);
   const weeklyHoursText = `${settings.clinicOpenTime} - ${settings.clinicCloseTime}`;
+  const selectedDoctorName = doctorDisplayName(selectedDoctor);
+  const selectedDoctorSpecialty = selectedDoctor?.specialty ?? "General Medicine";
+  const totalConfiguredMinutes = schedules
+    .filter((item) => item.is_active)
+    .reduce((sum, item) => {
+      const start = Number(item.start_time.slice(0, 2)) * 60 + Number(item.start_time.slice(3, 5));
+      const end = Number(item.end_time.slice(0, 2)) * 60 + Number(item.end_time.slice(3, 5));
+      return sum + Math.max(end - start, 0);
+    }, 0);
+  const nextFormDayLabel = DAYS[form.day_of_week] ?? "Selected day";
+  const existingDaySchedule = scheduleByDay.get(form.day_of_week) ?? null;
+  const coveragePercent = Math.round((activeScheduleCount / 7) * 100);
 
   function updateField<K extends keyof ScheduleForm>(field: K, value: ScheduleForm[K]) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -353,17 +383,17 @@ export default function SchedulesPage() {
             <SummaryBadge
               label="Active days"
               value={`${activeScheduleCount}/7`}
-              tone={doctorRequirementMet ? "success" : "neutral"}
+              tone={schedules.length > 0 ? "success" : "neutral"}
             />
             <SummaryBadge
               label="Clinic hours"
               value={weeklyHoursText}
-              tone={clinicHoursRequirementMet ? "success" : "neutral"}
+              tone={Boolean(settings.clinicOpenTime && settings.clinicCloseTime) ? "success" : "neutral"}
             />
             <SummaryBadge
               label="Date blocking"
-              value={blockedDayRequirementMet ? "Ready" : "Missing"}
-              tone={blockedDayRequirementMet ? "success" : "neutral"}
+              value="Ready"
+              tone="success"
             />
           </div>
         </div>
@@ -381,39 +411,58 @@ export default function SchedulesPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <section className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Requirement Check</p>
-              <h2 className="mt-2 text-xl font-bold text-slate-900">What the current system already supports</h2>
+      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <section className="rounded-4xl border border-emerald-100 bg-[linear-gradient(135deg,#fbfffd_0%,#f1fbf5_100%)] p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Schedule Snapshot</p>
+              <h2 className="mt-2 text-2xl font-bold text-slate-900">{selectedDoctorName}</h2>
+              <p className="mt-1 text-sm font-medium text-emerald-700">{selectedDoctorSpecialty}</p>
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                Manage recurring weekly hours here, then use blocked dates for leave, holidays, and one-off exceptions.
+              </p>
             </div>
-            {!canManageSchedule ? (
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">View only</span>
-            ) : null}
+            <Link
+              href="/schedules/slots"
+              className="inline-flex rounded-full border border-emerald-200 bg-white px-5 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+            >
+              Manage Blocked Dates
+            </Link>
           </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-2">
-            <RequirementCard
-              title="Add / Edit / Delete schedules"
-              detail="Doctor weekly schedules already support full CRUD from this page."
-              status="met"
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <CompactStat
+              label="Active Days"
+              value={`${activeScheduleCount}/7`}
+              helper={`${coveragePercent}% weekly coverage`}
             />
-            <RequirementCard
-              title="Set working hours"
-              detail="Start time, end time, slot length, and clinic or online mode are already configurable."
-              status="met"
+            <CompactStat
+              label="Configured Hours"
+              value={formatMinutes(totalConfiguredMinutes)}
+              helper="Across active saved days"
             />
-            <RequirementCard
-              title="Block dates"
-              detail="Leave and blocked dates are handled on the dedicated blocking page."
-              status="met"
+            <CompactStat
+              label="Clinic Window"
+              value={weeklyHoursText}
+              helper="Schedules stay inside this range"
             />
-            <RequirementCard
-              title="Adjust clinic hours"
-              detail="Supported in settings already, now surfaced here for easier access."
-              status="improved"
+            <CompactStat
+              label="Next Target"
+              value={nextFormDayLabel}
+              helper={existingDaySchedule ? "Already has a saved schedule" : "Not scheduled yet"}
             />
+          </div>
+
+          <div className="mt-5 rounded-[1.6rem] border border-emerald-100 bg-white px-4 py-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <p className="text-sm font-semibold text-slate-900">Quick flow</p>
+              <p className="text-sm text-slate-600">1. Set clinic hours  2. Save weekly availability  3. Block exceptions when needed</p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-[1.6rem] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+            Booking rule: patients can only book on weekdays that already have an
+            <span className="font-semibold"> active saved schedule</span>. If a day is not configured yet, booking stays closed for that day.
           </div>
         </section>
 
@@ -481,14 +530,30 @@ export default function SchedulesPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Editor</p>
-              <h2 className="mt-2 text-xl font-bold text-slate-900">Weekly working schedule</h2>
+              <h2 className="mt-2 text-xl font-bold text-slate-900">Weekly availability setup</h2>
               <p className="mt-2 text-sm text-slate-600">
-                Create or update the recurring hours for each doctor.
+                Create or update the recurring hours that open booking for each weekday.
               </p>
             </div>
             {!canManageSchedule ? (
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">View only</span>
             ) : null}
+          </div>
+
+          <div className="mt-5 rounded-[1.6rem] border border-emerald-100 bg-[linear-gradient(135deg,#f8fffb_0%,#effcf3_100%)] p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Editing {nextFormDayLabel}</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  {existingDaySchedule
+                    ? `Existing schedule: ${normalizeTime(existingDaySchedule.start_time)} - ${normalizeTime(existingDaySchedule.end_time)}`
+                    : "No schedule is saved for this weekday yet, so patients cannot book it."}
+                </p>
+              </div>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-700 shadow-sm">
+                {editingId ? "Editing saved availability" : "Creating or replacing this weekday"}
+              </span>
+            </div>
           </div>
 
           <form className="mt-6 space-y-5" onSubmit={saveSchedule}>
@@ -501,7 +566,7 @@ export default function SchedulesPage() {
               >
                 {doctors.map((doctor) => (
                   <option key={doctor.id} value={doctor.id}>
-                    {(doctor.profiles?.[0]?.full_name ?? "Assigned doctor")} - {doctor.specialty}
+                    {doctorDisplayName(doctor)} - {doctor.specialty}
                   </option>
                 ))}
               </select>
@@ -619,12 +684,33 @@ export default function SchedulesPage() {
           <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Coverage Board</p>
-                <h2 className="mt-2 text-xl font-bold text-slate-900">
-                  {selectedDoctor?.profiles?.[0]?.full_name ?? "Doctor"} weekly coverage
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Coverage Board</p>
+              <h2 className="mt-2 text-xl font-bold text-slate-900">
+                  {selectedDoctorName} weekly availability
                 </h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Active days are open for booking. Off or inactive days stay unavailable until configured.
+                </p>
               </div>
               {scheduleLoading ? <span className="text-sm text-slate-500">Refreshing...</span> : null}
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <StateLegend
+                tone="active"
+                title="Active"
+                detail="Patients can book inside the saved hours for this weekday."
+              />
+              <StateLegend
+                tone="inactive"
+                title="Inactive"
+                detail="A schedule exists, but booking is turned off for this weekday."
+              />
+              <StateLegend
+                tone="off"
+                title="Not Configured"
+                detail="No saved weekday schedule yet, so booking stays closed."
+              />
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -633,7 +719,13 @@ export default function SchedulesPage() {
                 return (
                   <div
                     key={day}
-                    className="rounded-3xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4"
+                    className={`rounded-3xl border p-4 transition ${
+                      schedule?.is_active
+                        ? "border-emerald-200 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] shadow-[0_10px_24px_rgba(16,185,129,0.08)]"
+                        : schedule
+                          ? "border-amber-200 bg-[linear-gradient(180deg,#fffdf7_0%,#fffbeb_100%)]"
+                          : "border-slate-200 bg-slate-50/85"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -648,7 +740,7 @@ export default function SchedulesPage() {
                             </p>
                           </>
                         ) : (
-                          <p className="mt-2 text-sm text-slate-500">No schedule saved.</p>
+                          <p className="mt-2 text-sm text-slate-500">Not configured for booking yet.</p>
                         )}
                       </div>
                       <span
@@ -680,6 +772,12 @@ export default function SchedulesPage() {
                         >
                           Delete
                         </button>
+                      </div>
+                    ) : null}
+
+                    {!schedule ? (
+                      <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white/80 px-3 py-2 text-xs font-medium text-slate-500">
+                        Patients cannot book this day until a schedule is saved
                       </div>
                     ) : null}
                   </div>
@@ -740,30 +838,44 @@ function SummaryBadge({
   );
 }
 
-function RequirementCard({
-  title,
-  detail,
-  status,
+function CompactStat({
+  label,
+  value,
+  helper,
 }: {
-  title: string;
-  detail: string;
-  status: "met" | "improved";
+  label: string;
+  value: string;
+  helper: string;
 }) {
   return (
-    <div className="rounded-3xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-bold text-slate-900">{title}</p>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            status === "met"
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-lime-100 text-lime-700"
-          }`}
-        >
-          {status === "met" ? "Met" : "Improved"}
-        </span>
-      </div>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{detail}</p>
+    <div className="rounded-[1.4rem] border border-emerald-100 bg-white px-4 py-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-3 text-xl font-bold text-slate-900">{value}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{helper}</p>
+    </div>
+  );
+}
+
+function StateLegend({
+  tone,
+  title,
+  detail,
+}: {
+  tone: "active" | "inactive" | "off";
+  title: string;
+  detail: string;
+}) {
+  const styles =
+    tone === "active"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+      : tone === "inactive"
+        ? "border-amber-200 bg-amber-50 text-amber-900"
+        : "border-slate-200 bg-slate-50 text-slate-800";
+
+  return (
+    <div className={`rounded-[1.25rem] border px-4 py-3 ${styles}`}>
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="mt-1 text-xs leading-5">{detail}</p>
     </div>
   );
 }

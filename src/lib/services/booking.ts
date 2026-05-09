@@ -7,7 +7,11 @@ import {
   getUnavailabilityForDate,
 } from "@/src/lib/services/schedule";
 import { findNextAvailableSharedSlot } from "@/src/lib/services/appointment-availability";
-import { enqueueNotification } from "@/src/lib/services/notification";
+import {
+  enqueueAppointmentTeamNotifications,
+  enqueueNotification,
+  enqueueStaffAppointmentBookedNotifications,
+} from "@/src/lib/services/notification";
 
 export type BookingInput = {
   patient_id: string;
@@ -197,6 +201,16 @@ export async function reserveAppointment(input: BookingInput, actor: Actor) {
     payload: { appointment_id: inserted.id, appointment_type: input.appointment_type },
   });
 
+  await enqueueStaffAppointmentBookedNotifications({
+    appointment_id: inserted.id,
+    appointment_type: input.appointment_type,
+    patient_user_id: input.patient_id,
+    appointment_date: input.appointment_date,
+    start_time: input.start_time,
+    doctor_user_id: input.doctor_id,
+    excludeUserIds: [input.patient_id, actor.id],
+  });
+
   return inserted;
 }
 
@@ -251,17 +265,29 @@ export async function cancelAppointment(id: string, actor: Actor) {
     channels: ["email", "sms"],
     payload: { appointment_id: id },
   });
+  await enqueueAppointmentTeamNotifications({
+    appointment_id: id,
+    appointment_type: appt.appointment_type,
+    patient_user_id: appt.patient_id,
+    appointment_date: appt.appointment_date,
+    start_time: appt.start_time,
+    doctor_user_id: appt.doctor_id,
+    excludeUserIds: [appt.patient_id, actor.id],
+    template: "appointment_staff_cancelled",
+  });
   return data;
 }
 
 export async function markArrived(id: string, actor: Actor) {
-  // Front-desk-only step. Doctors and patients don't toggle this — the
-  // secretary records arrival when the patient walks in. Online visits
-  // never check in physically, so they're rejected here.
-  if (!isStaff(actor.profile.role))
-    throw new HttpError(403, "Only front-desk staff can mark a patient as arrived");
-
+  // Allow front-desk staff or the appointment's doctor to mark arrival.
+  // Online visits never check in physically, so they're rejected below.
   const appt = await getAppointment(id);
+  const role = actor.profile.role;
+  if (!(isStaff(role) || (role === "doctor" && actor.id === appt.doctor_id)))
+    throw new HttpError(
+      403,
+      "Only front-desk staff or the appointment's doctor can mark a patient as arrived",
+    );
   if (appt.appointment_type !== "Clinic")
     throw new HttpError(400, "Only clinic visits can be checked in");
   if (appt.status === "CheckedIn") return appt;
@@ -276,6 +302,16 @@ export async function markArrived(id: string, actor: Actor) {
     .select()
     .single<Appointment>();
   if (error) throw error;
+  await enqueueAppointmentTeamNotifications({
+    appointment_id: id,
+    appointment_type: appt.appointment_type,
+    patient_user_id: appt.patient_id,
+    appointment_date: appt.appointment_date,
+    start_time: appt.start_time,
+    doctor_user_id: appt.doctor_id,
+    excludeUserIds: [appt.patient_id, actor.id],
+    template: "appointment_staff_checked_in",
+  });
   return data;
 }
 
@@ -307,6 +343,16 @@ export async function startConsultation(id: string, actor: Actor) {
     .select()
     .single<Appointment>();
   if (error) throw error;
+  await enqueueAppointmentTeamNotifications({
+    appointment_id: id,
+    appointment_type: appt.appointment_type,
+    patient_user_id: appt.patient_id,
+    appointment_date: appt.appointment_date,
+    start_time: appt.start_time,
+    doctor_user_id: appt.doctor_id,
+    excludeUserIds: [appt.patient_id, actor.id],
+    template: "appointment_staff_in_progress",
+  });
   return data;
 }
 
@@ -327,6 +373,16 @@ export async function completeConsultation(id: string, actor: Actor) {
     .select()
     .single<Appointment>();
   if (error) throw error;
+  await enqueueAppointmentTeamNotifications({
+    appointment_id: id,
+    appointment_type: appt.appointment_type,
+    patient_user_id: appt.patient_id,
+    appointment_date: appt.appointment_date,
+    start_time: appt.start_time,
+    doctor_user_id: appt.doctor_id,
+    excludeUserIds: [appt.patient_id, actor.id],
+    template: "appointment_staff_completed",
+  });
   return data;
 }
 

@@ -76,8 +76,21 @@ export function renderTemplate(template: string, payload: TemplatePayload): { su
   const appt = (payload.appointment_id as string)?.slice(0, 8) ?? "";
   const link = payload.meeting_link as string | undefined;
   const type = payload.appointment_type as string | undefined;
+  const verifyUrl = payload.verification_link as string | undefined;
+  const patientName = payload.patient_name as string | undefined;
+  const appointmentDate = payload.appointment_date as string | undefined;
+  const startTime = payload.start_time as string | undefined;
+  const scheduleLine = [appointmentDate, startTime].filter(Boolean).join(" at ");
+  const patientLine = patientName ? ` for ${patientName}` : "";
 
   switch (template) {
+    case "verify_email":
+      return {
+        subject: "Verify your CHIARA Clinic account",
+        body: verifyUrl
+          ? `Please verify your email before signing in. Open this confirmation link to activate your account: ${verifyUrl}`
+          : "Please verify your email before signing in. Use the confirmation link from your latest verification email.",
+      };
     case "welcome":
       return {
         subject: "Welcome to CHIARA Clinic",
@@ -87,6 +100,56 @@ export function renderTemplate(template: string, payload: TemplatePayload): { su
       return {
         subject: "Your appointment booking was received",
         body: `Your ${type?.toLowerCase() ?? "clinic"} appointment request (ref ${appt}) has been recorded.`,
+      };
+    case "appointment_staff_booked":
+      return {
+        subject: "New appointment booked",
+        body: type
+          ? `A new ${type.toLowerCase()} appointment${patientLine}${scheduleLine ? ` on ${scheduleLine}` : ""}${appt ? ` (ref ${appt})` : ""} was just booked.`
+          : `A new appointment${patientLine}${scheduleLine ? ` on ${scheduleLine}` : ""}${appt ? ` (ref ${appt})` : ""} was just booked.`,
+      };
+    case "appointment_staff_confirmed":
+      return {
+        subject: "Online appointment confirmed",
+        body: type
+          ? `${type} appointment${patientLine}${scheduleLine ? ` on ${scheduleLine}` : ""}${appt ? ` (ref ${appt})` : ""} has been confirmed and paid.`
+          : `Appointment${patientLine}${scheduleLine ? ` on ${scheduleLine}` : ""}${appt ? ` (ref ${appt})` : ""} has been confirmed and paid.`,
+      };
+    case "appointment_staff_cancelled":
+      return {
+        subject: "Appointment cancelled",
+        body: type
+          ? `${type} appointment${patientLine}${scheduleLine ? ` on ${scheduleLine}` : ""}${appt ? ` (ref ${appt})` : ""} has been cancelled.`
+          : `Appointment${patientLine}${scheduleLine ? ` on ${scheduleLine}` : ""}${appt ? ` (ref ${appt})` : ""} has been cancelled.`,
+      };
+    case "appointment_staff_rescheduled":
+      return {
+        subject: "Appointment rescheduled",
+        body: type
+          ? `${type} appointment${patientLine}${scheduleLine ? ` is now scheduled for ${scheduleLine}` : ""}${appt ? ` (ref ${appt})` : ""}.`
+          : `Appointment${patientLine}${scheduleLine ? ` is now scheduled for ${scheduleLine}` : ""}${appt ? ` (ref ${appt})` : ""}.`,
+      };
+    case "appointment_staff_checked_in":
+      return {
+        subject: "Patient checked in",
+        body: `Patient${patientLine}${scheduleLine ? ` checked in for the ${scheduleLine}` : " checked in"}${appt ? ` (ref ${appt})` : ""}.`,
+      };
+    case "appointment_staff_in_progress":
+      return {
+        subject: "Consultation started",
+        body: `Consultation${patientLine}${scheduleLine ? ` started for the ${scheduleLine}` : " has started"}${appt ? ` (ref ${appt})` : ""}.`,
+      };
+    case "appointment_staff_completed":
+      return {
+        subject: "Consultation completed",
+        body: `Consultation${patientLine}${scheduleLine ? ` was completed for the ${scheduleLine}` : " was completed"}${appt ? ` (ref ${appt})` : ""}.`,
+      };
+    case "appointment_staff_payment_failed":
+      return {
+        subject: "Online payment failed",
+        body: type
+          ? `${type} appointment${patientLine}${scheduleLine ? ` on ${scheduleLine}` : ""}${appt ? ` (ref ${appt})` : ""} has a failed payment that may need follow-up.`
+          : `Appointment${patientLine}${scheduleLine ? ` on ${scheduleLine}` : ""}${appt ? ` (ref ${appt})` : ""} has a failed payment that may need follow-up.`,
       };
     case "appointment_confirmed":
       return {

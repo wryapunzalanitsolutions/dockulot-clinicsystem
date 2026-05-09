@@ -114,12 +114,14 @@ export async function POST(req: Request) {
       });
     if (upsertPatientError) throw upsertPatientError;
 
-    await enqueueNotification({
-      user_id: body.userId,
-      template: "welcome",
-      channels: ["email", "sms"],
-      payload: { full_name: body.fullName },
-    });
+    if (authUser.user.email_confirmed_at) {
+      await enqueueNotification({
+        user_id: body.userId,
+        template: "welcome",
+        channels: ["email", "sms"],
+        payload: { full_name: body.fullName },
+      });
+    }
 
     return ok({ success: true }, 201);
   } catch (e) {

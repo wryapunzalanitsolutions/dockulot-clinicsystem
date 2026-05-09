@@ -101,7 +101,7 @@ export type VitalSignsFormProps = {
 };
 
 export function VitalSignsForm({ appointmentId, readOnly, onSaved, compact }: VitalSignsFormProps) {
-  const { accessToken } = useRole();
+  const { accessToken, isLoading: authLoading } = useRole();
   const [state, setState] = useState<FormState>(EMPTY);
   const [original, setOriginal] = useState<FormState>(EMPTY);
   const [recordedAt, setRecordedAt] = useState<string | null>(null);
@@ -111,7 +111,21 @@ export function VitalSignsForm({ appointmentId, readOnly, onSaved, compact }: Vi
   const fetchedFor = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!accessToken || fetchedFor.current === appointmentId) return;
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
+    if (!accessToken) {
+      setLoading(false);
+      return;
+    }
+
+    if (fetchedFor.current === appointmentId) {
+      setLoading(false);
+      return;
+    }
+
     fetchedFor.current = appointmentId;
     let active = true;
     (async () => {
@@ -137,7 +151,7 @@ export function VitalSignsForm({ appointmentId, readOnly, onSaved, compact }: Vi
     return () => {
       active = false;
     };
-  }, [appointmentId, accessToken]);
+  }, [appointmentId, accessToken, authLoading]);
 
   const dirty = useMemo(
     () => (Object.keys(state) as Array<keyof FormState>).some((k) => state[k] !== original[k]),

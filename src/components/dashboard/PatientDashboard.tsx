@@ -55,7 +55,7 @@ export default function PatientDashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard href="/appointments/my" label="Upcoming" value={upcoming.length} helper="Appointments waiting for you" tone="emerald" icon={<FaCalendarDays className="text-2xl" />} />
         <MetricCard href="/appointments/my?filter=clinic" label="Clinic Visits" value={clinicVisits} helper="In-person appointments" tone="teal" icon={<FaHospital className="text-2xl" />} />
-        <MetricCard href="/appointments/my?filter=online" label="Online Consults" value={onlineConsultations} helper="Video consultations" tone="sky" icon={<FaVideo className="text-2xl" />} />
+        <MetricCard href="/consultations" label="Online Consults" value={onlineConsultations} helper="Video consultations" tone="sky" icon={<FaVideo className="text-2xl" />} />
         <MetricCard href="/appointments/my?tab=completed" label="Completed" value={pastCompleted} helper="Past visits completed" tone="emerald" icon={<FaChevronRight className="text-2xl" />} />
       </div>
 
@@ -179,7 +179,7 @@ export default function PatientDashboard() {
           <ActionCard href="/appointments" title="Book New Appointment" description="Schedule your next visit at a time that works for you." tone="emerald" icon={<FaCalendarDays className="text-lg" />} />
           <ActionCard href="/appointments/my" title="View Schedule" description="See your upcoming and past appointments." tone="teal" icon={<FaCalendarDays className="text-lg" />} />
           <ActionCard href="/payments" title="View Payments" description="See your billing history and receipts." tone="sky" icon={<FaChevronRight className="text-lg" />} />
-          <ActionCard href="/appointments/my?filter=online" title="Join Online Consultation" description="Open your active online consultation link." tone="violet" icon={<FaVideo className="text-lg" />} />
+          <ActionCard href="/consultations" title="Join Online Consultation" description="Open your active online consultation link." tone="violet" icon={<FaVideo className="text-lg" />} />
           <ActionCard href="/consultations/history" title="Consultation History" description="Review past visit notes and follow-ups." tone="cyan" icon={<FaFileLines className="text-lg" />} />
         </div>
       </SectionCard>

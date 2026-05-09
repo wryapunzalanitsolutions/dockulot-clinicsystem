@@ -622,7 +622,7 @@ export default function BookAppointmentPage() {
           <div className="max-w-xl">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">Book Appointment</p>
             <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-[1.75rem]">
-              Schedule a visit with {selectedDoctor?.name?.replace(/^Dra\.\s*/, "Dra. ") ?? "Dra. Chiara C. Punzalan M.D."}
+              Schedule a visit with {selectedDoctor?.name?.replace(/^Dra\.\s*/, "Dra. ") ?? "your doctor"}
             </h1>
             <p className="mt-1.5 text-sm text-slate-600">
               {accessToken
@@ -687,7 +687,7 @@ export default function BookAppointmentPage() {
                   </div>
                   <div className="inline-flex w-fit items-center gap-2.5 rounded-full border border-emerald-200 bg-[linear-gradient(135deg,#ecfdf5,#d1fae5)] px-4 py-2.5 text-xs font-semibold text-emerald-800 shadow-sm">
                     <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    {selectedDoctor?.name ?? "Dra. Chiara C. Punzalan M.D."}
+                    {selectedDoctor?.name ?? "Assigned doctor"}
                   </div>
                 </div>
 
@@ -767,7 +767,7 @@ export default function BookAppointmentPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">Your Doctor</p>
                       <p className="mt-1 text-base font-bold text-slate-900">
-                        {selectedDoctor?.name ?? "Dra. Chiara C. Punzalan M.D."}
+                        {selectedDoctor?.name ?? "Assigned doctor"}
                       </p>
                       {selectedDoctor?.specialty ? (
                         <p className="text-sm text-slate-600">{selectedDoctor.specialty}</p>

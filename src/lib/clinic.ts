@@ -16,8 +16,41 @@ export type PatientRecordItem = {
   dateOfBirth: string;
   gender: string;
   address: string;
+  familyHistory: string;
   isWalkIn: boolean;
   status: "Active" | "Inactive";
+};
+
+export type PatientVisitRecord = {
+  appointmentId: string;
+  patientId: string;
+  patientName: string;
+  doctorId: string;
+  date: string;
+  start: string;
+  end: string;
+  type: "Clinic" | "Online";
+  reason: string;
+  status: string;
+  queueNumber: number;
+  updatedAt: string | null;
+  vitals: {
+    updatedAt: string;
+    bpSystolic: number | null;
+    bpDiastolic: number | null;
+    temperatureC: number | null;
+    pulseRate: number | null;
+    oxygenSaturation: number | null;
+    respiratoryRate: number | null;
+    weightKg: number | null;
+    heightCm: number | null;
+    notes: string | null;
+  } | null;
+  consultation: {
+    updatedAt: string;
+    note: string;
+    prescription: string;
+  } | null;
 };
 
 export type ConsultationProgress = "Ready" | "In Progress" | "Completed";

@@ -8,7 +8,10 @@ import type {
   PaymentMethod,
 } from "@/src/lib/db/types";
 import { getAppointment, getDoctor } from "@/src/lib/services/booking";
-import { enqueueNotification } from "@/src/lib/services/notification";
+import {
+  enqueueAppointmentTeamNotifications,
+  enqueueNotification,
+} from "@/src/lib/services/notification";
 import { calculateOnlineConsultationCharge } from "@/src/lib/consultation-pricing";
 import { createPayMongoCheckoutSession, mapCheckoutMethods } from "@/src/lib/services/paymongo";
 import { createStripeCheckoutSessionForReservation } from "@/src/lib/services/stripe";
@@ -546,8 +549,55 @@ async function confirmReservationPayment(
     payload: { appointment_id: updatedAppointment.id, appointment_type: "Online" },
   });
   await notifyOnlineConfirmed(updatedAppointment, meetingLink);
+  await enqueueAppointmentTeamNotifications({
+    appointment_id: updatedAppointment.id,
+    appointment_type: "Online",
+    patient_user_id: updatedAppointment.patient_id,
+    appointment_date: updatedAppointment.appointment_date,
+    start_time: updatedAppointment.start_time,
+    doctor_user_id: updatedAppointment.doctor_id,
+    excludeUserIds: [updatedAppointment.patient_id],
+    template: "appointment_staff_confirmed",
+  });
 
   return { appointment: updatedAppointment, payment };
+}
+
+async function finalizeClinicBillingPayment(payment: Payment): Promise<Appointment | null> {
+  if (!payment.billing_id) {
+    return payment.appointment_id ? await getAppointment(payment.appointment_id) : null;
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data: billing, error: billingError } = await supabase
+    .from("billings")
+    .select("id, appointment_id, status")
+    .eq("id", payment.billing_id)
+    .single<{ id: string; appointment_id: string | null; status: "Draft" | "Issued" | "Paid" | "Void" }>();
+  if (billingError) throw billingError;
+
+  if (billing.status !== "Paid") {
+    const { error: updateBillingError } = await supabase
+      .from("billings")
+      .update({ status: "Paid" })
+      .eq("id", billing.id);
+    if (updateBillingError) throw updateBillingError;
+  }
+
+  const appointmentId = payment.appointment_id ?? billing.appointment_id;
+  if (!appointmentId) return null;
+
+  const appt = await getAppointment(appointmentId);
+  if (appt.status !== "Completed") {
+    const { error: apptUpdateError } = await supabase
+      .from("appointments")
+      .update({ status: "Completed" })
+      .eq("id", appt.id);
+    if (apptUpdateError) throw apptUpdateError;
+    return { ...appt, status: "Completed" };
+  }
+
+  return appt;
 }
 
 export async function confirmPaymentByRef(
@@ -564,7 +614,7 @@ export async function confirmPaymentByRef(
   if (error) throw error;
   if (payment) {
     if (payment.status === "Paid") {
-      const appt = payment.appointment_id ? await getAppointment(payment.appointment_id) : null;
+      const appt = await finalizeClinicBillingPayment(payment);
       return { payment, appointment: appt };
     }
 
@@ -576,10 +626,7 @@ export async function confirmPaymentByRef(
       .single<Payment>();
     if (updateErr) throw updateErr;
 
-    let appt: Appointment | null = null;
-    if (paid.appointment_id) {
-      appt = await getAppointment(paid.appointment_id);
-    }
+    const appt = await finalizeClinicBillingPayment(paid);
     return { payment: paid, appointment: appt };
   }
 
@@ -620,6 +667,9 @@ export async function failPaymentByRef(provider: string, provider_ref: string): 
   if (error) throw error;
 
   if (data) {
+    if (data.billing_id) {
+      return data;
+    }
     if (data.appointment_id) {
       const appt = await getAppointment(data.appointment_id);
       await enqueueNotification({
@@ -627,6 +677,16 @@ export async function failPaymentByRef(provider: string, provider_ref: string): 
         template: "appointment_payment_failed",
         channels: ["email"],
         payload: { appointment_id: appt.id },
+      });
+      await enqueueAppointmentTeamNotifications({
+        appointment_id: appt.id,
+        appointment_type: appt.appointment_type,
+        patient_user_id: appt.patient_id,
+        appointment_date: appt.appointment_date,
+        start_time: appt.start_time,
+        doctor_user_id: appt.doctor_id,
+        excludeUserIds: [appt.patient_id],
+        template: "appointment_staff_payment_failed",
       });
     }
     return data;
@@ -661,6 +721,16 @@ export async function failPaymentByRef(provider: string, provider_ref: string): 
     template: "appointment_payment_failed",
     channels: ["email"],
     payload: { reservation_id: resolvedReservation.id },
+  });
+  await enqueueAppointmentTeamNotifications({
+    appointment_id: resolvedReservation.appointment_id ?? resolvedReservation.id,
+    appointment_type: "Online",
+    patient_user_id: resolvedReservation.patient_id,
+    appointment_date: resolvedReservation.appointment_date,
+    start_time: resolvedReservation.start_time,
+    doctor_user_id: resolvedReservation.doctor_id,
+    excludeUserIds: [resolvedReservation.patient_id],
+    template: "appointment_staff_payment_failed",
   });
 
   if (!resolvedReservation.appointment_id) {

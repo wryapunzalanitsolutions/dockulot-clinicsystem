@@ -20,6 +20,7 @@ import type {
 // the Contents Manager has cleared an image. Keep these in sync with the
 // files committed under /public/images/.
 const DEFAULT_HERO = "/images/chiarabg.png";
+const MOBILE_HERO = "/images/chiarabg.png";
 const DEFAULT_DOCTOR = "/images/doctora.png";
 const DEFAULT_TESTIMONIALS: LandingTestimonial[] = [
   {
@@ -237,12 +238,23 @@ export default function LandingPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex h-full items-center gap-2 sm:gap-3">
+          <div className="flex h-full items-center gap-1 sm:gap-3">
             <button onClick={handleContactClick} className="hidden rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50 md:inline-flex">
               Contact Us
             </button>
             <Link href="/login" className="hidden sm:inline text-sm font-semibold text-slate-600 hover:text-emerald-700 transition">Sign In</Link>
-            <button onClick={handleSignUp} className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md transition hover:bg-emerald-700 sm:px-4 sm:text-sm">Sign Up</button>
+            <button onClick={handleSignUp} className="hidden rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md transition hover:bg-emerald-700 sm:inline-block sm:px-4 sm:text-sm">Sign Up</button>
+            <div className="flex items-center gap-1 sm:hidden">
+              <button onClick={handleContactClick} className="rounded-full border border-emerald-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50">
+                Contact
+              </button>
+              <Link href="/login" className="rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50">
+                Sign In
+              </Link>
+              <button onClick={handleSignUp} className="rounded-full bg-emerald-600 px-2.5 py-1.5 text-[10px] font-semibold text-white shadow-md transition hover:bg-emerald-700">
+                Sign Up
+              </button>
+            </div>
             <button
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileOpen}
@@ -258,7 +270,7 @@ export default function LandingPage() {
       {/* Mobile Nav Overlay */}
       {mobileOpen && (
         <div className="fixed left-0 right-0 top-16 z-40 border-b border-slate-200 bg-white shadow-md md:hidden">
-          <div className="px-4 py-4 space-y-2">
+          <div className="space-y-2 px-4 py-4">
             {navItems.map((n) => (
               <a
                 key={n.label + n.href}
@@ -270,41 +282,44 @@ export default function LandingPage() {
                 {n.label}
               </a>
             ))}
-            <div className="pt-3 flex items-center gap-3">
-              <button onClick={() => { setMobileOpen(false); handleContactClick(); }} className="flex-1 rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
-                Contact Us
-              </button>
-              <Link href="/login" onClick={() => setMobileOpen(false)} className="flex-1 text-center rounded-full border px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-emerald-50">Sign In</Link>
-              <button onClick={() => { setMobileOpen(false); handleSignUp(); }} className="flex-1 rounded-full bg-emerald-600 text-white px-4 py-2 text-sm font-semibold hover:bg-emerald-700">Sign Up</button>
-            </div>
           </div>
         </div>
       )}
 
       {/* Hero Section */}
-      <section id="home" className="order-1 relative flex min-h-screen items-center justify-center overflow-hidden px-0 pt-24 sm:pt-28 md:justify-end md:pt-36">
+      <section id="home" className="order-1 relative flex min-h-screen items-center justify-center overflow-hidden px-0 pb-6 pt-20 sm:pt-28 md:items-center md:justify-end md:pb-0 md:pt-36">
         {/* Full Background Image */}
         <div className="absolute inset-0 z-0">
+          <Image
+            src={MOBILE_HERO}
+            alt="Clinic background"
+            fill
+            className="object-cover object-left md:hidden"
+            priority
+            quality={100}
+            sizes="100vw"
+          />
           <Image
             src={heroBg}
             alt="Clinic background"
             fill
-            className="object-cover object-right"
+            className="hidden object-cover object-right md:block"
             priority
             quality={100}
+            sizes="100vw"
           />
           {/* Overlay for readability while preserving background */}
-          <div className="absolute inset-0 bg-linear-to-r from-transparent via-black/10 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-r from-white/60 via-white/35 to-transparent md:from-transparent md:via-black/10 md:to-transparent" />
           {/* Left mask removed per user request */}
         </div>
 
         {/* Left Side Content */}
         <ScrollReveal
-          className="relative z-10 mx-auto w-full max-w-2xl px-4 text-center sm:px-6 md:mx-0 md:mr-24 md:px-6 md:text-right"
+          className="relative z-10 mx-auto mt-10 w-full max-w-2xl px-4 text-center sm:px-6 md:mx-0 md:mr-24 md:mt-0 md:px-6 md:text-right"
           delayMs={100}
           direction="right"
         >
-          <div>
+          <div className="rounded-3xl bg-white/70 p-5 shadow-xl backdrop-blur-sm sm:p-6 md:rounded-none md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-none">
             {heroEyebrow ? (
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700 drop-shadow sm:text-sm">
                 {heroEyebrow}

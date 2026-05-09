@@ -248,7 +248,7 @@ export default function RegisterPage() {
 
       router.push(
         `/login?message=${encodeURIComponent(
-          "Account created. Check your email and confirm your account before signing in.",
+          "Account created. Check your email for the confirmation link before signing in.",
         )}`,
       );
     });

@@ -15,6 +15,7 @@ import {
   formatDurationLabel,
   normalizeConfiguredConsultationRate,
 } from "@/src/lib/consultation-pricing";
+import { createPayMongoCheckoutSession, mapCheckoutMethods } from "@/src/lib/services/paymongo";
 
 export type BillingItemInput = {
   pricing_id?: string | null;
@@ -27,7 +28,13 @@ const ALLOWED_BILLING_STATUSES = new Set<BillingStatus>(["Draft", "Issued", "Pai
 const ALLOWED_DISCOUNT_KINDS = new Set<DiscountKind>(["None", "Manual", "SeniorCitizen", "PWD"]);
 
 const POS_ALLOWED_CATEGORIES = new Set(["Consultation", "Lab", "Medicine"]);
-const POS_ALLOWED_METHODS = new Set<PaymentMethod>(["Cash", "Card", "BankTransfer"]);
+const POS_ALLOWED_METHODS = new Set<PaymentMethod>(["Cash", "QR", "Card", "BankTransfer"]);
+
+export type PosCheckoutOption = "paymongo_qr" | "paymongo_card" | "paymongo_bank";
+
+const ENABLED_POS_CHECKOUT_OPTIONS: ReadonlySet<PosCheckoutOption> = new Set([
+  "paymongo_qr",
+]);
 
 // RA 9994 / RA 10754: Senior Citizens and PWDs receive a 20% discount and
 // are exempt from VAT on the same transaction. We round to centavos.
@@ -35,6 +42,18 @@ const SC_PWD_DISCOUNT_RATE = 0.2;
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function posMethodFromCheckoutOption(option: PosCheckoutOption): PaymentMethod {
+  if (option === "paymongo_card") return "Card";
+  if (option === "paymongo_bank") return "BankTransfer";
+  return "QR";
+}
+
+function posPaymongoMethodGroup(option: PosCheckoutOption): "gcash" | "card" | "bank" {
+  if (option === "paymongo_card") return "card";
+  if (option === "paymongo_bank") return "bank";
+  return "gcash";
 }
 
 export async function issueBilling(input: {
@@ -220,6 +239,11 @@ export async function recordBillingPayment(
     throw new HttpError(400, "POS payment is clinic-only.");
   }
 
+  const normalizedProviderRef = providerRef?.trim() || null;
+  if (method !== "Cash" && !normalizedProviderRef) {
+    throw new HttpError(400, `${method === "Card" ? "Card" : "Transfer"} reference is required.`);
+  }
+
   // Tendered amount only applies to cash. For Card/Transfer the patient
   // tendered exactly the total — anything else would be a card mistake.
   let normalizedTendered: number | null = null;
@@ -240,7 +264,7 @@ export async function recordBillingPayment(
       status: "Paid",
       paid_at: new Date().toISOString(),
       provider: "manual",
-      provider_ref: providerRef,
+      provider_ref: normalizedProviderRef,
       tendered_amount: normalizedTendered,
     })
     .select()
@@ -264,6 +288,99 @@ export async function recordBillingPayment(
   }
 
   return { billing: updated, payment };
+}
+
+export async function startPosPayMongoCheckout(
+  billingId: string,
+  checkoutOption: PosCheckoutOption,
+  actor: Actor,
+): Promise<{ billing: Billing; payment: Payment; checkoutUrl: string }> {
+  if (!isStaff(actor.profile.role) && actor.profile.role !== "doctor") {
+    throw new HttpError(403, "Only clinic staff or doctors can start POS PayMongo checkout.");
+  }
+  if (!ENABLED_POS_CHECKOUT_OPTIONS.has(checkoutOption)) {
+    throw new HttpError(
+      400,
+      checkoutOption === "paymongo_card"
+        ? "Card payments are not yet activated on PayMongo. Please use QR Ph for now."
+        : checkoutOption === "paymongo_bank"
+          ? "Bank transfer is not yet activated on PayMongo. Please use QR Ph for now."
+          : "This PayMongo POS option is not available yet.",
+    );
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data: billing, error } = await supabase
+    .from("billings")
+    .select("*")
+    .eq("id", billingId)
+    .single<Billing>();
+  if (error) throw new HttpError(404, "Billing not found");
+  if (billing.status === "Paid") throw new HttpError(400, "Billing already paid");
+  if (billing.status === "Void") throw new HttpError(400, "Billing is void");
+  if (billing.status !== "Issued") throw new HttpError(400, "Issue the bill before starting PayMongo checkout.");
+  if (!billing.appointment_id) throw new HttpError(400, "POS payment requires a clinic appointment billing.");
+
+  const appt = await getAppointment(billing.appointment_id);
+  if (appt.appointment_type !== "Clinic") {
+    throw new HttpError(400, "POS PayMongo checkout is clinic-only.");
+  }
+
+  const { data: patient, error: patientError } = await supabase
+    .from("profiles")
+    .select("full_name, email, phone")
+    .eq("id", billing.patient_id)
+    .single<{ full_name: string; email: string; phone: string | null }>();
+  if (patientError || !patient) {
+    throw new HttpError(404, "Patient profile not found.");
+  }
+
+  await supabase
+    .from("payments")
+    .update({ status: "Failed" })
+    .eq("billing_id", billing.id)
+    .eq("provider", "paymongo")
+    .eq("status", "Pending");
+
+  const checkout = await createPayMongoCheckoutSession({
+    description: `Clinic POS billing ${billing.id.slice(0, 8).toUpperCase()}`,
+    amount: billing.total,
+    customerEmail: patient.email,
+    customerName: patient.full_name,
+    customerPhone: patient.phone ?? undefined,
+    paymentMethods: mapCheckoutMethods(posPaymongoMethodGroup(checkoutOption)),
+    successPath: `/payments/pos?billing_paid=${encodeURIComponent(billing.id)}`,
+    lineItemName: "Clinic POS Billing",
+    metadata: {
+      scope: "clinic_pos",
+      billing_id: billing.id,
+      appointment_id: billing.appointment_id,
+      checkout_option: checkoutOption,
+      intended_method: posMethodFromCheckoutOption(checkoutOption),
+    },
+  });
+
+  const method = posMethodFromCheckoutOption(checkoutOption);
+  const { data: payment, error: paymentError } = await supabase
+    .from("payments")
+    .insert({
+      billing_id: billing.id,
+      appointment_id: billing.appointment_id,
+      amount: billing.total,
+      method,
+      status: "Pending",
+      provider: "paymongo",
+      provider_ref: checkout.sessionId,
+    })
+    .select()
+    .single<Payment>();
+  if (paymentError) throw paymentError;
+
+  return {
+    billing,
+    payment,
+    checkoutUrl: checkout.checkoutUrl,
+  };
 }
 
 export async function listBillings(actor: Actor, filters: { patient_id?: string; status?: string }) {

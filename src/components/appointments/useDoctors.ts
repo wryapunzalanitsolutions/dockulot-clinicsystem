@@ -10,6 +10,8 @@ import {
 } from "@/src/lib/consultation-pricing";
 
 const DEFAULT_DOCTOR = DOCTORS[0];
+const FALLBACK_DOCTOR_NAME = "Doctor";
+const FALLBACK_DOCTOR_SPECIALTY = "General Medicine";
 
 export type BookingDoctor = {
   id: string;
@@ -67,8 +69,8 @@ export function useDoctors() {
         const nextDoctors = (body.doctors ?? []).map((doctor) => ({
           id: doctor.slug ?? doctor.id,
           slug: doctor.slug ?? doctor.id,
-          name: doctor.full_name ?? doctor.name ?? DEFAULT_DOCTOR?.name ?? "Dra. Chiara C. Punzalan M.D.",
-          specialty: doctor.specialty ?? DEFAULT_DOCTOR?.specialty ?? "General Medicine",
+          name: doctor.full_name ?? doctor.name ?? DEFAULT_DOCTOR?.name ?? FALLBACK_DOCTOR_NAME,
+          specialty: doctor.specialty ?? DEFAULT_DOCTOR?.specialty ?? FALLBACK_DOCTOR_SPECIALTY,
           consultation_fee_clinic: normalizeConfiguredConsultationRate(Number(doctor.consultation_fee_clinic ?? 0)),
           consultation_fee_online: normalizeConfiguredConsultationRate(Number(doctor.consultation_fee_online ?? 0)),
         }));

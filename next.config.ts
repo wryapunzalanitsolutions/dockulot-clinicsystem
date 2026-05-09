@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
   images: {
     qualities: [100, 75],
     // Allow images served from Supabase Storage public buckets — the
