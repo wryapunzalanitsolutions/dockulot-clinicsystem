@@ -208,9 +208,9 @@ export default function LandingPage() {
     <div className="min-h-screen overflow-x-hidden bg-white flex flex-col">
       {/* Navigation (responsive) */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/40 bg-emerald-50/72 shadow-lg backdrop-blur-xl">
-        <div className="mx-auto grid h-16 max-w-7xl grid-cols-[auto_1fr_auto] items-stretch gap-3 px-4 sm:h-20 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:h-20 sm:px-6">
           {/* Logo */}
-          <div className="flex items-center gap-3 h-full">
+          <div className="flex items-center gap-3 flex-shrink-0">
             <Image
               src="/images/chiaralogo.png"
               alt="Chiara Clinic Logo"
@@ -224,12 +224,12 @@ export default function LandingPage() {
           {/* Nav links - hidden on small screens. Items + labels are CMS-
               driven; we keep an icon map for the four common labels and
               fall back to a generic dot for custom entries. */}
-          <div className="hidden h-full items-center justify-center justify-self-center gap-3 md:flex md:translate-x-8">
+          <div className="hidden md:flex items-center gap-3">
             {navItems.map((n) => (
               <a
                 key={n.label + n.href}
                 href={n.href}
-                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white hover:text-emerald-700"
+                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white hover:text-emerald-700 whitespace-nowrap"
               >
                 <NavIcon label={n.label} />
                 {n.label}
@@ -238,7 +238,7 @@ export default function LandingPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex h-full items-center gap-1 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
             <button onClick={handleContactClick} className="hidden rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50 md:inline-flex">
               Contact Us
             </button>
