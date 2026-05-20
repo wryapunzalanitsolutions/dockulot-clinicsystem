@@ -1,0 +1,71 @@
+import { NextResponse } from "next/server";
+import { hasPermission } from "@/src/lib/auth/permissions";
+import { requireAuthenticatedUser } from "@/src/lib/auth/server-auth";
+import {
+  createPatient,
+  deletePatient,
+  readPatients,
+  updatePatient,
+} from "@/src/lib/server/clinic-store";
+
+async function authenticate(request: Request) {
+  const header = request.headers.get("authorization");
+  const token = header?.startsWith("Bearer ") ? header.slice(7) : null;
+  return token ? requireAuthenticatedUser(token) : null;
+}
+
+function formatError(error: unknown) {
+  const message = error instanceof Error ? error.message : "Internal error";
+  const status =
+    message === "Unauthorized"
+      ? 401
+      : message.includes("already registered") || message.includes("valid") || message.includes("required")
+        ? 400
+        : 500;
+  return NextResponse.json({ message }, { status });
+}
+
+export async function GET(request: Request) {
+  const auth = await authenticate(request);
+  if (!auth || !hasPermission(auth.role, "patients.manage")) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+  return NextResponse.json({ data: await readPatients() });
+}
+
+export async function POST(request: Request) {
+  try {
+    const auth = await authenticate(request);
+    if (!auth || !hasPermission(auth.role, "patients.manage")) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.json({ data: await createPatient(await request.json()) });
+  } catch (error) {
+    return formatError(error);
+  }
+}
+
+export async function PATCH(request: Request) {
+   try {
+    const auth = await authenticate(request);
+    if (!auth || !hasPermission(auth.role, "patients.manage")) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.json({ data: await updatePatient(await request.json()) });
+  } catch (error) {
+    return formatError(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  const auth = await authenticate(request);
+  if (!auth || !hasPermission(auth.role, "patients.manage")) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ message: "Missing id" }, { status: 400 });
+  }
+  return NextResponse.json({ data: await deletePatient(id) });
+}

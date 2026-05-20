@@ -1,0 +1,55 @@
+import { HttpError, httpError, ok, requireActor } from "@/src/lib/http";
+import { getSupabaseAdmin } from "@/src/lib/supabase/server";
+
+function canManagePricing(role: string) {
+  return role === "super_admin" || role === "admin" || role === "secretary" || role === "doctor";
+}
+
+export async function GET(req: Request) {
+  try {
+    await requireActor(req);
+    const supabase = getSupabaseAdmin();
+    const url = new URL(req.url);
+    const activeOnly = url.searchParams.get("active") !== "false";
+    let q = supabase.from("pricing").select("*").order("category").order("name");
+    if (activeOnly) q = q.eq("is_active", true);
+    const { data, error } = await q;
+    if (error) throw error;
+    return ok({ pricing: data ?? [] });
+  } catch (e) {
+    return httpError(e);
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const actor = await requireActor(req);
+    if (!canManagePricing(actor.profile.role)) {
+      throw new HttpError(403, "Only clinic staff can manage pricing.");
+    }
+    const body = await req.json();
+    if (!body.code || !body.name || !body.category || body.price == null)
+      throw new HttpError(400, "code, name, category, price required");
+    const price = Number(body.price);
+    if (!Number.isFinite(price) || price < 0) {
+      throw new HttpError(400, "price must be a non-negative number");
+    }
+
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("pricing")
+      .insert({
+        code: body.code,
+        name: body.name,
+        category: body.category,
+        price,
+        is_active: body.is_active ?? true,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return ok({ pricing: data }, 201);
+  } catch (e) {
+    return httpError(e);
+  }
+}
