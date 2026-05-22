@@ -6,7 +6,7 @@ update public.doctors
 set
   consultation_fee_clinic = 350,
   consultation_fee_online = 350
-where slug = 'chiara-punzalan';
+where slug = 'doctora-kulot-md';
 
 alter table public.system_settings
   alter column online_consultation_fee set default 350;

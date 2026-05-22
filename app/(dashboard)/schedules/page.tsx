@@ -218,7 +218,7 @@ export default function SchedulesPage() {
   const activeScheduleCount = schedules.filter((item) => item.is_active).length;
   const weeklyHoursText = `${settings.clinicOpenTime} - ${settings.clinicCloseTime}`;
   const selectedDoctorName = doctorDisplayName(selectedDoctor);
-  const selectedDoctorSpecialty = selectedDoctor?.specialty ?? "General Medicine";
+  const selectedDoctorSpecialty = selectedDoctor?.specialty ?? "Family Medicine Specialist";
   const totalConfiguredMinutes = schedules
     .filter((item) => item.is_active)
     .reduce((sum, item) => {
@@ -368,10 +368,10 @@ export default function SchedulesPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <section className="overflow-hidden rounded-[2.5rem] border border-emerald-200 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.22),transparent_30%),linear-gradient(135deg,#ecfdf5_0%,#ffffff_74%)] p-6 shadow-[0_24px_60px_rgba(16,185,129,0.10)]">
+      <section className="overflow-hidden rounded-[2.5rem] border border-sky-200 bg-[radial-gradient(circle_at_top_left,rgba(125,211,252,0.18),transparent_30%),linear-gradient(135deg,#f5fbff_0%,#ffffff_74%)] p-6 shadow-[0_24px_60px_rgba(14,165,233,0.10)]">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">Schedule Management</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">Schedule Management</p>
             <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">Manage doctor schedules, leave, and clinic hours</h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               This workspace now covers weekly schedule CRUD, working hours, blocked leave dates,
@@ -403,7 +403,7 @@ export default function SchedulesPage() {
         <div
           className={`rounded-2xl px-4 py-3 text-sm font-medium ${
             feedback.tone === "success"
-              ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+              ? "border border-sky-200 bg-sky-50 text-sky-800"
               : "border border-red-200 bg-red-50 text-red-800"
           }`}
         >
@@ -412,19 +412,19 @@ export default function SchedulesPage() {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <section className="rounded-4xl border border-emerald-100 bg-[linear-gradient(135deg,#fbfffd_0%,#f1fbf5_100%)] p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <section className="rounded-4xl border border-sky-100 bg-[linear-gradient(135deg,#fbfeff_0%,#f1fbff_100%)] p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-2xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Schedule Snapshot</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Schedule Snapshot</p>
               <h2 className="mt-2 text-2xl font-bold text-slate-900">{selectedDoctorName}</h2>
-              <p className="mt-1 text-sm font-medium text-emerald-700">{selectedDoctorSpecialty}</p>
+              <p className="mt-1 text-sm font-medium text-sky-700">{selectedDoctorSpecialty}</p>
               <p className="mt-3 text-sm leading-6 text-slate-600">
                 Manage recurring weekly hours here, then use blocked dates for leave, holidays, and one-off exceptions.
               </p>
             </div>
             <Link
               href="/schedules/slots"
-              className="inline-flex rounded-full border border-emerald-200 bg-white px-5 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+              className="inline-flex rounded-full border border-sky-200 bg-white px-5 py-3 text-sm font-semibold text-sky-700 transition hover:bg-sky-50"
             >
               Manage Blocked Dates
             </Link>
@@ -453,7 +453,7 @@ export default function SchedulesPage() {
             />
           </div>
 
-          <div className="mt-5 rounded-[1.6rem] border border-emerald-100 bg-white px-4 py-4">
+          <div className="mt-5 rounded-[1.6rem] border border-sky-100 bg-white px-4 py-4">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <p className="text-sm font-semibold text-slate-900">Quick flow</p>
               <p className="text-sm text-slate-600">1. Set clinic hours  2. Save weekly availability  3. Block exceptions when needed</p>
@@ -466,10 +466,10 @@ export default function SchedulesPage() {
           </div>
         </section>
 
-        <section className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <section className="rounded-4xl border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Clinic Hours</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Clinic Hours</p>
               <h2 className="mt-2 text-xl font-bold text-slate-900">Adjust clinic operating hours</h2>
               <p className="mt-2 text-sm text-slate-600">
                 Weekly doctor schedules must stay inside these hours.
@@ -486,7 +486,7 @@ export default function SchedulesPage() {
                   value={settings.clinicOpenTime}
                   onChange={(event) => updateClinicHours("clinicOpenTime", event.target.value)}
                   disabled={!canManageClinicHours || isSavingHours || settingsLoading}
-                  className="mt-2 w-full rounded-[1.15rem] border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50"
+                  className="mt-2 w-full rounded-[1.15rem] border border-sky-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-50"
                 />
               </Field>
 
@@ -496,12 +496,12 @@ export default function SchedulesPage() {
                   value={settings.clinicCloseTime}
                   onChange={(event) => updateClinicHours("clinicCloseTime", event.target.value)}
                   disabled={!canManageClinicHours || isSavingHours || settingsLoading}
-                  className="mt-2 w-full rounded-[1.15rem] border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50"
+                  className="mt-2 w-full rounded-[1.15rem] border border-sky-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-50"
                 />
               </Field>
             </div>
 
-            <div className="rounded-[1.4rem] border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900">
+            <div className="rounded-[1.4rem] border border-sky-100 bg-sky-50/70 px-4 py-3 text-sm text-sky-900">
               Current scheduling guardrail: doctors can only be booked between{" "}
               <span className="font-semibold">{weeklyHoursText}</span>.
             </div>
@@ -510,13 +510,13 @@ export default function SchedulesPage() {
               <button
                 type="submit"
                 disabled={!canManageClinicHours || isSavingHours || settingsLoading}
-                className="rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-full bg-[linear-gradient(135deg,#0284c7,#0ea5e9)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSavingHours ? "Saving..." : "Save Clinic Hours"}
               </button>
               <Link
                 href="/settings"
-                className="rounded-full border border-emerald-200 bg-white px-5 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+                className="rounded-full border border-sky-200 bg-white px-5 py-3 text-sm font-semibold text-sky-700 transition hover:bg-sky-50"
               >
                 Open Full Settings
               </Link>
@@ -526,10 +526,10 @@ export default function SchedulesPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-        <section className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <section className="rounded-4xl border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Editor</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Editor</p>
               <h2 className="mt-2 text-xl font-bold text-slate-900">Weekly availability setup</h2>
               <p className="mt-2 text-sm text-slate-600">
                 Create or update the recurring hours that open booking for each weekday.
@@ -540,7 +540,7 @@ export default function SchedulesPage() {
             ) : null}
           </div>
 
-          <div className="mt-5 rounded-[1.6rem] border border-emerald-100 bg-[linear-gradient(135deg,#f8fffb_0%,#effcf3_100%)] p-4">
+          <div className="mt-5 rounded-[1.6rem] border border-sky-100 bg-[linear-gradient(135deg,#f8fffb_0%,#effcf3_100%)] p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Editing {nextFormDayLabel}</p>
@@ -550,7 +550,7 @@ export default function SchedulesPage() {
                     : "No schedule is saved for this weekday yet, so patients cannot book it."}
                 </p>
               </div>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-700 shadow-sm">
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-sky-700 shadow-sm">
                 {editingId ? "Editing saved availability" : "Creating or replacing this weekday"}
               </span>
             </div>
@@ -562,7 +562,7 @@ export default function SchedulesPage() {
                 value={selectedDoctorId}
                 onChange={(event) => setSelectedDoctorId(event.target.value)}
                 disabled={loading || !canManageSchedule}
-                className="mt-2 w-full rounded-[1.15rem] border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50"
+                className="mt-2 w-full rounded-[1.15rem] border border-sky-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-50"
               >
                 {doctors.map((doctor) => (
                   <option key={doctor.id} value={doctor.id}>
@@ -578,7 +578,7 @@ export default function SchedulesPage() {
                   value={form.day_of_week}
                   onChange={(event) => updateField("day_of_week", Number(event.target.value))}
                   disabled={!canManageSchedule || isSavingSchedule}
-                  className="mt-2 w-full rounded-[1.15rem] border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50"
+                  className="mt-2 w-full rounded-[1.15rem] border border-sky-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-50"
                 >
                   {DAYS.map((day, index) => (
                     <option key={day} value={index}>
@@ -593,7 +593,7 @@ export default function SchedulesPage() {
                   value={form.schedule_mode}
                   onChange={(event) => updateField("schedule_mode", event.target.value as ScheduleMode)}
                   disabled={!canManageSchedule || isSavingSchedule}
-                  className="mt-2 w-full rounded-[1.15rem] border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50"
+                  className="mt-2 w-full rounded-[1.15rem] border border-sky-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-50"
                 >
                   <option value="Both">Clinic + Online</option>
                   <option value="Clinic">Clinic only</option>
@@ -611,7 +611,7 @@ export default function SchedulesPage() {
                   value={form.start_time}
                   onChange={(event) => updateField("start_time", event.target.value)}
                   disabled={!canManageSchedule || isSavingSchedule}
-                  className="mt-2 w-full rounded-[1.15rem] border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50"
+                  className="mt-2 w-full rounded-[1.15rem] border border-sky-100 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-50"
                 />
               </Field>
 
@@ -623,7 +623,7 @@ export default function SchedulesPage() {
                   value={form.end_time}
                   onChange={(event) => updateField("end_time", event.target.value)}
                   disabled={!canManageSchedule || isSavingSchedule}
-                  className="mt-2 w-full rounded-[1.15rem] border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50"
+                  className="mt-2 w-full rounded-[1.15rem] border border-sky-100 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-50"
                 />
               </Field>
 
@@ -632,7 +632,7 @@ export default function SchedulesPage() {
                   value={form.slot_minutes}
                   onChange={(event) => updateField("slot_minutes", Number(event.target.value))}
                   disabled={!canManageSchedule || isSavingSchedule}
-                  className="mt-2 w-full rounded-[1.15rem] border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50"
+                  className="mt-2 w-full rounded-[1.15rem] border border-sky-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-50"
                 >
                   {[30, 45, 60, 90, 120].map((value) => (
                     <option key={value} value={value}>
@@ -643,13 +643,13 @@ export default function SchedulesPage() {
               </Field>
             </div>
 
-            <label className="flex items-center gap-3 rounded-[1.25rem] border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm text-slate-700">
+            <label className="flex items-center gap-3 rounded-[1.25rem] border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-700">
               <input
                 type="checkbox"
                 checked={form.is_active}
                 onChange={(event) => updateField("is_active", event.target.checked)}
                 disabled={!canManageSchedule || isSavingSchedule}
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
               />
               Keep this weekday active for booking
             </label>
@@ -663,7 +663,7 @@ export default function SchedulesPage() {
               <button
                 type="submit"
                 disabled={!canManageSchedule || isSavingSchedule || !selectedDoctorId}
-                className="rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-full bg-[linear-gradient(135deg,#0284c7,#0ea5e9)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSavingSchedule ? "Saving..." : editingId ? "Update Schedule" : "Save Schedule"}
               </button>
@@ -681,10 +681,10 @@ export default function SchedulesPage() {
         </section>
 
         <section className="space-y-6">
-          <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+          <div className="rounded-4xl border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
             <div className="flex items-start justify-between gap-4">
               <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Coverage Board</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Coverage Board</p>
               <h2 className="mt-2 text-xl font-bold text-slate-900">
                   {selectedDoctorName} weekly availability
                 </h2>
@@ -721,7 +721,7 @@ export default function SchedulesPage() {
                     key={day}
                     className={`rounded-3xl border p-4 transition ${
                       schedule?.is_active
-                        ? "border-emerald-200 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] shadow-[0_10px_24px_rgba(16,185,129,0.08)]"
+                        ? "border-sky-200 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] shadow-[0_10px_24px_rgba(14,165,233,0.08)]"
                         : schedule
                           ? "border-amber-200 bg-[linear-gradient(180deg,#fffdf7_0%,#fffbeb_100%)]"
                           : "border-slate-200 bg-slate-50/85"
@@ -746,7 +746,7 @@ export default function SchedulesPage() {
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold ${
                           schedule?.is_active
-                            ? "bg-emerald-100 text-emerald-700"
+                            ? "bg-sky-100 text-sky-700"
                             : schedule
                               ? "bg-amber-100 text-amber-700"
                               : "bg-slate-100 text-slate-500"
@@ -786,8 +786,8 @@ export default function SchedulesPage() {
             </div>
           </div>
 
-          <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Blocked Dates</p>
+          <div className="rounded-4xl border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Blocked Dates</p>
             <h2 className="mt-2 text-xl font-bold text-slate-900">Leave and blocked days</h2>
             <p className="mt-2 text-sm text-slate-600">
               Weekly hours cover the normal routine. One-off leave, holidays, and blocked dates
@@ -795,7 +795,7 @@ export default function SchedulesPage() {
             </p>
             <Link
               href="/schedules/slots"
-              className="mt-5 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+              className="mt-5 inline-flex rounded-full border border-sky-200 bg-sky-50 px-5 py-3 text-sm font-semibold text-sky-700 transition hover:bg-sky-100"
             >
               Manage Blocked Dates
             </Link>
@@ -828,7 +828,7 @@ function SummaryBadge({
     <div
       className={`rounded-[1.4rem] border px-4 py-3 shadow-sm ${
         tone === "success"
-          ? "border-emerald-200 bg-white text-emerald-900"
+          ? "border-sky-200 bg-white text-sky-900"
           : "border-slate-200 bg-white text-slate-700"
       }`}
     >
@@ -848,7 +848,7 @@ function CompactStat({
   helper: string;
 }) {
   return (
-    <div className="rounded-[1.4rem] border border-emerald-100 bg-white px-4 py-4 shadow-sm">
+    <div className="rounded-[1.4rem] border border-sky-100 bg-white px-4 py-4 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <p className="mt-3 text-xl font-bold text-slate-900">{value}</p>
       <p className="mt-2 text-sm leading-6 text-slate-600">{helper}</p>
@@ -867,7 +867,7 @@ function StateLegend({
 }) {
   const styles =
     tone === "active"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+      ? "border-sky-200 bg-sky-50 text-sky-900"
       : tone === "inactive"
         ? "border-amber-200 bg-amber-50 text-amber-900"
         : "border-slate-200 bg-slate-50 text-slate-800";

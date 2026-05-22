@@ -20,7 +20,7 @@ create table if not exists public.landing_content (
   hero_eyebrow text not null default '',
   hero_title_line1 text not null default 'Your Health,',
   hero_title_line2 text not null default 'Our Priority',
-  hero_subtitle text not null default 'Expert healthcare from Dr. Chiara Punzalan. Book clinic visits or online consultations with flexibility and convenience.',
+  hero_subtitle text not null default 'Expert healthcare from Doctora Kulot, MD. Book clinic visits or online consultations with flexibility and convenience.',
   hero_cta_primary text not null default 'Book Appointment Now',
   hero_cta_secondary text not null default 'Learn More',
   hero_background_url text,
@@ -29,8 +29,8 @@ create table if not exists public.landing_content (
   about_eyebrow text not null default 'Meet Your Doctor',
   about_title text not null default 'Expert Healthcare Provider',
   about_subtitle text not null default 'With years of experience in general medicine and patient care',
-  doctor_name text not null default 'Dra. Chiara C. Punzalan M.D.',
-  doctor_title text not null default 'General Medicine Specialist',
+  doctor_name text not null default 'Doctora Kulot, MD',
+  doctor_title text not null default 'Family Medicine Specialist',
   doctor_photo_url text,
   feature_1_title text not null default 'Professional Expertise',
   feature_1_body text not null default 'Comprehensive general medicine practice with focus on patient wellness',
@@ -41,7 +41,7 @@ create table if not exists public.landing_content (
 
   -- Closing CTA banner ---------------------------------------------------
   cta_title text not null default 'Ready to Schedule Your Appointment?',
-  cta_subtitle text not null default 'Book now with Dr. Chiara Punzalan. Flexible scheduling for clinic and online consultations.',
+  cta_subtitle text not null default 'Book now with Doctora Kulot, MD. Flexible scheduling for clinic and online consultations.',
   cta_button_label text not null default 'Book Appointment Now',
 
   -- Testimonials ([{ name, title, quote }, ...]) ------------------------

@@ -24,7 +24,7 @@ RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxx
 RESEND_FROM=CHIARA Clinic <noreply@chiara.clinic>
 SEMAPHORE_API_KEY=xxxxxxxxxxxxxxxxxxxxx
 SEMAPHORE_SENDER_NAME=CHIARA Clinic
-MEETING_BASE_URL=https://meet.chiara.clinic
+MEETING_BASE_URL=https://meet.doctora-kulot.clinic
 ```
 
 **Or via CLI:**
@@ -114,7 +114,7 @@ curl -X POST http://localhost:3000/api/(dashboard)/appointments/actions \
     "patientName": "Test Patient",
     "email": "test@example.com",
     "phone": "+63 912 345 6789",
-    "doctorId": "chiara-punzalan",
+    "doctorId": "doctora-kulot-md",
     "date": "2026-05-08",
     "start": "09:00",
     "type": "Clinic",

@@ -294,10 +294,10 @@ export default function PricingPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <section className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(20,184,166,0.18),transparent_28%),linear-gradient(135deg,#f7fffb_0%,#ffffff_70%)] p-6 shadow-[0_24px_70px_rgba(15,118,110,0.12)]">
+      <section className="overflow-hidden rounded-[2rem] border border-sky-100 bg-[radial-gradient(circle_at_top_left,rgba(125,211,252,0.20),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(186,230,253,0.16),transparent_28%),linear-gradient(135deg,#f5fbff_0%,#ffffff_70%)] p-6 shadow-[0_24px_70px_rgba(14,165,233,0.12)]">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">Pricing Management</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-700">Pricing Management</p>
             <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900">Manage consultation fees and service pricing</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
               Admin staff can add, edit, and delete pricing records here, while keeping the two required consultation fees clear:
@@ -306,8 +306,8 @@ export default function PricingPage() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[360px]">
-            <HeroStat label="Consultation items" value={`${consultationItems.length}`} accent="emerald" />
-            <HeroStat label="Active catalog items" value={`${activeItems} of ${totalItems}`} accent="teal" />
+            <HeroStat label="Consultation items" value={`${consultationItems.length}`} accent="sky" />
+            <HeroStat label="Active catalog items" value={`${activeItems} of ${totalItems}`} accent="cyan" />
           </div>
         </div>
       </section>
@@ -316,7 +316,7 @@ export default function PricingPage() {
         <div
           className={`rounded-2xl border px-4 py-3 text-sm font-medium shadow-sm ${
             feedback.tone === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              ? "border-sky-200 bg-sky-50 text-sky-800"
               : "border-red-200 bg-red-50 text-red-800"
           }`}
         >
@@ -344,7 +344,7 @@ export default function PricingPage() {
                 These rates power the appointment charge calculations. Example: a 1 hour online consultation uses the online rate shown here.
               </p>
             </div>
-            <span className="inline-flex w-fit rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+            <span className="inline-flex w-fit rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
               Primary doctor fee source
             </span>
           </div>
@@ -354,13 +354,13 @@ export default function PricingPage() {
               label="Online Consultation Rate"
               value={peso(onlineRate)}
               note={createExampleLabel(onlineRate)}
-              accent="emerald"
+              accent="sky"
             />
             <RateCard
               label="Clinic Consultation Fee"
               value={peso(clinicRate)}
               note={`1 hr clinic consultation = ${peso(clinicRate)}`}
-              accent="teal"
+              accent="cyan"
             />
           </div>
 
@@ -368,7 +368,7 @@ export default function PricingPage() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Assigned Doctor</p>
               <h3 className="mt-2 text-lg font-bold text-slate-900">{doctorDisplayName(primaryDoctor)}</h3>
-              <p className="mt-1 text-sm text-slate-500">{primaryDoctor?.specialty ?? "General Medicine"}</p>
+              <p className="mt-1 text-sm text-slate-500">{primaryDoctor?.specialty ?? "Family Medicine Specialist"}</p>
               <p className="mt-4 text-sm text-slate-500">
                 The booking and billing flows already read these values separately, so editing them here updates the pricing source used across the system.
               </p>
@@ -392,7 +392,7 @@ export default function PricingPage() {
                   type="button"
                   onClick={saveConsultationRates}
                   disabled={isSaving}
-                  className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-200 disabled:text-emerald-700"
+                  className="rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-200 disabled:text-sky-700"
                 >
                   {isSaving ? "Saving rates..." : "Save consultation rates"}
                 </button>
@@ -428,8 +428,8 @@ export default function PricingPage() {
                     <p className="mt-1 text-xs text-slate-500">{item.code}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-emerald-700">{peso(item.price)}</p>
-                    <p className={`mt-1 text-xs ${item.is_active ? "text-emerald-600" : "text-slate-400"}`}>
+                    <p className="font-semibold text-sky-700">{peso(item.price)}</p>
+                    <p className={`mt-1 text-xs ${item.is_active ? "text-sky-600" : "text-slate-400"}`}>
                       {item.is_active ? "Active" : "Inactive"}
                     </p>
                   </div>
@@ -442,9 +442,9 @@ export default function PricingPage() {
             )}
           </div>
 
-          <div className="mt-5 rounded-[1.5rem] border border-emerald-100 bg-emerald-50/70 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Requirement Check</p>
-            <ul className="mt-3 space-y-2 text-sm text-emerald-900">
+          <div className="mt-5 rounded-[1.5rem] border border-sky-100 bg-sky-50/70 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Requirement Check</p>
+            <ul className="mt-3 space-y-2 text-sm text-sky-900">
               <li>Online consultation rates can be updated from this page.</li>
               <li>Clinic consultation fees can be updated from this page.</li>
               <li>Pricing records can be added, edited, and deleted from the catalog below.</li>
@@ -528,7 +528,7 @@ export default function PricingPage() {
                 type="checkbox"
                 checked={showInactive}
                 onChange={(event) => setShowInactive(event.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
               />
               Show inactive pricing
             </label>
@@ -579,7 +579,7 @@ export default function PricingPage() {
                                 <input
                                   value={editDraft.code}
                                   onChange={(event) => setEditDraft((current) => ({ ...current, code: event.target.value }))}
-                                  className="w-36 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                                  className="w-36 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
                                 />
                               ) : (
                                 <code className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{item.code}</code>
@@ -590,7 +590,7 @@ export default function PricingPage() {
                                 <input
                                   value={editDraft.name}
                                   onChange={(event) => setEditDraft((current) => ({ ...current, name: event.target.value }))}
-                                  className="w-full min-w-[220px] rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                                  className="w-full min-w-[220px] rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
                                 />
                               ) : (
                                 <div>
@@ -606,7 +606,7 @@ export default function PricingPage() {
                                   onChange={(event) =>
                                     setEditDraft((current) => ({ ...current, category: event.target.value as PricingCategory }))
                                   }
-                                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
                                 >
                                   {CATEGORIES.filter((categoryOption) => categoryOption !== "All").map((categoryOption) => (
                                     <option key={categoryOption} value={categoryOption}>
@@ -628,7 +628,7 @@ export default function PricingPage() {
                                   step="0.01"
                                   value={editDraft.price}
                                   onChange={(event) => setEditDraft((current) => ({ ...current, price: Number(event.target.value) || 0 }))}
-                                  className="w-32 rounded-xl border border-slate-200 px-3 py-2 text-right text-sm outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                                  className="w-32 rounded-xl border border-slate-200 px-3 py-2 text-right text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
                                 />
                               ) : (
                                 peso(item.price)
@@ -643,14 +643,14 @@ export default function PricingPage() {
                                     onChange={(event) =>
                                       setEditDraft((current) => ({ ...current, is_active: event.target.checked }))
                                     }
-                                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                    className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                                   />
                                   Active
                                 </label>
                               ) : (
                                 <span
                                   className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                    item.is_active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                                    item.is_active ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-500"
                                   }`}
                                 >
                                   {item.is_active ? "Active" : "Inactive"}
@@ -666,7 +666,7 @@ export default function PricingPage() {
                                         type="button"
                                         onClick={saveEdit}
                                         disabled={isSaving}
-                                        className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:bg-emerald-200 disabled:text-emerald-700"
+                                        className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-700 disabled:bg-sky-200 disabled:text-sky-700"
                                       >
                                         Save
                                       </button>
@@ -721,12 +721,12 @@ function HeroStat({
 }: {
   label: string;
   value: string;
-  accent: "emerald" | "teal";
+  accent: "sky" | "cyan";
 }) {
   const tone =
-    accent === "emerald"
-      ? "border-emerald-200 bg-white/90 text-emerald-800"
-      : "border-teal-200 bg-white/90 text-teal-800";
+    accent === "sky"
+      ? "border-sky-200 bg-white/90 text-sky-800"
+      : "border-cyan-200 bg-white/90 text-cyan-800";
 
   return (
     <div className={`rounded-[1.5rem] border px-4 py-4 shadow-sm backdrop-blur ${tone}`}>
@@ -745,12 +745,12 @@ function RateCard({
   label: string;
   value: string;
   note: string;
-  accent: "emerald" | "teal";
+  accent: "sky" | "cyan";
 }) {
   const accentStyles =
-    accent === "emerald"
-      ? "border-emerald-100 bg-emerald-50 text-emerald-800"
-      : "border-teal-100 bg-teal-50 text-teal-800";
+    accent === "sky"
+      ? "border-sky-100 bg-sky-50 text-sky-800"
+      : "border-cyan-100 bg-cyan-50 text-cyan-800";
 
   return (
     <div className={`rounded-[1.5rem] border p-5 ${accentStyles}`}>
@@ -782,7 +782,7 @@ function Field({
         step="0.01"
         value={value}
         onChange={(event) => onChange(Number(event.target.value) || 0)}
-        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
       />
     </label>
   );
@@ -807,7 +807,7 @@ function TextInput({
         placeholder={placeholder}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
       />
     </label>
   );
@@ -828,7 +828,7 @@ function SelectInput({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
       >
         {CATEGORIES.map((category) => (
           <option key={category} value={category}>

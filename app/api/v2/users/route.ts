@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { HttpError, httpError, ok, requireRole } from "@/src/lib/http";
+import { slugifyDoctorName } from "@/src/lib/server/doctor-identity";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 import type { DbRole, Profile } from "@/src/lib/db/types";
 
-const CANONICAL_DOCTOR_SLUG = "chiara-punzalan";
-const CANONICAL_DOCTOR_SPECIALTY = "General Medicine";
+const CANONICAL_DOCTOR_SPECIALTY = "Family Medicine Specialist";
 
 type CreateUserBody = {
   email: string;
@@ -108,9 +108,10 @@ export async function POST(req: Request) {
       }
 
       const doctorPayload = body.doctor;
+      const doctorSlug = slugifyDoctorName(body.full_name);
       const { error: doctorError } = await supabase.from("doctors").insert({
         id: created.user.id,
-        slug: CANONICAL_DOCTOR_SLUG,
+        slug: doctorSlug,
         specialty: doctorPayload?.specialty?.trim() || CANONICAL_DOCTOR_SPECIALTY,
         // doctors.license_no is unique + non-null in schema, so fallback must be unique.
         license_no: doctorPayload?.license_no?.trim() || `AUTO-${created.user.id}`,

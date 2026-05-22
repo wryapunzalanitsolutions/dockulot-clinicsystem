@@ -206,10 +206,10 @@ function getNotificationTone(item: NotificationItem) {
     return {
       card:
         "border-transparent bg-transparent hover:bg-slate-50",
-      label: "text-emerald-800",
-      iconWrap: "border-emerald-200 bg-emerald-50 text-emerald-700",
-      action: "text-emerald-700 hover:text-emerald-800",
-      status: "text-emerald-700",
+      label: "text-sky-800",
+      iconWrap: "border-sky-200 bg-sky-50 text-sky-700",
+      action: "text-sky-700 hover:text-sky-800",
+      status: "text-sky-700",
     };
   }
 
@@ -440,7 +440,7 @@ export function DashboardHeader({
           <div className="relative" ref={notifMenuRef}>
             <button
               type="button"
-              className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-600 bg-white text-emerald-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-700 sm:h-12 sm:w-12 ${
+              className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-sky-600 bg-white text-sky-600 shadow-sm transition hover:border-sky-500 hover:text-sky-700 sm:h-12 sm:w-12 ${
                 notifPulse ? "ring-4 ring-rose-200 ring-offset-2 ring-offset-white animate-pulse" : ""
               }`}
               aria-label="Notifications"
@@ -603,7 +603,7 @@ export function DashboardHeader({
                                       {item.href ? (
                                         <button
                                           type="button"
-                                          className="text-slate-900 transition hover:text-emerald-700"
+                                          className="text-slate-900 transition hover:text-sky-700"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             void openNotification(item);
@@ -636,14 +636,14 @@ export function DashboardHeader({
           <div className="relative" ref={profileMenuRef}>
             <button
               type="button"
-              className="flex min-w-0 max-w-48 items-center gap-2 rounded-[1.4rem] border-2 border-emerald-600 bg-white px-2.5 py-1.5 text-left shadow-sm transition hover:border-emerald-500 hover:shadow-md sm:max-w-none sm:gap-3 sm:rounded-[1.75rem] sm:px-3 sm:py-2 sm:pr-4"
+              className="flex min-w-0 max-w-48 items-center gap-2 rounded-[1.4rem] border-2 border-sky-600 bg-white px-2.5 py-1.5 text-left shadow-sm transition hover:border-sky-500 hover:shadow-md sm:max-w-none sm:gap-3 sm:rounded-[1.75rem] sm:px-3 sm:py-2 sm:pr-4"
               onClick={() => {
                 setIsMenuOpen((current) => !current);
                 setIsNotifOpen(false);
               }}
               aria-label="Open account menu"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-[3px] border-emerald-600 bg-[radial-gradient(circle_at_top,#163b7a_0%,#0f2147_80%)] text-xs font-bold text-white sm:h-11 sm:w-11 sm:border-4 sm:text-sm">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-[3px] border-sky-600 bg-[radial-gradient(circle_at_top,#163b7a_0%,#0f2147_80%)] text-xs font-bold text-white sm:h-11 sm:w-11 sm:border-4 sm:text-sm">
                 {initials}
               </div>
 
@@ -674,7 +674,7 @@ export function DashboardHeader({
                 <div className="p-2">
                   <Link
                     href="/profile"
-                    className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-teal-700"
+                    className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-sky-700"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     <FaRegUser className="h-4 w-4" />
@@ -683,7 +683,7 @@ export function DashboardHeader({
 
                   <Link
                     href={settingsHref}
-                    className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-teal-700"
+                    className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-sky-700"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     <FaGear className="h-4 w-4" />

@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Chiara Clinic",
-  description: "Production-ready clinic operations dashboard",
+  title: "Healthcare & Doctor Creator System",
+  description: "Clinic, patient portal, online consultation, POS, inventory, and doctor creator platform",
   icons: {
     icon: "/images/favicon.png?v=2",
     apple: "/images/favicon.png?v=2",

@@ -24,7 +24,7 @@
 
 ## System Overview
 
-**CHIARA Clinic Management System** is a comprehensive healthcare management platform designed for **Dr. Chiara C. Punzalan, M.D.** The system manages:
+**Doctora Kulot Clinic Management System** is a comprehensive healthcare management platform designed for **Doctora Kulot, MD**. The system manages:
 
 - **Patient Management**: Registration, medical history, family history, vital signs
 - **Appointment Scheduling**: Clinic visits and online consultations with intelligent slot allocation
@@ -680,7 +680,7 @@ Audit trail for compliance and debugging.
 ### Role Hierarchy
 
 ```
-1. SUPER_ADMIN — System god (typically Dr. Chiara)
+1. SUPER_ADMIN — System owner (typically Doctora Kulot, MD)
 2. ADMIN — Administrative staff (can manage users, settings)
 3. SECRETARY — Clinic staff (check-in, billing, scheduling)
 4. DOCTOR — Medical staff (consultations, diagnosis notes, schedule)

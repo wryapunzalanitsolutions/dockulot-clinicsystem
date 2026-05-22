@@ -121,10 +121,10 @@ export default function PatientsPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <section className="overflow-hidden rounded-[2.5rem] border border-emerald-100 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.24),_transparent_34%),linear-gradient(135deg,_#f8fffb,_#effcf3_48%,_#dcfce7)] p-6 shadow-[0_30px_80px_rgba(16,185,129,0.14)]">
+      <section className="overflow-hidden rounded-[2.5rem] border border-sky-100 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.24),_transparent_34%),linear-gradient(135deg,_#f0faff,_#eef9ff_48%,_#e0f6ff)] p-6 shadow-[0_30px_80px_rgba(14,165,233,0.14)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">Front Desk Patients</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-700">Front Desk Patients</p>
             <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900">Manage patient records and send walk-ins straight to intake</h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
               Keep patient records clean here, then use the walk-in intake flow to assign an arrival to an available clinic slot and queue number.
@@ -135,7 +135,7 @@ export default function PatientsPage() {
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/patients/add"
-                className="rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_28px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(16,185,129,0.28)]"
+                className="rounded-full bg-[linear-gradient(135deg,#0284c7,#0ea5e9)] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_28px_rgba(14,165,233,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(14,165,233,0.28)]"
               >
                 Add Walk-In Patient
               </Link>
@@ -151,16 +151,16 @@ export default function PatientsPage() {
         <MetricCard label="Registered" value={registeredPatients} />
       </section>
 
-      <section className="rounded-4xl border border-emerald-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+      <section className="rounded-4xl border border-sky-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
         <div className="grid gap-4 md:grid-cols-3">
           <label className="block text-sm font-medium text-slate-700">
             Search patient
-            <input
+              <input
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Name, email, or phone"
-              className="mt-2 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+              className="mt-2 w-full rounded-2xl border border-sky-100 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
             />
           </label>
 
@@ -169,7 +169,7 @@ export default function PatientsPage() {
             <select
               value={typeFilter}
               onChange={(event) => setTypeFilter(event.target.value as PatientFilter)}
-              className="mt-2 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+              className="mt-2 w-full rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
             >
               <option value="all">All patients</option>
               <option value="registered">Registered only</option>
@@ -182,7 +182,7 @@ export default function PatientsPage() {
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-              className="mt-2 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+              className="mt-2 w-full rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
             >
               <option value="all">All statuses</option>
               <option value="Active">Active</option>
@@ -245,8 +245,8 @@ export default function PatientsPage() {
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        patient.status === "Active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-700"
-                      }`}
+                          patient.status === "Active" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-700"
+                        }`}
                     >
                       {patient.status}
                     </span>
@@ -268,7 +268,7 @@ export default function PatientsPage() {
                         <button
                           type="button"
                           onClick={() => beginEdit(patient)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-800"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:border-sky-300 hover:bg-sky-50 hover:text-sky-800"
                           aria-label={`Edit ${patient.fullName}`}
                         >
                           <FaRegPenToSquare className="h-4 w-4" />
@@ -346,7 +346,7 @@ export default function PatientsPage() {
 
 function MetricCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-[1.75rem] border border-emerald-100 bg-white p-5 shadow-[0_16px_34px_rgba(16,185,129,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_40px_rgba(16,185,129,0.12)]">
+    <div className="rounded-[1.75rem] border border-sky-100 bg-white p-5 shadow-[0_16px_34px_rgba(14,165,233,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_40px_rgba(14,165,233,0.12)]">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <p className="mt-3 text-3xl font-black text-slate-900">{value}</p>
     </div>

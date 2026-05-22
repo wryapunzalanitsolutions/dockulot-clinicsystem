@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { HttpError } from "@/src/lib/http";
 import { assertTrustedOrigin, enforceRateLimit } from "@/src/lib/security";
 import { sendContactEmail } from "@/src/lib/services/emailjs";
+import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
     enforceRateLimit(req, "contact", 5, 60_000);
 
     const body = await req.json();
-    const { name, email, message } = body || {};
+    const { name, email, phone, inquiry_type, message } = body || {};
 
     if (!name || !email || !message) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
@@ -28,11 +29,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Please provide a valid name, email, and message." }, { status: 400 });
     }
 
-    await sendContactEmail({
-      name: name.trim(),
-      email: email.trim(),
-      message: message.trim(),
+    const cleanName = name.trim();
+    const cleanEmail = email.trim();
+    const cleanMessage = message.trim();
+
+    const supabase = getSupabaseAdmin();
+    const { error: inquiryError } = await supabase.from("inquiries").insert({
+      name: cleanName,
+      email: cleanEmail,
+      phone: typeof phone === "string" ? phone.trim() || null : null,
+      inquiry_type: typeof inquiry_type === "string" ? inquiry_type.trim() || "General" : "General",
+      message: cleanMessage,
     });
+    if (inquiryError) throw inquiryError;
+
+    try {
+      await sendContactEmail({
+        name: cleanName,
+        email: cleanEmail,
+        message: cleanMessage,
+      });
+    } catch (emailError) {
+      console.warn("[contact] inquiry saved but email delivery failed", emailError);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {

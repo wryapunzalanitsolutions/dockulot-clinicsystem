@@ -1,8 +1,9 @@
 import { HttpError, httpError, ok, requireRole } from "@/src/lib/http";
+import { slugifyDoctorName } from "@/src/lib/server/doctor-identity";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 import type { DbRole } from "@/src/lib/db/types";
 
-const CANONICAL_DOCTOR_SPECIALTY = "General Medicine";
+const CANONICAL_DOCTOR_SPECIALTY = "Family Medicine Specialist";
 
 type UpdateUserBody = {
   full_name?: string;
@@ -59,7 +60,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
       const { error: insertDoctorError } = await supabase.from("doctors").insert({
         id,
-        slug: "chiara-punzalan",
+        slug: slugifyDoctorName(body.full_name ?? `doctor-${id}`),
         specialty: CANONICAL_DOCTOR_SPECIALTY,
         license_no: `AUTO-${id}`,
         consultation_fee_clinic: 0,

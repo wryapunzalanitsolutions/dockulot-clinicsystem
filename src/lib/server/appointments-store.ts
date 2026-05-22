@@ -11,8 +11,8 @@ import {
   getDoctorSlugById,
   legacyStatusMatchesLiving,
   mapV2RowToLegacy,
-  resolveDoctorIdBySlug,
 } from "@/src/lib/server/legacy-bridge";
+import { resolveDoctorUuid } from "@/src/lib/server/doctor-identity";
 import { getClinicToday, isPastInClinicTime } from "@/src/lib/timezone";
 import {
   getSchedulableSlotsForDate,
@@ -48,10 +48,9 @@ export type AppointmentUpdatePayload = AppointmentCreatePayload & {
   id: string;
   meetingLink?: string | null;
 };
-const ASSIGNED_DOCTOR_SLUG = "chiara-punzalan";
 
-export async function resolveAssignedDoctorUuid() {
-  return resolveDoctorIdBySlug(ASSIGNED_DOCTOR_SLUG);
+export async function resolveAssignedDoctorUuid(doctorSlug?: string) {
+  return resolveDoctorUuid(doctorSlug);
 }
 
 function normalizeTime(time: string) {
@@ -359,7 +358,7 @@ export async function createPersistedAppointmentWithContext(
 ) {
   const supabase = getSupabaseAdmin();
   try {
-    const doctorUuid = await resolveAssignedDoctorUuid();
+    const doctorUuid = await resolveAssignedDoctorUuid(payload.doctorId);
     if (payload.type === "Online") {
       throw new Error("Online consultations require payment first. Start checkout to confirm the slot.");
     }
@@ -397,24 +396,33 @@ export async function createPersistedAppointmentWithContext(
       .single<V2Appointment>();
     if (insertErr) throw insertErr;
 
-    await enqueueNotification({
-      user_id: patientUuid,
-      template: "appointment_booked",
-      channels: ["email", "sms"],
-      payload: { appointment_id: inserted.id, appointment_type: payload.type },
-    });
+    try {
+      await enqueueNotification({
+        user_id: patientUuid,
+        template: "appointment_booked",
+        channels: ["email", "sms"],
+        payload: { appointment_id: inserted.id, appointment_type: payload.type },
+      });
 
-    await enqueueAppointmentTeamNotifications({
-      appointment_id: inserted.id,
-      appointment_type: payload.type,
-      patient_user_id: patientUuid,
-      patient_name: payload.patientName,
-      appointment_date: payload.date,
-      start_time,
-      doctor_user_id: inserted.doctor_id,
-      excludeUserIds: [patientUuid, context.actor?.user.id].filter((value): value is string => !!value),
-      template: "appointment_staff_booked",
-    });
+      await enqueueAppointmentTeamNotifications({
+        appointment_id: inserted.id,
+        appointment_type: payload.type,
+        patient_user_id: patientUuid,
+        patient_name: payload.patientName,
+        appointment_date: payload.date,
+        start_time,
+        doctor_user_id: inserted.doctor_id,
+        excludeUserIds: [patientUuid, context.actor?.user.id].filter((value): value is string => !!value),
+        template: "appointment_staff_booked",
+      });
+    } catch (notificationError) {
+      console.error("[appointments] booking notifications failed", {
+        appointmentId: inserted.id,
+        patientUuid,
+        doctorUuid: inserted.doctor_id,
+        error: notificationError instanceof Error ? notificationError.message : notificationError,
+      });
+    }
 
     const appointment = (await hydrateRows([inserted]))[0];
     return {
@@ -459,7 +467,7 @@ export async function updatePersistedAppointment(payload: AppointmentUpdatePaylo
       };
     }
 
-    const doctorUuid = await resolveAssignedDoctorUuid();
+    const doctorUuid = await resolveAssignedDoctorUuid(payload.doctorId);
     const start_time = `${payload.start}:00`;
     const end_time = `${addOneHour(payload.start)}:00`;
     if (payload.type === "Online" && existing.appointment_type !== "Online") {

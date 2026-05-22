@@ -79,7 +79,7 @@ Body: We received your payment for appointment ABC12345. Your online consultatio
 **Template**: `online_meeting_link`
 ```
 Subject: Your online meeting link
-Body: Your meeting link for appointment ABC12345 is ready: https://meet.chiara.clinic/ABC12345-xxxxx
+Body: Your meeting link for appointment ABC12345 is ready: https://meet.doctora-kulot.clinic/ABC12345-xxxxx
 ```
 
 ### 6. Combined (Payment + Confirmed)
@@ -164,7 +164,7 @@ SEMAPHORE_API_KEY=xxxxxxxxxxxxx
 SEMAPHORE_SENDER_NAME=CHIARA Clinic
 
 # Meeting Infrastructure
-MEETING_BASE_URL=https://meet.chiara.clinic
+MEETING_BASE_URL=https://meet.doctora-kulot.clinic
 ```
 
 ### Cron Jobs

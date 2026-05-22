@@ -133,12 +133,12 @@ export default function ResetPasswordPage() {
       />
       <div className="absolute inset-0 bg-black/15" />
 
-      <section className="relative z-10 w-full max-w-xs rounded-2xl border-2 border-teal-700/50 bg-transparent p-5 shadow-xl backdrop-blur-[2px] overflow-hidden">
+      <section className="relative z-10 w-full max-w-xs rounded-2xl border-2 border-sky-700/50 bg-transparent p-5 shadow-xl backdrop-blur-[2px] overflow-hidden">
         <div className="relative z-10">
           <div className="flex justify-center -mb-4 overflow-hidden">
             <Image
-              src="/images/chiaralogo.png"
-              alt="Chiara Logo"
+              src="/images/dockulotslogonobg.png"
+              alt="Doctora Kulot Clinic Logo"
               width={669}
               height={373}
               priority
@@ -169,7 +169,7 @@ export default function ResetPasswordPage() {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    className="w-full rounded-lg border border-white/30 bg-white/10 px-3 py-2.5 pr-11 text-white placeholder:text-white/60 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400"
+                    className="w-full rounded-lg border border-white/30 bg-white/10 px-3 py-2.5 pr-11 text-white placeholder:text-white/60 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-300"
                     placeholder="........"
                     required
                   />
@@ -190,7 +190,7 @@ export default function ResetPasswordPage() {
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirm}
                     onChange={(event) => setConfirm(event.target.value)}
-                    className="w-full rounded-lg border border-white/30 bg-white/10 px-3 py-2.5 pr-11 text-white placeholder:text-white/60 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400"
+                    className="w-full rounded-lg border border-white/30 bg-white/10 px-3 py-2.5 pr-11 text-white placeholder:text-white/60 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-300"
                     placeholder="........"
                     required
                   />
@@ -218,7 +218,7 @@ export default function ResetPasswordPage() {
               <button
                 type="submit"
                 disabled={isPending}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-3 py-2.5 font-semibold text-white shadow-lg shadow-teal-900/30 transition hover:bg-teal-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-teal-800 disabled:text-teal-300"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 py-2.5 font-semibold text-white shadow-lg shadow-sky-900/30 transition hover:bg-sky-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-sky-800 disabled:text-sky-300"
               >
                 {isPending ? "Updating..." : "Update password"}
               </button>
@@ -229,7 +229,7 @@ export default function ResetPasswordPage() {
                 <div
                   className={`rounded-xl px-4 py-3 text-sm ${
                     step === "done"
-                      ? "border border-emerald-300/60 bg-emerald-500/20 text-emerald-100"
+                      ? "border border-sky-300/60 bg-sky-500/20 text-sky-100"
                       : "border border-white/15 bg-white/10 text-white/90"
                   }`}
                 >
@@ -241,7 +241,7 @@ export default function ResetPasswordPage() {
                 <button
                   type="button"
                   onClick={() => router.replace("/login")}
-                  className="w-full rounded-lg bg-teal-600 px-3 py-2.5 font-semibold text-white shadow-lg shadow-teal-900/30 transition hover:bg-teal-500"
+                  className="w-full rounded-lg bg-sky-600 px-3 py-2.5 font-semibold text-white shadow-lg shadow-sky-900/30 transition hover:bg-sky-500"
                 >
                   Back to login
                 </button>

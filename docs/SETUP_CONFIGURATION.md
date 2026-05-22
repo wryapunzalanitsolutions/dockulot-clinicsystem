@@ -43,7 +43,7 @@ SEMAPHORE_SENDER_NAME=CHIARA Clinic
 
 **Add to `.env.local`:**
 ```bash
-MEETING_BASE_URL=https://meet.chiara.clinic
+MEETING_BASE_URL=https://meet.doctora-kulot.clinic
 ```
 
 ### 4. PayMongo Checkout + Webhooks
@@ -124,7 +124,7 @@ curl -X POST http://localhost:3000/api/(dashboard)/appointments/actions.ts \
     "patientName": "John Doe",
     "email": "john@example.com",
     "phone": "+63 912 345 6789",
-    "doctorId": "chiara-punzalan",
+    "doctorId": "doctora-kulot-md",
     "date": "2026-05-08",
     "start": "09:00",
     "type": "Clinic",
@@ -188,7 +188,7 @@ curl -X POST http://localhost:3000/api/v2/appointments/checkout \
     "patientName": "Jane Doe",
     "email": "jane@example.com",
     "phone": "+63 912 345 6789",
-    "doctorId": "chiara-punzalan",
+    "doctorId": "doctora-kulot-md",
     "date": "2026-05-08",
     "start": "10:00",
     "reason": "Online consultation"
@@ -215,13 +215,13 @@ SELECT status, COUNT(*) FROM appointments WHERE status = 'NoShow';
 
 ## Single Doctor Configuration
 
-The system is configured for **Dra. Chiara C. Punzalan M.D.** only:
+The system is configured for **Doctora Kulot, MD** only:
 
-**Database UUID:** Retrieved from `doctors` table by slug `chiara-punzalan`
+**Database UUID:** Retrieved from `doctors` table by slug `doctora-kulot-md`
 
 **Hardcoded in:** [src/lib/server/appointments-store.ts](src/lib/server/appointments-store.ts#L37)
 ```typescript
-const ASSIGNED_DOCTOR_SLUG = "chiara-punzalan";
+const ASSIGNED_DOCTOR_SLUG = "doctora-kulot-md";
 ```
 
 To add another doctor, you would need to:

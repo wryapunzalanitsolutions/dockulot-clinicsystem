@@ -1,6 +1,7 @@
 export type DbRole =
   | "super_admin"
   | "admin"
+  | "staff"
   | "secretary"
   | "doctor"
   | "patient";

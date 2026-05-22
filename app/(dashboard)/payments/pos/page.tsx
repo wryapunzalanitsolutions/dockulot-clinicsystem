@@ -683,7 +683,7 @@ export default function POSBillingPage() {
     <div className="space-y-4 pb-8">
       <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white">
             <FaReceipt className="h-4 w-4" aria-hidden="true" />
           </div>
           <div>
@@ -709,7 +709,7 @@ export default function POSBillingPage() {
           ) : null}
           <Link
             href="/payments/history"
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-emerald-300 hover:text-emerald-700"
+            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700"
           >
             History
           </Link>
@@ -720,7 +720,7 @@ export default function POSBillingPage() {
         <div
           className={`flex items-start gap-2.5 rounded-2xl px-4 py-3 text-sm font-medium ${
             feedback.tone === "success"
-              ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+              ? "border border-sky-200 bg-sky-50 text-sky-800"
               : "border border-red-200 bg-red-50 text-red-800"
           }`}
         >
@@ -734,12 +734,12 @@ export default function POSBillingPage() {
       ) : null}
 
       {recentBillings.length > 0 ? (
-        <section className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
+        <section className="rounded-3xl border border-sky-100 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Recent Transactions</p>
             <Link
               href="/payments/history"
-              className="text-xs font-semibold text-emerald-700 hover:underline"
+              className="text-xs font-semibold text-sky-700 hover:underline"
             >
               View all →
             </Link>
@@ -749,7 +749,7 @@ export default function POSBillingPage() {
               <Link
                 key={bill.id}
                 href={`/payments/receipt/${bill.id}`}
-                className="shrink-0 rounded-2xl border border-emerald-100 bg-emerald-50/40 px-3 py-2 text-xs transition hover:border-emerald-300 hover:bg-emerald-50"
+                className="shrink-0 rounded-2xl border border-sky-100 bg-sky-50/40 px-3 py-2 text-xs transition hover:border-sky-300 hover:bg-sky-50"
               >
                 <span className="block font-mono font-bold text-slate-900">
                   #{bill.id.slice(0, 8).toUpperCase()}
@@ -780,7 +780,7 @@ export default function POSBillingPage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">POS Flow</p>
             <h2 className="mt-1 text-sm font-bold text-slate-900">Build Bill, accept payment, then print the receipt.</h2>
           </div>
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">
+          <span className="rounded-full bg-sky-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-sky-700">
             {issuedBillingId ? "Step 2 of 3" : "Step 1 of 3"}
           </span>
         </div>
@@ -812,7 +812,7 @@ export default function POSBillingPage() {
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Patient</h2>
-              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+              <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] font-bold text-sky-700">
                 {billableAppointments.length} billable
               </span>
             </div>
@@ -824,7 +824,7 @@ export default function POSBillingPage() {
                   value={selectedApptId}
                   onChange={(event) => setSelectedApptId(event.target.value)}
                   disabled={!canUse || !!issuedBillingId}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-50"
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 disabled:bg-slate-50"
                 >
                   <option value="">
                     {billableAppointments.length === 0
@@ -861,7 +861,7 @@ export default function POSBillingPage() {
                         </span>
                       ) : null}
                     </div>
-                    <div className="flex items-center gap-2 text-emerald-700">
+                    <div className="flex items-center gap-2 text-sky-700">
                       <span className="font-semibold">Base:</span>
                       <span className="font-mono">{peso(consultationBaseFee)}</span>
                       <span className="text-slate-400">({formatDurationLabel(selectedAppt.start, selectedAppt.end)} @ {peso(selectedDoctorFees.clinic)}/hr)</span>
@@ -892,7 +892,7 @@ export default function POSBillingPage() {
                   onKeyDown={handleCatalogKeyDown}
                   placeholder='Code or name (try "/" to focus, Enter to add first match)'
                   disabled={!canUse || !!issuedBillingId}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-8 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-50"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-8 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 disabled:bg-slate-50"
                 />
                 <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-xs text-slate-400">⌕</span>
                 {catalogQuery ? (
@@ -925,13 +925,13 @@ export default function POSBillingPage() {
                           onClick={() => addCatalogItem(item)}
                           disabled={!canUse || !!issuedBillingId}
                           title={`${item.code} · ${item.name}`}
-                          className="flex w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-left transition hover:border-emerald-400 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
+                          className="flex w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-left transition hover:border-sky-400 hover:bg-sky-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
                         >
                           <span className="min-w-0 pr-2">
                             <span className="block truncate text-xs font-semibold text-slate-900">{item.name}</span>
                             <span className="block font-mono text-[10px] text-slate-500">{item.code}</span>
                           </span>
-                          <span className="shrink-0 font-mono text-xs font-bold text-emerald-700">{peso(Number(item.price))}</span>
+                          <span className="shrink-0 font-mono text-xs font-bold text-sky-700">{peso(Number(item.price))}</span>
                         </button>
                       ))
                     ) : (
@@ -964,7 +964,7 @@ export default function POSBillingPage() {
                           else updateLine(line.tempId, { pricing_id: null });
                         }}
                         disabled={!canUse || !!issuedBillingId}
-                        className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 disabled:bg-slate-50"
+                        className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200 disabled:bg-slate-50"
                       >
                         <option value="">— pick service —</option>
                         {posPricing.map((item) => (
@@ -1056,8 +1056,8 @@ export default function POSBillingPage() {
                     }}
                     className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                       discountKind === option.value
-                        ? "border-emerald-600 bg-emerald-600 text-white"
-                        : "border-slate-300 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                        ? "border-sky-600 bg-sky-600 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:border-sky-300 hover:bg-sky-50"
                     } disabled:cursor-not-allowed disabled:opacity-60`}
                   >
                     {option.label}
@@ -1075,10 +1075,10 @@ export default function POSBillingPage() {
                       onChange={(event) => setDiscountIdNumber(event.target.value)}
                       disabled={!canUse || !!issuedBillingId}
                       placeholder="ID number"
-                      className="w-44 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+                      className="w-44 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-200"
                     />
                   </label>
-                  <span className="rounded bg-emerald-50 px-2 py-1 font-mono text-xs font-bold text-emerald-700">
+                  <span className="rounded bg-sky-50 px-2 py-1 font-mono text-xs font-bold text-sky-700">
                     −{peso(effectiveDiscount)}
                   </span>
                   <span className="text-[11px] text-slate-500">VAT exempt · RA 9994 / RA 10754</span>
@@ -1094,7 +1094,7 @@ export default function POSBillingPage() {
                       value={discount}
                       onChange={(event) => setDiscount(Math.max(0, Number(event.target.value) || 0))}
                       disabled={!canUse || !!issuedBillingId || discountKind === "None"}
-                      className="w-24 rounded-md border border-slate-300 bg-white px-2 py-1 text-right font-mono text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 disabled:bg-slate-100"
+                      className="w-24 rounded-md border border-slate-300 bg-white px-2 py-1 text-right font-mono text-xs outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-200 disabled:bg-slate-100"
                     />
                   </label>
                   <label className="flex items-center gap-1.5 text-xs">
@@ -1106,7 +1106,7 @@ export default function POSBillingPage() {
                       value={tax}
                       onChange={(event) => setTax(Math.max(0, Number(event.target.value) || 0))}
                       disabled={!canUse || !!issuedBillingId}
-                      className="w-24 rounded-md border border-slate-300 bg-white px-2 py-1 text-right font-mono text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+                      className="w-24 rounded-md border border-slate-300 bg-white px-2 py-1 text-right font-mono text-xs outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-200"
                     />
                   </label>
                 </div>
@@ -1187,7 +1187,7 @@ export default function POSBillingPage() {
 
             {/* Big total panel — POS-classic dark tile so the eye lands here. */}
             <div className="flex items-baseline justify-between bg-slate-900 px-4 py-3 text-white">
-              <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">Total Due</span>
+              <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">Total Due</span>
               <span className="font-mono text-3xl font-black tabular-nums">{peso(total)}</span>
             </div>
 
@@ -1206,9 +1206,9 @@ export default function POSBillingPage() {
                     }}
                     className={`rounded-xl border px-3 py-2.5 text-left text-xs transition ${
                       paymentMethod === method.value
-                        ? "border-emerald-600 bg-emerald-600 text-white"
+                        ? "border-sky-600 bg-sky-600 text-white"
                         : method.available
-                          ? "border-slate-300 bg-white text-slate-700 hover:border-emerald-400"
+                          ? "border-slate-300 bg-white text-slate-700 hover:border-sky-400"
                           : "border-slate-200 bg-slate-100 text-slate-400"
                     } disabled:cursor-not-allowed disabled:opacity-70`}
                   >
@@ -1255,7 +1255,7 @@ export default function POSBillingPage() {
                           value={tenderedInput}
                           onChange={(event) => setTenderedInput(event.target.value)}
                           placeholder={total.toFixed(2)}
-                          className="w-32 rounded-md border border-slate-300 bg-white px-2 py-1 text-right font-mono text-base font-bold outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+                          className="w-32 rounded-md border border-slate-300 bg-white px-2 py-1 text-right font-mono text-base font-bold outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-200"
                         />
                       </div>
                       <div className="mt-2 grid grid-cols-3 gap-1.5">
@@ -1266,8 +1266,8 @@ export default function POSBillingPage() {
                             onClick={() => setTenderedInput(amount.toFixed(2))}
                             className={`rounded border px-1 py-1 text-[10px] font-bold ${
                               index === 0
-                                ? "border-emerald-400 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                                : "border-slate-300 bg-white font-mono text-slate-700 hover:bg-emerald-50"
+                                ? "border-sky-400 bg-sky-50 text-sky-800 hover:bg-sky-100"
+                                : "border-slate-300 bg-white font-mono text-slate-700 hover:bg-sky-50"
                             }`}
                           >
                             {index === 0 ? `Exact ${amount.toFixed(2)}` : amount.toFixed(2)}
@@ -1280,7 +1280,7 @@ export default function POSBillingPage() {
                           <p className="mt-1 font-mono text-lg font-black text-slate-900">{peso(total)}</p>
                         </div>
                         <div className="rounded-md bg-slate-900 px-3 py-2 text-white">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-sky-300">
                             {tenderShortfall > 0 ? "Short" : "Change"}
                           </p>
                           <p className="mt-1 font-mono text-lg font-black tabular-nums">
@@ -1327,7 +1327,7 @@ export default function POSBillingPage() {
                           value={paymentReference}
                           onChange={(event) => setPaymentReference(event.target.value)}
                           placeholder={getReferencePlaceholder(paymentMethod)}
-                          className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+                          className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm font-medium text-slate-900 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200"
                         />
                       </label>
                       <div className="grid grid-cols-2 gap-2">
@@ -1351,10 +1351,10 @@ export default function POSBillingPage() {
                     type="button"
                     onClick={openIssueConfirm}
                     disabled={!canUse || isWorking || !selectedApptId || discountExceedsSubtotal}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-md bg-sky-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
                   >
                     Generate Bill
-                    <kbd className="rounded border border-emerald-400 bg-emerald-700 px-1 font-mono text-[9px] text-emerald-100">F2</kbd>
+                    <kbd className="rounded border border-sky-400 bg-sky-700 px-1 font-mono text-[9px] text-sky-100">F2</kbd>
                   </button>
                   <button
                     type="button"
@@ -1370,14 +1370,14 @@ export default function POSBillingPage() {
                     type="button"
                     onClick={recordPayment}
                     disabled={isWorking || !canAcceptPayment}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-md bg-sky-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
                   >
                     {isWorking ? "Processing…" : isQR ? "Open QR Ph Checkout" : `Accept ${paymentMethodLabel}`}
-                    <kbd className="rounded border border-emerald-400 bg-emerald-700 px-1 font-mono text-[9px] text-emerald-100">F2</kbd>
+                    <kbd className="rounded border border-sky-400 bg-sky-700 px-1 font-mono text-[9px] text-sky-100">F2</kbd>
                   </button>
                   <Link
                     href={`/payments/receipt/${issuedBillingId}`}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-400 hover:bg-emerald-50"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:bg-sky-50"
                   >
                     <FaReceipt className="h-3 w-3" aria-hidden="true" />
                     View Receipt
@@ -1423,14 +1423,14 @@ export default function POSBillingPage() {
       {confirmingIssue && selectedAppt ? (
         <ConfirmModal
           title="Confirm new bill"
-          tone="emerald"
+          tone="sky"
           onClose={() => setConfirmingIssue(false)}
         >
           <div className="space-y-3 text-sm">
             <p className="text-slate-700">
               Issue a clinic bill for <span className="font-bold">{selectedAppt.patientName}</span>?
             </p>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 text-xs text-slate-700">
+            <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-3 text-xs text-slate-700">
               <div className="flex justify-between"><span>Subtotal</span><span>{peso(subtotal)}</span></div>
               <div className="flex justify-between">
                 <span>
@@ -1441,7 +1441,7 @@ export default function POSBillingPage() {
                 <span>- {peso(effectiveDiscount)}</span>
               </div>
               <div className="flex justify-between"><span>Tax</span><span>{peso(effectiveTax)}</span></div>
-              <div className="mt-2 flex justify-between border-t border-emerald-200 pt-2 text-sm font-bold text-slate-900">
+              <div className="mt-2 flex justify-between border-t border-sky-200 pt-2 text-sm font-bold text-slate-900">
                 <span>Total</span><span>{peso(total)}</span>
               </div>
             </div>
@@ -1462,7 +1462,7 @@ export default function POSBillingPage() {
               type="button"
               onClick={commitIssueBill}
               disabled={isWorking}
-              className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+              className="rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-sky-700 disabled:opacity-60"
             >
               {isWorking ? "Issuing…" : "Confirm & Issue"}
             </button>
@@ -1523,7 +1523,7 @@ function ConfirmModal({
   onClose,
 }: {
   title: string;
-  tone: "emerald" | "red";
+  tone: "sky" | "red";
   children: React.ReactNode;
   onClose: () => void;
 }) {
@@ -1539,7 +1539,7 @@ function ConfirmModal({
   const headerClass =
     tone === "red"
       ? "border-red-100 bg-red-50 text-red-800"
-      : "border-emerald-100 bg-emerald-50 text-emerald-800";
+      : "border-sky-100 bg-sky-50 text-sky-800";
 
   return (
     <div
@@ -1594,10 +1594,10 @@ function POSStepCard({
 }) {
   const styles = {
     complete: {
-      shell: "border-emerald-200 bg-emerald-50/70",
-      badge: "bg-emerald-600 text-white",
-      title: "text-emerald-900",
-      body: "text-emerald-800/80",
+      shell: "border-sky-200 bg-sky-50/70",
+      badge: "bg-sky-600 text-white",
+      title: "text-sky-900",
+      body: "text-sky-800/80",
     },
     current: {
       shell: "border-slate-900 bg-slate-900",
@@ -1625,4 +1625,5 @@ function POSStepCard({
     </div>
   );
 }
+
 

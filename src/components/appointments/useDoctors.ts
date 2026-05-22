@@ -11,7 +11,7 @@ import {
 
 const DEFAULT_DOCTOR = DOCTORS[0];
 const FALLBACK_DOCTOR_NAME = "Doctor";
-const FALLBACK_DOCTOR_SPECIALTY = "General Medicine";
+const FALLBACK_DOCTOR_SPECIALTY = "Family Medicine Specialist";
 
 export type BookingDoctor = {
   id: string;
@@ -28,31 +28,17 @@ export function useDoctors() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!accessToken) {
-      setDoctors(
-        DOCTORS.map((doctor) => ({
-          id: doctor.id,
-          slug: doctor.id,
-          name: doctor.name,
-          specialty: doctor.specialty,
-          consultation_fee_clinic: CLINIC_CONSULTATION_HOURLY_RATE,
-          consultation_fee_online: ONLINE_CONSULTATION_HOURLY_RATE,
-        })),
-      );
-      return;
-    }
-
     const controller = new AbortController();
     setIsLoading(true);
 
     async function load() {
       try {
         const response = await fetch("/api/v2/doctors", {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
           cache: "no-store",
           signal: controller.signal,
         });
-        if (!response.ok) return;
+        if (!response.ok) throw new Error("Failed to load doctors");
 
         const body = (await response.json()) as {
           doctors?: Array<{
@@ -77,9 +63,20 @@ export function useDoctors() {
 
         if (nextDoctors.length > 0) {
           setDoctors(nextDoctors);
+          return;
         }
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
+        setDoctors(
+          DOCTORS.map((doctor) => ({
+            id: doctor.id,
+            slug: doctor.id,
+            name: doctor.name,
+            specialty: doctor.specialty,
+            consultation_fee_clinic: CLINIC_CONSULTATION_HOURLY_RATE,
+            consultation_fee_online: ONLINE_CONSULTATION_HOURLY_RATE,
+          })),
+        );
       } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);

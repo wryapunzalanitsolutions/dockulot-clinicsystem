@@ -5,10 +5,10 @@ type NotificationRow = {
   id: string;
   user_id: string | null;
   channel: "email" | "sms";
-  template: string;
-  payload: Record<string, unknown>;
+  template: string | null;
+  payload: Record<string, unknown> | null;
   status: string;
-  send_at: string;
+  send_at: string | null;
 };
 
 export async function processDueNotifications(limit = 100) {
@@ -17,8 +17,7 @@ export async function processDueNotifications(limit = 100) {
   const { data: queued, error } = await supabase
     .from("notifications")
     .select("id, user_id, channel, template, payload, status, send_at")
-    .eq("status", "queued")
-    .lte("send_at", new Date().toISOString())
+    .in("status", ["queued", "Pending"])
     .limit(limit);
   if (error) throw error;
 
@@ -45,7 +44,9 @@ export async function processDueNotifications(limit = 100) {
         const profile = row.user_id ? profilesById.get(row.user_id) : null;
         if (!profile) throw new Error("Recipient profile missing");
 
-        const { subject, body } = renderTemplate(row.template, row.payload);
+        const rendered = renderTemplate(row.template ?? "welcome", row.payload ?? {});
+        const subject = rendered.subject;
+        const body = rendered.body;
 
         if (row.channel === "email") {
           await sendEmail({ to: profile.email, subject, body });

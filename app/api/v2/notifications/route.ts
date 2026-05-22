@@ -5,11 +5,11 @@ import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 type NotificationRow = {
   id: string;
   channel: "email" | "sms";
-  template: string;
-  payload: Record<string, unknown>;
-  status: "queued" | "sent" | "failed";
+  template: string | null;
+  payload: Record<string, unknown> | null;
+  status: "queued" | "sent" | "failed" | string;
   created_at: string;
-  send_at: string;
+  send_at: string | null;
   sent_at: string | null;
   is_read: boolean;
 };
@@ -17,10 +17,11 @@ type NotificationRow = {
 type NotificationFeedItem = {
   id: string;
   template: string;
-  payload: Record<string, unknown>;
+  subject: string;
+  body: string;
   status: "queued" | "sent" | "failed";
   created_at: string;
-  send_at: string;
+  send_at: string | null;
   sent_at: string | null;
   channels: Array<"email" | "sms">;
   is_read: boolean;
@@ -33,20 +34,30 @@ type NotificationFeedResponse = {
 };
 
 function buildNotificationEventKey(item: NotificationRow) {
-  const appointmentId = typeof item.payload.appointment_id === "string" ? item.payload.appointment_id : "";
-  const billingId = typeof item.payload.billing_id === "string" ? item.payload.billing_id : "";
-  return [item.template, appointmentId, billingId, item.send_at].join(":");
+  return [item.template ?? "", JSON.stringify(item.payload ?? {}), item.send_at ?? "", item.created_at].join(":");
 }
 
 function mergeStatus(current: NotificationFeedItem["status"], next: NotificationRow["status"]) {
-  if (current === "failed" || next === "failed") return "failed";
-  if (current === "queued" || next === "queued") return "queued";
+  const normalizedNext = normalizeStatus(next);
+  if (current === "failed" || normalizedNext === "failed") return "failed";
+  if (current === "queued" || normalizedNext === "queued") return "queued";
+  return "sent";
+}
+
+function normalizeStatus(status: NotificationRow["status"]): NotificationFeedItem["status"] {
+  const normalized = String(status).toLowerCase();
+  if (normalized === "failed") return "failed";
+  if (normalized === "queued" || normalized === "pending") return "queued";
   return "sent";
 }
 
 function buildNotificationHref(item: NotificationFeedItem) {
-  const appointmentId = typeof item.payload.appointment_id === "string" ? item.payload.appointment_id : null;
-  const billingId = typeof item.payload.billing_id === "string" ? item.payload.billing_id : null;
+  return item.href;
+}
+
+function buildNotificationHrefFromPayload(payload: Record<string, unknown> | null) {
+  const appointmentId = typeof payload?.appointment_id === "string" ? payload.appointment_id : null;
+  const billingId = typeof payload?.billing_id === "string" ? payload.billing_id : null;
 
   if (appointmentId) {
     return `/appointments/my?appointment=${encodeURIComponent(appointmentId)}`;
@@ -90,15 +101,16 @@ export async function GET(req: Request) {
       if (!existing) {
         feed.set(key, {
           id: item.id,
-          template: item.template,
-          payload: item.payload,
-          status: item.status,
+          template: item.template ?? "notification",
+          subject: renderTemplate(item.template ?? "welcome", item.payload ?? {}).subject,
+          body: renderTemplate(item.template ?? "welcome", item.payload ?? {}).body,
+          status: normalizeStatus(item.status),
           created_at: item.created_at,
           send_at: item.send_at,
           sent_at: item.sent_at,
           channels: [item.channel],
           is_read: item.is_read,
-          href: null,
+          href: buildNotificationHrefFromPayload(item.payload),
         });
         continue;
       }
@@ -110,22 +122,16 @@ export async function GET(req: Request) {
       if (!existing.channels.includes(item.channel)) {
         existing.channels.push(item.channel);
       }
-      // Mark as read only if all entries are read
       existing.is_read = existing.is_read && item.is_read;
     }
 
     const notifications = [...feed.values()]
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .slice(0, 8)
-      .map((item) => {
-        const rendered = renderTemplate(item.template, item.payload);
-        return {
-          ...item,
-          subject: rendered.subject,
-          body: rendered.body,
-          href: buildNotificationHref(item),
-        };
-      });
+      .map((item) => ({
+        ...item,
+        href: buildNotificationHref(item),
+      }));
 
     const response: NotificationFeedResponse = {
       notifications,

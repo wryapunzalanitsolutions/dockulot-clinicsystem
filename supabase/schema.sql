@@ -1,345 +1,236 @@
+-- Complete Healthcare & Doctor Creator System
+-- Fresh Supabase schema for a new project.
+-- Run this in the Supabase SQL editor before using the app.
+
+create extension if not exists "pgcrypto";
+
 -- =========================================================
--- CHIARA Clinic Management System — Full Schema
--- Paste into Supabase SQL Editor and Run once.
--- Safe to re-run (uses IF NOT EXISTS / IF EXISTS).
+-- Helpers
 -- =========================================================
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
 
--- ---------- EXTENSIONS ----------
-create extension if not exists pgcrypto;
-create extension if not exists btree_gist;
-create extension if not exists citext;
-
--- ---------- ENUMS ----------
-do $$ begin
-  create type user_role as enum ('super_admin','admin','secretary','doctor','patient');
-exception when duplicate_object then null; end $$;
-
-do $$ begin
-  create type appt_type as enum ('Clinic','Online');
-exception when duplicate_object then null; end $$;
-
-do $$ begin
-  create type schedule_mode as enum ('Clinic','Online','Both');
-exception when duplicate_object then null; end $$;
-
-do $$ begin
-  create type appt_status as enum
-    ('PendingPayment','Confirmed','CheckedIn','InProgress','Completed','Cancelled','NoShow');
-exception when duplicate_object then null; end $$;
-
--- Re-run safety: older deployments created the enum without 'CheckedIn'.
--- Add it in place if it is missing so the schema converges either way.
-do $$ begin
-  alter type public.appt_status add value if not exists 'CheckedIn' after 'Confirmed';
-exception when others then null; end $$;
-
-do $$ begin
-  create type payment_status as enum ('Pending','Paid','Failed','Refunded');
-exception when duplicate_object then null; end $$;
-
-do $$ begin
-  create type payment_method as enum ('Cash','GCash','QR','Card','BankTransfer');
-exception when duplicate_object then null; end $$;
-
--- ---------- PROFILES (links to auth.users) ----------
-create table if not exists public.profiles (
+-- =========================================================
+-- Access, Profiles, Doctor, Patient
+-- =========================================================
+create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  email citext unique not null,
+  email text not null,
   phone text,
   full_name text not null,
-  role user_role not null default 'patient',
+  role text not null default 'patient'
+    check (role in ('super_admin', 'admin', 'secretary', 'staff', 'doctor', 'patient')),
+  is_active boolean not null default true,
+  avatar_url text,
+  last_login_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index profiles_email_unique on public.profiles (lower(email));
+
+-- These helpers depend on public.profiles, so they must be created after
+-- the profiles table exists.
+create or replace function public.current_profile_role()
+returns text
+language sql
+stable
+as $$
+  select role from public.profiles where id = auth.uid()
+$$;
+
+create or replace function public.is_clinic_staff()
+returns boolean
+language sql
+stable
+as $$
+  select coalesce(public.current_profile_role() in ('super_admin', 'admin', 'secretary', 'doctor', 'staff'), false)
+$$;
+
+create table public.patients (
+  id uuid primary key references public.profiles(id) on delete cascade,
+  dob date,
+  gender text,
+  address text,
+  emergency_contact_name text,
+  emergency_contact_phone text,
+  family_history text,
+  allergies text,
+  medical_history text,
+  is_walk_in boolean not null default false,
+  portal_notes_visible boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.doctors (
+  id uuid primary key references public.profiles(id) on delete cascade,
+  slug text not null unique,
+  specialty text not null default 'Family Medicine Specialist',
+  license_no text,
+  bio text,
+  consultation_fee_clinic numeric(12,2) not null default 350,
+  consultation_fee_online numeric(12,2) not null default 350,
+  default_meeting_link text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.role_permissions (
+  id uuid primary key default gen_random_uuid(),
+  role text not null unique,
+  permissions jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+create table public.system_settings (
+  id boolean primary key default true,
+  clinic_name text not null default 'Doctora Kulot Clinic',
+  email text not null default 'admin@doctora-kulot.test',
+  phone text not null default '',
+  address text not null default '',
+  online_consultation_fee numeric(12,2) not null default 350,
+  max_patients_per_hour integer not null default 5,
+  clinic_open_time time not null default '08:00',
+  clinic_close_time time not null default '17:00',
+  default_meeting_link text not null default '',
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.profiles(id) on delete set null,
+  constraint system_settings_singleton check (id)
+);
+
+create table public.activity_logs (
+  id uuid primary key default gen_random_uuid(),
+  actor_id uuid references public.profiles(id) on delete set null,
+  action text not null,
+  entity_table text,
+  entity_id uuid,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+-- =========================================================
+-- Services, Pricing, Schedules, Appointments
+-- =========================================================
+create table public.clinic_services (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  name text not null,
+  category text not null default 'Consultation',
+  description text,
+  service_mode text not null default 'Both' check (service_mode in ('Clinic', 'Online', 'Both')),
+  base_price numeric(12,2) not null default 0,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Compatibility with the current POS/pricing screens.
+create table public.pricing (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  name text not null,
+  category text not null,
+  price numeric(12,2) not null default 0,
+  service_id uuid references public.clinic_services(id) on delete set null,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.patients (
-  id uuid primary key references public.profiles(id) on delete cascade,
-  dob date,
-  gender text,
-  address text,
-  emergency_contact text,
-  family_history text,
-  is_walk_in boolean not null default false
-);
-
-create table if not exists public.doctors (
-  id uuid primary key references public.profiles(id) on delete cascade,
-  specialty text not null,
-  license_no text unique not null,
-  consultation_fee_clinic numeric(10,2) not null default 350,
-  consultation_fee_online numeric(10,2) not null default 350
-);
-
--- Slug column for legacy UI bridge (incremental, re-run safe)
-alter table public.doctors add column if not exists slug text;
-create unique index if not exists doctors_slug_uidx on public.doctors(slug) where slug is not null;
-
--- ---------- SCHEDULES ----------
-create table if not exists public.doctor_schedules (
+create table public.doctor_schedules (
   id uuid primary key default gen_random_uuid(),
   doctor_id uuid not null references public.doctors(id) on delete cascade,
-  day_of_week smallint not null check (day_of_week between 0 and 6),
+  day_of_week integer not null check (day_of_week between 0 and 6),
   start_time time not null,
   end_time time not null,
-  slot_minutes smallint not null default 60,
-  schedule_mode schedule_mode not null default 'Both',
+  slot_minutes integer not null default 60 check (slot_minutes > 0),
+  schedule_mode text not null default 'Both' check (schedule_mode in ('Clinic', 'Online', 'Both')),
   is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   check (start_time < end_time)
 );
 
-create table if not exists public.doctor_unavailability (
+create table public.doctor_unavailability (
   id uuid primary key default gen_random_uuid(),
   doctor_id uuid not null references public.doctors(id) on delete cascade,
   starts_at timestamptz not null,
   ends_at timestamptz not null,
   reason text,
-  check (starts_at < ends_at),
-  exclude using gist (
-    doctor_id with =,
-    tstzrange(starts_at, ends_at, '[)') with &&
-  )
+  created_at timestamptz not null default now(),
+  check (starts_at < ends_at)
 );
 
--- ---------- APPOINTMENTS ----------
-create table if not exists public.appointments (
+create table public.appointments (
   id uuid primary key default gen_random_uuid(),
-  patient_id uuid not null references public.patients(id),
-  doctor_id  uuid not null references public.doctors(id),
+  patient_id uuid not null references public.patients(id) on delete cascade,
+  doctor_id uuid not null references public.doctors(id) on delete restrict,
+  service_id uuid references public.clinic_services(id) on delete set null,
   appointment_date date not null,
   start_time time not null,
-  end_time   time not null,
-  appointment_type appt_type not null,
-  status appt_status not null,
-  queue_number smallint not null check (queue_number between 1 and 5),
-  reason text not null default '',
+  end_time time not null,
+  appointment_type text not null check (appointment_type in ('Clinic', 'Online')),
+  status text not null default 'Pending'
+    check (status in ('Pending', 'PendingPayment', 'Confirmed', 'CheckedIn', 'Checked In', 'InProgress', 'In Progress', 'Completed', 'Cancelled', 'NoShow', 'No Show')),
+  queue_number integer not null default 1,
+  reason text,
+  symptoms text,
   meeting_link text,
+  reminder_sent_at timestamptz,
+  approved_by uuid references public.profiles(id) on delete set null,
+  approved_at timestamptz,
+  cancelled_reason text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  slot_range tstzrange generated always as (
-    tstzrange(
-      (appointment_date + start_time) at time zone 'UTC',
-      (appointment_date + end_time)   at time zone 'UTC',
-      '[)'
-    )
-  ) stored,
-  check (start_time < end_time),
-  unique (doctor_id, appointment_date, start_time, queue_number)
+  check (start_time < end_time)
 );
 
-create index if not exists appts_doctor_date_idx
-  on public.appointments (doctor_id, appointment_date);
-create index if not exists appts_patient_idx
-  on public.appointments (patient_id);
+create index appointments_patient_idx on public.appointments(patient_id);
+create index appointments_doctor_date_idx on public.appointments(doctor_id, appointment_date);
 
--- Prevent a patient from double-booking overlapping slots
-do $$ begin
-  alter table public.appointments add constraint patient_no_overlap
-    exclude using gist (
-      patient_id with =,
-      slot_range with &&
-    ) where (status not in ('Cancelled','NoShow'));
-exception when duplicate_object then null; end $$;
-
--- Prevent clinic and online appointments from sharing the same active doctor slot.
-do $$ begin
-  alter table public.appointments add constraint doctor_shared_slot_type_conflict
-    exclude using gist (
-      doctor_id with =,
-      appointment_type with <>,
-      slot_range with &&
-    ) where (status not in ('Cancelled','NoShow'));
-exception when duplicate_object then null; end $$;
-
-create table if not exists public.online_booking_reservations (
+create table public.online_booking_reservations (
   id uuid primary key default gen_random_uuid(),
   patient_id uuid not null references public.patients(id) on delete cascade,
   doctor_id uuid not null references public.doctors(id) on delete cascade,
   appointment_date date not null,
   start_time time not null,
   end_time time not null,
-  queue_number smallint not null check (queue_number between 1 and 5),
-  reason text not null default '',
-  amount numeric(10,2) not null check (amount >= 0),
-  status text not null check (status in ('Pending','Paid','Failed','Expired','Converted')) default 'Pending',
+  queue_number integer not null default 1,
+  reason text,
+  amount numeric(12,2) not null default 0,
+  status text not null default 'Pending' check (status in ('Pending', 'Paid', 'Failed', 'Expired', 'Converted')),
   payment_provider text,
   payment_ref text,
-  appointment_id uuid unique references public.appointments(id) on delete set null,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  check (start_time < end_time)
-);
-
-create unique index if not exists online_booking_reservations_payment_ref_uidx
-  on public.online_booking_reservations(payment_provider, payment_ref)
-  where payment_ref is not null;
-
-create unique index if not exists online_booking_reservations_doctor_slot_queue_uidx
-  on public.online_booking_reservations(doctor_id, appointment_date, start_time, queue_number)
-  where status in ('Pending','Paid');
-
--- ---------- PRICING & BILLING ----------
-create table if not exists public.pricing (
-  id uuid primary key default gen_random_uuid(),
-  code text unique not null,
-  name text not null,
-  category text not null check (category in ('Consultation','Lab','Medicine','Procedure','Other')),
-  price numeric(10,2) not null check (price >= 0),
-  is_active boolean not null default true
-);
-
-create table if not exists public.billings (
-  id uuid primary key default gen_random_uuid(),
-  appointment_id uuid unique references public.appointments(id) on delete set null,
-  patient_id uuid not null references public.patients(id),
-  subtotal numeric(10,2) not null default 0,
-  discount numeric(10,2) not null default 0,
-  tax numeric(10,2) not null default 0,
-  total numeric(10,2) generated always as (subtotal - discount + tax) stored,
-  status text not null check (status in ('Draft','Issued','Paid','Void')) default 'Draft',
-  issued_at timestamptz,
-  created_at timestamptz not null default now()
-);
-
--- POS enhancements: SC/PWD discount kind + void audit (re-run safe).
-alter table public.billings
-  add column if not exists discount_kind text not null default 'None'
-    check (discount_kind in ('None','Manual','SeniorCitizen','PWD'));
-alter table public.billings add column if not exists discount_id_number text;
-alter table public.billings add column if not exists voided_at timestamptz;
-alter table public.billings add column if not exists voided_by uuid references public.profiles(id);
-alter table public.billings add column if not exists void_reason text;
-
-create table if not exists public.billing_items (
-  id uuid primary key default gen_random_uuid(),
-  billing_id uuid not null references public.billings(id) on delete cascade,
-  pricing_id uuid references public.pricing(id),
-  description text not null,
-  quantity integer not null check (quantity > 0),
-  unit_price numeric(10,2) not null check (unit_price >= 0),
-  line_total numeric(10,2) generated always as (quantity * unit_price) stored
-);
-
--- ---------- PAYMENTS ----------
-create table if not exists public.payments (
-  id uuid primary key default gen_random_uuid(),
-  appointment_id uuid references public.appointments(id) on delete cascade,
-  billing_id uuid references public.billings(id) on delete set null,
-  amount numeric(10,2) not null check (amount >= 0),
-  method payment_method not null,
-  status payment_status not null default 'Pending',
-  provider text,
-  provider_ref text,
-  paid_at timestamptz,
-  created_at timestamptz not null default now(),
-  check (appointment_id is not null or billing_id is not null)
-);
-
-create unique index if not exists payments_provider_ref_uidx
-  on public.payments(provider, provider_ref) where provider_ref is not null;
-
--- Tendered amount (cash received) for change-due math; null = exact tender.
-alter table public.payments add column if not exists tendered_amount numeric(10,2);
-
--- ---------- CONSULTATION NOTES ----------
-create table if not exists public.consultation_notes (
-  id uuid primary key default gen_random_uuid(),
-  appointment_id uuid unique not null references public.appointments(id) on delete cascade,
-  doctor_id uuid not null references public.doctors(id),
-  chief_complaint text,
-  diagnosis text,
-  prescription text,
-  notes text,
+  appointment_id uuid references public.appointments(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
--- ---------- LANDING PAGE CONTENT (singleton) ----------
--- Editable hero / about / CTA / testimonials for the public landing page.
--- See migrations/20260508_landing_content.sql for full rationale.
-create table if not exists public.landing_content (
-  id boolean primary key default true check (id),
-  hero_eyebrow text not null default '',
-  hero_title_line1 text not null default 'Your Health,',
-  hero_title_line2 text not null default 'Our Priority',
-  hero_subtitle text not null default 'Expert healthcare from Dr. Chiara Punzalan. Book clinic visits or online consultations with flexibility and convenience.',
-  hero_cta_primary text not null default 'Book Appointment Now',
-  hero_cta_secondary text not null default 'Learn More',
-  hero_background_url text,
-  about_eyebrow text not null default 'Meet Your Doctor',
-  about_title text not null default 'Expert Healthcare Provider',
-  about_subtitle text not null default 'With years of experience in general medicine and patient care',
-  doctor_name text not null default 'Dra. Chiara C. Punzalan M.D.',
-  doctor_title text not null default 'General Medicine Specialist',
-  doctor_photo_url text,
-  feature_1_title text not null default 'Professional Expertise',
-  feature_1_body text not null default 'Comprehensive general medicine practice with focus on patient wellness',
-  feature_2_title text not null default 'Flexible Consultation',
-  feature_2_body text not null default 'Choose between clinic visits or online consultations for your convenience',
-  feature_3_title text not null default 'Patient-Centered Care',
-  feature_3_body text not null default 'Dedicated to understanding your health concerns and providing quality care',
-  cta_title text not null default 'Ready to Schedule Your Appointment?',
-  cta_subtitle text not null default 'Book now with Dr. Chiara Punzalan. Flexible scheduling for clinic and online consultations.',
-  cta_button_label text not null default 'Book Appointment Now',
-  testimonials jsonb not null default '[]'::jsonb,
-  -- Phase 2: nav, services, how-to-book, section headers, footer
-  nav_items jsonb not null default '[
-    {"label":"Home","href":"#home"},
-    {"label":"Services","href":"#services"},
-    {"label":"About","href":"#about"},
-    {"label":"Testimonials","href":"#testimonials"}
-  ]'::jsonb,
-  services_eyebrow text not null default 'Our Services',
-  services_title text not null default 'Services & Pricing',
-  services_subtitle text not null default 'Transparent pricing for both clinic and online consultations',
-  services jsonb not null default '[
-    {"kind":"clinic","title":"Clinic Visit","description":"In-person consultation at our facility","bullets":[
-      {"title":"Direct Examination","body":"Thorough medical assessment"},
-      {"title":"Face-to-Face Interaction","body":"Better for complex conditions"},
-      {"title":"Prescription Services","body":"Direct access to prescriptions"}
-    ]},
-    {"kind":"online","title":"Online Consultation","description":"Remote consultation from the comfort of your home","bullets":[
-      {"title":"Video Call","body":"Secure and private consultation"},
-      {"title":"Convenient Timing","body":"Book from anywhere, anytime"},
-      {"title":"Online Payment","body":"Secure PayMongo integration"}
-    ]}
-  ]'::jsonb,
-  how_to_eyebrow text not null default 'Simple Process',
-  how_to_title text not null default 'How to Book Your Appointment',
-  how_to_steps jsonb not null default '[
-    {"step":1,"title":"Sign In","description":"Create an account or log in to your existing account"},
-    {"step":2,"title":"Choose Service","description":"Select clinic visit or online consultation"},
-    {"step":3,"title":"Pick Date & Time","description":"Choose your preferred appointment slot"},
-    {"step":4,"title":"Confirm & Pay","description":"Review details and complete secure payment"}
-  ]'::jsonb,
-  testimonials_eyebrow text not null default 'Patient Stories',
-  testimonials_title text not null default 'What Patients Say',
-  testimonials_subtitle text not null default 'Trusted care, thoughtful consultations, and a booking experience designed to feel simple and supportive.',
-  booking_title text not null default 'Book an Appointment',
-  booking_subtitle text not null default 'Use the booking widget below to pick service, date and time. You will be prompted to sign in or create an account before final confirmation.',
-  contact_eyebrow text not null default 'Get in Touch',
-  contact_title text not null default 'Contact Chiara Clinic',
-  contact_subtitle text not null default 'Have questions or need help booking? Send us a message or call us — we''re here to help.',
-  contact_info_title text not null default 'Contact Info',
-  contact_hours_label text not null default 'Office Hours: Mon - Fri, 8:00 AM - 5:00 PM',
-  footer_brand_blurb text not null default 'Expert healthcare with Dr. Chiara C. Punzalan, M.D.',
-  footer_services jsonb not null default '["Clinic Visits","Online Consultations","Appointments"]'::jsonb,
-  footer_hours jsonb not null default '["Mon - Fri: 8:00 AM - 5:00 PM","Sat: By Appointment","Sun: Closed"]'::jsonb,
-  footer_contact_text text not null default 'Visit our contact section above to send a message or call us directly.',
-  footer_copyright text not null default '© 2026 Chiara Clinic. All rights reserved.',
-  updated_at timestamptz not null default now(),
-  updated_by uuid references public.profiles(id)
+create table public.online_consultations (
+  id uuid primary key default gen_random_uuid(),
+  appointment_id uuid not null unique references public.appointments(id) on delete cascade,
+  concern text,
+  file_urls jsonb not null default '[]'::jsonb,
+  platform text default 'Google Meet',
+  meeting_link text,
+  status text not null default 'Pending' check (status in ('Pending', 'Confirmed', 'InProgress', 'Completed', 'Cancelled')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
-insert into public.landing_content (id) values (true) on conflict (id) do nothing;
 
--- ---------- VITAL SIGNS ----------
--- Captured per visit. See migrations/20260508_vital_signs.sql for the full
--- rationale. Stored separately from consultation_notes so the secretary can
--- write at check-in without column-level RLS.
-create table if not exists public.vital_signs (
+create table public.vital_signs (
   id uuid primary key default gen_random_uuid(),
   appointment_id uuid unique not null references public.appointments(id) on delete cascade,
-  recorded_by uuid references public.profiles(id),
+  recorded_by uuid references public.profiles(id) on delete set null,
   bp_systolic smallint check (bp_systolic between 0 and 300),
   bp_diastolic smallint check (bp_diastolic between 0 and 200),
   temperature_c numeric(4,1) check (temperature_c between 25 and 45),
@@ -353,309 +244,534 @@ create table if not exists public.vital_signs (
   updated_at timestamptz not null default now()
 );
 
--- ---------- NOTIFICATIONS ----------
-create table if not exists public.notifications (
+-- =========================================================
+-- Diagnosis, Prescriptions, Patient Files
+-- =========================================================
+create table public.consultation_notes (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references public.profiles(id) on delete cascade,
-  channel text not null check (channel in ('email','sms')),
-  template text not null,
-  payload jsonb not null,
-  status text not null check (status in ('queued','sent','failed')) default 'queued',
-  error text,
-  send_at timestamptz not null default now(),
-  sent_at timestamptz,
-  created_at timestamptz not null default now()
-);
-create index if not exists notifications_due_idx
-  on public.notifications(status, send_at);
-
--- ---------- SYSTEM SETTINGS (singleton row) ----------
-create table if not exists public.system_settings (
-  id boolean primary key default true check (id),
-  clinic_name text not null default 'CHIARA Clinic',
-  email text not null default '',
-  phone text not null default '',
-  address text not null default '',
-  online_consultation_fee numeric(10,2) not null default 350,
-  max_patients_per_hour smallint not null default 5 check (max_patients_per_hour between 1 and 20),
-  clinic_open_time time not null default '08:00',
-  clinic_close_time time not null default '17:00',
+  appointment_id uuid not null unique references public.appointments(id) on delete cascade,
+  doctor_id uuid not null references public.doctors(id) on delete restrict,
+  chief_complaint text,
+  diagnosis text,
+  prescription text,
+  notes text,
+  visible_to_patient boolean not null default false,
+  created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-alter table public.system_settings add column if not exists clinic_open_time time not null default '08:00';
-alter table public.system_settings add column if not exists clinic_close_time time not null default '17:00';
-alter table public.system_settings add column if not exists default_meeting_link text not null default '';
-insert into public.system_settings (id) values (true) on conflict do nothing;
 
--- ---------- AUDIT LOG ----------
-create table if not exists public.audit_log (
-  id bigserial primary key,
-  actor_id uuid references public.profiles(id),
-  action text not null,
-  entity text not null,
-  entity_id text,
-  diff jsonb,
-  at timestamptz not null default now()
+create table public.diagnoses (
+  id uuid primary key default gen_random_uuid(),
+  appointment_id uuid not null references public.appointments(id) on delete cascade,
+  patient_id uuid not null references public.patients(id) on delete cascade,
+  doctor_id uuid not null references public.doctors(id) on delete restrict,
+  diagnosis_text text not null,
+  treatment_plan text,
+  follow_up_date date,
+  visible_to_patient boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
--- ---------- updated_at TRIGGER ----------
-create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
-begin new.updated_at = now(); return new; end; $$;
+create table public.prescriptions (
+  id uuid primary key default gen_random_uuid(),
+  appointment_id uuid references public.appointments(id) on delete set null,
+  patient_id uuid not null references public.patients(id) on delete cascade,
+  doctor_id uuid not null references public.doctors(id) on delete restrict,
+  diagnosis_id uuid references public.diagnoses(id) on delete set null,
+  prescription_no text not null unique default ('RX-' || upper(substr(gen_random_uuid()::text, 1, 8))),
+  general_instructions text,
+  follow_up_date date,
+  pdf_url text,
+  released_to_patient boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
-do $$ begin
-  create trigger trg_profiles_updated before update on public.profiles
-    for each row execute function public.set_updated_at();
-exception when duplicate_object then null; end $$;
+create table public.prescription_items (
+  id uuid primary key default gen_random_uuid(),
+  prescription_id uuid not null references public.prescriptions(id) on delete cascade,
+  medicine_name text not null,
+  dosage text,
+  frequency text,
+  duration text,
+  instructions text,
+  sort_order integer not null default 0
+);
 
-do $$ begin
-  create trigger trg_appointments_updated before update on public.appointments
-    for each row execute function public.set_updated_at();
-exception when duplicate_object then null; end $$;
+create table public.patient_files (
+  id uuid primary key default gen_random_uuid(),
+  patient_id uuid not null references public.patients(id) on delete cascade,
+  appointment_id uuid references public.appointments(id) on delete set null,
+  uploaded_by uuid references public.profiles(id) on delete set null,
+  file_name text not null,
+  file_url text not null,
+  file_type text,
+  visible_to_patient boolean not null default true,
+  created_at timestamptz not null default now()
+);
 
-do $$ begin
-  create trigger trg_notes_updated before update on public.consultation_notes
-    for each row execute function public.set_updated_at();
-exception when duplicate_object then null; end $$;
+create table public.follow_up_inquiries (
+  id uuid primary key default gen_random_uuid(),
+  patient_id uuid not null references public.patients(id) on delete cascade,
+  appointment_id uuid references public.appointments(id) on delete set null,
+  message text not null,
+  reply text,
+  status text not null default 'Pending' check (status in ('Pending', 'Replied', 'Closed')),
+  replied_by uuid references public.profiles(id) on delete set null,
+  replied_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
-do $$ begin
-  create trigger trg_vitals_updated before update on public.vital_signs
-    for each row execute function public.set_updated_at();
-exception when duplicate_object then null; end $$;
+-- =========================================================
+-- Billing, POS, Payments
+-- =========================================================
+create table public.billings (
+  id uuid primary key default gen_random_uuid(),
+  appointment_id uuid references public.appointments(id) on delete set null,
+  patient_id uuid not null references public.patients(id) on delete restrict,
+  subtotal numeric(12,2) not null default 0,
+  discount numeric(12,2) not null default 0,
+  tax numeric(12,2) not null default 0,
+  total numeric(12,2) not null default 0,
+  status text not null default 'Draft' check (status in ('Draft', 'Issued', 'Paid', 'Void')),
+  discount_kind text not null default 'None' check (discount_kind in ('None', 'Manual', 'SeniorCitizen', 'PWD')),
+  discount_id_number text,
+  issued_at timestamptz,
+  voided_at timestamptz,
+  voided_by uuid references public.profiles(id) on delete set null,
+  void_reason text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
-do $$ begin
-  create trigger trg_landing_content_updated before update on public.landing_content
-    for each row execute function public.set_updated_at();
-exception when duplicate_object then null; end $$;
+create table public.billing_items (
+  id uuid primary key default gen_random_uuid(),
+  billing_id uuid not null references public.billings(id) on delete cascade,
+  pricing_id uuid references public.pricing(id) on delete set null,
+  product_id uuid,
+  description text not null,
+  quantity numeric(12,2) not null default 1,
+  unit_price numeric(12,2) not null default 0,
+  line_total numeric(12,2) not null default 0
+);
 
--- ---------- AUTO-CREATE PROFILE ON SIGNUP ----------
-create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer set search_path = public as $$
-begin
-  insert into public.profiles (id, email, full_name, role)
-  values (
-    new.id,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email,'@',1)),
-    coalesce((new.raw_app_meta_data->>'role')::user_role, 'patient')
-  )
-  on conflict (id) do nothing;
-  return new;
-end; $$;
+create table public.payments (
+  id uuid primary key default gen_random_uuid(),
+  appointment_id uuid references public.appointments(id) on delete set null,
+  billing_id uuid references public.billings(id) on delete set null,
+  amount numeric(12,2) not null default 0,
+  method text not null default 'Cash' check (method in ('Cash', 'GCash', 'QR', 'Card', 'BankTransfer')),
+  status text not null default 'Pending' check (status in ('Pending', 'Paid', 'Failed', 'Refunded')),
+  provider text,
+  provider_ref text,
+  tendered_amount numeric(12,2),
+  paid_at timestamptz,
+  created_at timestamptz not null default now()
+);
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
+-- =========================================================
+-- Inventory
+-- =========================================================
+create table public.suppliers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  contact_person text,
+  phone text,
+  email text,
+  address text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
--- ---------- AUTO-CREATE PATIENT ROW ----------
-create or replace function public.handle_new_patient_profile()
-returns trigger language plpgsql security definer set search_path = public as $$
-begin
-  if new.role = 'patient' then
-    insert into public.patients (id) values (new.id)
-    on conflict (id) do nothing;
-  end if;
-  return new;
-end; $$;
+create table public.inventory_products (
+  id uuid primary key default gen_random_uuid(),
+  sku text not null unique,
+  name text not null,
+  brand_name text,
+  generic_name text,
+  dosage text,
+  category text not null default 'Medicine',
+  description text,
+  supplier_id uuid references public.suppliers(id) on delete set null,
+  unit text not null default 'pc',
+  cost_price numeric(12,2) not null default 0,
+  selling_price numeric(12,2) not null default 0,
+  stock_qty numeric(12,2) not null default 0,
+  reorder_level numeric(12,2) not null default 0,
+  expiry_date date,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
-drop trigger if exists on_profile_created on public.profiles;
-create trigger on_profile_created
-  after insert on public.profiles
-  for each row execute function public.handle_new_patient_profile();
+create index inventory_products_brand_name_idx on public.inventory_products (brand_name);
 
--- ---------- RLS ----------
-alter table public.profiles             enable row level security;
-alter table public.patients             enable row level security;
-alter table public.doctors              enable row level security;
-alter table public.doctor_schedules     enable row level security;
+alter table public.billing_items
+  add constraint billing_items_product_fk
+  foreign key (product_id) references public.inventory_products(id) on delete set null;
+
+create table public.inventory_movements (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.inventory_products(id) on delete cascade,
+  movement_type text not null check (movement_type in ('StockIn', 'StockOut', 'Sale', 'Return', 'Adjustment', 'Expired')),
+  quantity numeric(12,2) not null,
+  reference_table text,
+  reference_id uuid,
+  notes text,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+-- =========================================================
+-- Website, Creator Content, Live Events, FAQ, Inquiries
+-- =========================================================
+create table public.landing_content (
+  id boolean primary key default true,
+  hero_eyebrow text not null default 'Healthcare & Doctor Creator Platform',
+  hero_title_line1 text not null default 'Complete care,',
+  hero_title_line2 text not null default 'trusted content',
+  hero_subtitle text not null default 'Book clinic visits, online consultations, and follow doctor-created health education.',
+  hero_cta_primary text not null default 'Book Appointment',
+  hero_cta_secondary text not null default 'View Services',
+  hero_background_url text,
+  about_eyebrow text not null default 'About the Doctor',
+  about_title text not null default 'Trusted healthcare provider',
+  about_subtitle text not null default 'Clinic care, online consultation, and patient education.',
+  doctor_name text not null default 'Doctora Kulot, MD',
+  doctor_title text not null default 'Family Medicine Specialist',
+  doctor_photo_url text,
+  feature_1_title text not null default 'Clinic Care',
+  feature_1_body text not null default 'In-person consultation and follow-up.',
+  feature_2_title text not null default 'Online Care',
+  feature_2_body text not null default 'Virtual consultations for eligible concerns.',
+  feature_3_title text not null default 'Health Education',
+  feature_3_body text not null default 'Blogs, videos, lives, and patient resources.',
+  cta_title text not null default 'Ready to schedule?',
+  cta_subtitle text not null default 'Choose a service, date, and time.',
+  cta_button_label text not null default 'Book Appointment',
+  testimonials jsonb not null default '[]'::jsonb,
+  nav_items jsonb not null default '[]'::jsonb,
+  services_eyebrow text not null default 'Services',
+  services_title text not null default 'Clinic and online services',
+  services_subtitle text not null default 'Review available services before booking.',
+  services jsonb not null default '[]'::jsonb,
+  how_to_eyebrow text not null default 'How to book',
+  how_to_title text not null default 'Simple appointment booking',
+  how_to_steps jsonb not null default '[]'::jsonb,
+  testimonials_eyebrow text not null default 'Patient Stories',
+  testimonials_title text not null default 'What patients say',
+  testimonials_subtitle text not null default 'Trusted care and helpful patient education.',
+  booking_title text not null default 'Book an appointment',
+  booking_subtitle text not null default 'Select service, date, and time.',
+  contact_eyebrow text not null default 'Contact',
+  contact_title text not null default 'Contact Doctora Kulot Clinic',
+  contact_subtitle text not null default 'Ask about appointments, services, consultations, or collaborations.',
+  contact_info_title text not null default 'Contact Info',
+  contact_hours_label text not null default 'Office Hours: Mon - Fri, 8:00 AM - 5:00 PM',
+  footer_brand_blurb text not null default 'Expert healthcare with Doctora Kulot, MD.',
+  footer_services jsonb not null default '[]'::jsonb,
+  footer_hours jsonb not null default '[]'::jsonb,
+  footer_contact_text text not null default 'Use the contact page to send a message.',
+  footer_copyright text not null default '© 2026 Doctora Kulot Clinic. All rights reserved.',
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.profiles(id) on delete set null,
+  constraint landing_content_singleton check (id)
+);
+
+create table public.content_posts (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid references public.profiles(id) on delete set null,
+  title text not null,
+  slug text not null unique,
+  content_type text not null check (content_type in ('Blog', 'HealthTip', 'Video', 'Announcement', 'LiveReplay')),
+  category text not null,
+  excerpt text,
+  body text,
+  embed_url text,
+  thumbnail_url text,
+  is_featured boolean not null default false,
+  status text not null default 'Draft' check (status in ('Draft', 'Published', 'Archived')),
+  published_at timestamptz,
+  view_count integer not null default 0,
+  appointment_click_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.live_events (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  description text,
+  starts_at timestamptz not null,
+  platform text,
+  live_url text,
+  replay_post_id uuid references public.content_posts(id) on delete set null,
+  registration_enabled boolean not null default true,
+  status text not null default 'Upcoming' check (status in ('Upcoming', 'Live', 'Completed', 'Cancelled')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.live_event_registrations (
+  id uuid primary key default gen_random_uuid(),
+  live_event_id uuid not null references public.live_events(id) on delete cascade,
+  patient_id uuid references public.patients(id) on delete set null,
+  name text not null,
+  email text,
+  phone text,
+  created_at timestamptz not null default now()
+);
+
+create table public.faqs (
+  id uuid primary key default gen_random_uuid(),
+  category text not null,
+  question text not null,
+  answer text not null,
+  sort_order integer not null default 0,
+  is_published boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.inquiries (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  email text,
+  phone text,
+  inquiry_type text not null default 'General',
+  message text not null,
+  status text not null default 'Pending' check (status in ('Pending', 'Replied', 'Closed')),
+  reply text,
+  replied_by uuid references public.profiles(id) on delete set null,
+  replied_at timestamptz,
+  converted_appointment_id uuid references public.appointments(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- =========================================================
+-- Notifications and Reports Support
+-- =========================================================
+create table public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete cascade,
+  channel text not null default 'email' check (channel in ('email', 'sms')),
+  template text not null,
+  payload jsonb not null default '{}'::jsonb,
+  status text not null default 'queued' check (status in ('queued', 'sent', 'failed')),
+  send_at timestamptz not null default now(),
+  sent_at timestamptz,
+  is_read boolean not null default false,
+  error text,
+  created_at timestamptz not null default now()
+);
+
+create index notifications_unread_idx
+  on public.notifications(user_id, is_read, created_at desc)
+  where is_read = false;
+
+create table public.website_analytics (
+  id uuid primary key default gen_random_uuid(),
+  event_name text not null,
+  path text,
+  content_post_id uuid references public.content_posts(id) on delete set null,
+  service_id uuid references public.clinic_services(id) on delete set null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+-- =========================================================
+-- Updated-at triggers
+-- =========================================================
+create trigger profiles_updated_at before update on public.profiles for each row execute function public.set_updated_at();
+create trigger patients_updated_at before update on public.patients for each row execute function public.set_updated_at();
+create trigger doctors_updated_at before update on public.doctors for each row execute function public.set_updated_at();
+create trigger system_settings_updated_at before update on public.system_settings for each row execute function public.set_updated_at();
+create trigger services_updated_at before update on public.clinic_services for each row execute function public.set_updated_at();
+create trigger pricing_updated_at before update on public.pricing for each row execute function public.set_updated_at();
+create trigger schedules_updated_at before update on public.doctor_schedules for each row execute function public.set_updated_at();
+create trigger appointments_updated_at before update on public.appointments for each row execute function public.set_updated_at();
+create trigger reservations_updated_at before update on public.online_booking_reservations for each row execute function public.set_updated_at();
+create trigger online_consultations_updated_at before update on public.online_consultations for each row execute function public.set_updated_at();
+create trigger vital_signs_updated_at before update on public.vital_signs for each row execute function public.set_updated_at();
+create trigger consultation_notes_updated_at before update on public.consultation_notes for each row execute function public.set_updated_at();
+create trigger diagnoses_updated_at before update on public.diagnoses for each row execute function public.set_updated_at();
+create trigger prescriptions_updated_at before update on public.prescriptions for each row execute function public.set_updated_at();
+create trigger follow_up_inquiries_updated_at before update on public.follow_up_inquiries for each row execute function public.set_updated_at();
+create trigger billings_updated_at before update on public.billings for each row execute function public.set_updated_at();
+create trigger suppliers_updated_at before update on public.suppliers for each row execute function public.set_updated_at();
+create trigger inventory_products_updated_at before update on public.inventory_products for each row execute function public.set_updated_at();
+create trigger landing_content_updated_at before update on public.landing_content for each row execute function public.set_updated_at();
+create trigger content_posts_updated_at before update on public.content_posts for each row execute function public.set_updated_at();
+create trigger live_events_updated_at before update on public.live_events for each row execute function public.set_updated_at();
+create trigger faqs_updated_at before update on public.faqs for each row execute function public.set_updated_at();
+create trigger inquiries_updated_at before update on public.inquiries for each row execute function public.set_updated_at();
+
+-- =========================================================
+-- RLS
+-- =========================================================
+alter table public.profiles enable row level security;
+alter table public.patients enable row level security;
+alter table public.doctors enable row level security;
+alter table public.role_permissions enable row level security;
+alter table public.system_settings enable row level security;
+alter table public.activity_logs enable row level security;
+alter table public.clinic_services enable row level security;
+alter table public.pricing enable row level security;
+alter table public.doctor_schedules enable row level security;
 alter table public.doctor_unavailability enable row level security;
-alter table public.appointments         enable row level security;
-alter table public.consultation_notes   enable row level security;
-alter table public.vital_signs           enable row level security;
-alter table public.landing_content       enable row level security;
-alter table public.billings             enable row level security;
-alter table public.billing_items        enable row level security;
-alter table public.payments             enable row level security;
+alter table public.appointments enable row level security;
 alter table public.online_booking_reservations enable row level security;
-alter table public.pricing              enable row level security;
-alter table public.notifications        enable row level security;
-alter table public.system_settings      enable row level security;
+alter table public.online_consultations enable row level security;
+alter table public.vital_signs enable row level security;
+alter table public.consultation_notes enable row level security;
+alter table public.diagnoses enable row level security;
+alter table public.prescriptions enable row level security;
+alter table public.prescription_items enable row level security;
+alter table public.patient_files enable row level security;
+alter table public.follow_up_inquiries enable row level security;
+alter table public.billings enable row level security;
+alter table public.billing_items enable row level security;
+alter table public.payments enable row level security;
+alter table public.suppliers enable row level security;
+alter table public.inventory_products enable row level security;
+alter table public.inventory_movements enable row level security;
+alter table public.landing_content enable row level security;
+alter table public.content_posts enable row level security;
+alter table public.live_events enable row level security;
+alter table public.live_event_registrations enable row level security;
+alter table public.faqs enable row level security;
+alter table public.inquiries enable row level security;
+alter table public.notifications enable row level security;
+alter table public.website_analytics enable row level security;
 
--- Helper: role check
-create or replace function public.current_role() returns user_role
-language sql stable as $$
-  select role from public.profiles where id = auth.uid()
-$$;
+create policy "profiles_self_or_staff_read" on public.profiles for select using (id = auth.uid() or public.is_clinic_staff());
+create policy "profiles_self_update" on public.profiles for update using (id = auth.uid() or public.is_clinic_staff());
 
-create or replace function public.is_staff() returns boolean
-language sql stable as $$
-  select public.current_role() in ('admin','secretary','super_admin')
-$$;
+create policy "patients_self_or_staff" on public.patients for select using (id = auth.uid() or public.is_clinic_staff());
+create policy "patients_staff_write" on public.patients for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
 
--- PROFILES
-drop policy if exists profiles_self_read on public.profiles;
-create policy profiles_self_read on public.profiles for select
-  using (id = auth.uid() or public.is_staff());
+create policy "public_doctor_read" on public.doctors for select using (true);
+create policy "staff_doctor_write" on public.doctors for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
+create policy "settings_authenticated_read" on public.system_settings for select using (auth.uid() is not null);
+create policy "settings_doctor_admin_write" on public.system_settings
+  for all using (public.current_profile_role() in ('super_admin', 'admin', 'doctor'))
+  with check (public.current_profile_role() in ('super_admin', 'admin', 'doctor'));
 
-drop policy if exists profiles_self_update on public.profiles;
-create policy profiles_self_update on public.profiles for update
-  using (id = auth.uid() or public.is_staff());
+create policy "public_service_read" on public.clinic_services for select using (is_active = true or public.is_clinic_staff());
+create policy "staff_service_write" on public.clinic_services for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
 
--- PATIENTS
-drop policy if exists patients_self_read on public.patients;
-create policy patients_self_read on public.patients for select
-  using (id = auth.uid() or public.current_role() in ('doctor','admin','secretary','super_admin'));
+create policy "staff_pricing_all" on public.pricing for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
+create policy "staff_schedules_all" on public.doctor_schedules for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
+create policy "staff_unavailability_all" on public.doctor_unavailability for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
 
-drop policy if exists patients_staff_write on public.patients;
-create policy patients_staff_write on public.patients for all
-  using (public.is_staff()) with check (public.is_staff());
+create policy "appointments_patient_or_staff_read" on public.appointments
+  for select using (patient_id = auth.uid() or doctor_id = auth.uid() or public.is_clinic_staff());
+create policy "appointments_patient_create" on public.appointments
+  for insert with check (patient_id = auth.uid() or public.is_clinic_staff());
+create policy "appointments_staff_update" on public.appointments
+  for update using (public.is_clinic_staff() or patient_id = auth.uid());
 
--- DOCTORS
-drop policy if exists doctors_read_all on public.doctors;
-create policy doctors_read_all on public.doctors for select using (true);
+create policy "patient_or_staff_related_online" on public.online_consultations
+  for select using (
+    public.is_clinic_staff()
+    or exists (select 1 from public.appointments a where a.id = appointment_id and a.patient_id = auth.uid())
+  );
+create policy "staff_online_write" on public.online_consultations for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
 
-drop policy if exists doctors_admin_write on public.doctors;
-create policy doctors_admin_write on public.doctors for all
-  using (public.current_role() = 'super_admin')
-  with check (public.current_role() = 'super_admin');
-
--- SCHEDULES
-drop policy if exists schedules_read_all on public.doctor_schedules;
-create policy schedules_read_all on public.doctor_schedules for select using (true);
-
-drop policy if exists schedules_doctor_write on public.doctor_schedules;
-create policy schedules_doctor_write on public.doctor_schedules for all
-  using (doctor_id = auth.uid() or public.is_staff())
-  with check (doctor_id = auth.uid() or public.is_staff());
-
-drop policy if exists unavail_read_all on public.doctor_unavailability;
-create policy unavail_read_all on public.doctor_unavailability for select using (true);
-
-drop policy if exists unavail_doctor_write on public.doctor_unavailability;
-create policy unavail_doctor_write on public.doctor_unavailability for all
-  using (doctor_id = auth.uid() or public.is_staff())
-  with check (doctor_id = auth.uid() or public.is_staff());
-
--- APPOINTMENTS
-drop policy if exists appts_participant_read on public.appointments;
-create policy appts_participant_read on public.appointments for select
-  using (patient_id = auth.uid() or doctor_id = auth.uid() or public.is_staff());
-
-drop policy if exists appts_patient_insert on public.appointments;
-create policy appts_patient_insert on public.appointments for insert
-  with check (patient_id = auth.uid() or public.is_staff());
-
-drop policy if exists appts_update on public.appointments;
-create policy appts_update on public.appointments for update
-  using (patient_id = auth.uid() or doctor_id = auth.uid() or public.is_staff());
-
--- CONSULTATION NOTES
-drop policy if exists notes_read on public.consultation_notes;
-create policy notes_read on public.consultation_notes for select
-  using (doctor_id = auth.uid() or public.is_staff()
-         or exists (select 1 from public.appointments a
-                    where a.id = appointment_id and a.patient_id = auth.uid()));
-
-drop policy if exists notes_doctor_write on public.consultation_notes;
-create policy notes_doctor_write on public.consultation_notes for all
-  using (doctor_id = auth.uid()) with check (doctor_id = auth.uid());
-
--- VITAL SIGNS (secretary at check-in OR doctor during consultation)
-drop policy if exists vitals_read on public.vital_signs;
-create policy vitals_read on public.vital_signs for select
-  using (
-    public.is_staff()
+create policy "patient_visible_notes" on public.consultation_notes
+  for select using (
+    public.is_clinic_staff()
     or exists (
       select 1 from public.appointments a
-      where a.id = appointment_id
-        and (a.patient_id = auth.uid() or a.doctor_id = auth.uid())
+      where a.id = appointment_id and a.patient_id = auth.uid() and visible_to_patient
     )
   );
+create policy "staff_notes_write" on public.consultation_notes for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
 
-drop policy if exists vitals_clinic_write on public.vital_signs;
-create policy vitals_clinic_write on public.vital_signs for all
-  using (
-    public.is_staff()
-    or exists (
-      select 1 from public.appointments a
-      where a.id = appointment_id and a.doctor_id = auth.uid()
-    )
-  )
-  with check (
-    public.is_staff()
-    or exists (
-      select 1 from public.appointments a
-      where a.id = appointment_id and a.doctor_id = auth.uid()
-    )
+create policy "patient_visible_diagnoses" on public.diagnoses for select using (public.is_clinic_staff() or (patient_id = auth.uid() and visible_to_patient));
+create policy "staff_diagnoses_write" on public.diagnoses for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
+
+create policy "patient_released_prescriptions" on public.prescriptions for select using (public.is_clinic_staff() or (patient_id = auth.uid() and released_to_patient));
+create policy "staff_prescriptions_write" on public.prescriptions for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
+create policy "prescription_items_parent_access" on public.prescription_items
+  for select using (
+    exists (select 1 from public.prescriptions p where p.id = prescription_id and (public.is_clinic_staff() or (p.patient_id = auth.uid() and p.released_to_patient)))
   );
+create policy "staff_prescription_items_write" on public.prescription_items for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
 
--- LANDING CONTENT (public read, super_admin/doctor write)
-drop policy if exists landing_read on public.landing_content;
-create policy landing_read on public.landing_content for select
-  using (true);
+create policy "patient_files_visible" on public.patient_files for select using (public.is_clinic_staff() or (patient_id = auth.uid() and visible_to_patient));
+create policy "staff_patient_files_write" on public.patient_files for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
 
-drop policy if exists landing_write on public.landing_content;
-create policy landing_write on public.landing_content for all
-  using (public.current_role() in ('super_admin', 'doctor'))
-  with check (public.current_role() in ('super_admin', 'doctor'));
+create policy "billing_patient_or_staff" on public.billings for select using (patient_id = auth.uid() or public.is_clinic_staff());
+create policy "staff_billing_write" on public.billings for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
+create policy "billing_items_staff_or_parent_patient" on public.billing_items
+  for select using (public.is_clinic_staff() or exists (select 1 from public.billings b where b.id = billing_id and b.patient_id = auth.uid()));
+create policy "staff_billing_items_write" on public.billing_items for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
+create policy "payments_patient_or_staff" on public.payments
+  for select using (
+    public.is_clinic_staff()
+    or exists (select 1 from public.billings b where b.id = billing_id and b.patient_id = auth.uid())
+    or exists (select 1 from public.appointments a where a.id = appointment_id and a.patient_id = auth.uid())
+  );
+create policy "staff_payments_write" on public.payments for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
 
--- BILLINGS / ITEMS / PAYMENTS (staff-only write; patient reads own)
-drop policy if exists billings_read on public.billings;
-create policy billings_read on public.billings for select
-  using (patient_id = auth.uid() or public.is_staff() or public.current_role() = 'doctor');
+create policy "staff_inventory_all" on public.suppliers for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
+create policy "staff_products_all" on public.inventory_products for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
+create policy "staff_movements_all" on public.inventory_movements for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
 
-drop policy if exists billings_staff_write on public.billings;
-create policy billings_staff_write on public.billings for all
-  using (public.is_staff()) with check (public.is_staff());
+create policy "public_landing_read" on public.landing_content for select using (true);
+create policy "doctor_landing_write" on public.landing_content for all using (public.current_profile_role() in ('super_admin', 'doctor')) with check (public.current_profile_role() in ('super_admin', 'doctor'));
+create policy "public_published_content" on public.content_posts for select using (status = 'Published' or public.is_clinic_staff());
+create policy "doctor_content_write" on public.content_posts for all using (public.current_profile_role() in ('super_admin', 'doctor')) with check (public.current_profile_role() in ('super_admin', 'doctor'));
+create policy "public_live_read" on public.live_events for select using (status <> 'Cancelled' or public.is_clinic_staff());
+create policy "doctor_live_write" on public.live_events for all using (public.current_profile_role() in ('super_admin', 'doctor')) with check (public.current_profile_role() in ('super_admin', 'doctor'));
+create policy "public_faq_read" on public.faqs for select using (is_published or public.is_clinic_staff());
+create policy "staff_faq_write" on public.faqs for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
 
-drop policy if exists items_read on public.billing_items;
-create policy items_read on public.billing_items for select
-  using (exists (select 1 from public.billings b
-                 where b.id = billing_id
-                   and (b.patient_id = auth.uid() or public.is_staff()
-                        or public.current_role() = 'doctor')));
+create policy "public_inquiry_insert" on public.inquiries for insert with check (true);
+create policy "staff_inquiry_manage" on public.inquiries for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
+create policy "public_live_registration_insert" on public.live_event_registrations for insert with check (true);
+create policy "staff_live_registration_read" on public.live_event_registrations for select using (public.is_clinic_staff());
 
-drop policy if exists items_staff_write on public.billing_items;
-create policy items_staff_write on public.billing_items for all
-  using (public.is_staff()) with check (public.is_staff());
+create policy "notifications_own" on public.notifications for select using (user_id = auth.uid() or public.is_clinic_staff());
+create policy "notifications_staff_write" on public.notifications for all using (public.is_clinic_staff()) with check (public.is_clinic_staff());
 
-drop policy if exists payments_read on public.payments;
-create policy payments_read on public.payments for select
-  using (public.is_staff()
-         or exists (select 1 from public.appointments a
-                    where a.id = appointment_id and a.patient_id = auth.uid()));
+create policy "analytics_insert" on public.website_analytics for insert with check (true);
+create policy "analytics_staff_read" on public.website_analytics for select using (public.is_clinic_staff());
+create policy "staff_logs_read" on public.activity_logs for select using (public.is_clinic_staff());
 
-drop policy if exists payments_staff_write on public.payments;
-create policy payments_staff_write on public.payments for all
-  using (public.is_staff()) with check (public.is_staff());
+-- =========================================================
+-- Seed reference data
+-- =========================================================
+insert into public.landing_content (id) values (true)
+on conflict (id) do nothing;
 
-drop policy if exists reservation_read on public.online_booking_reservations;
-create policy reservation_read on public.online_booking_reservations for select
-  using (patient_id = auth.uid() or public.is_staff());
+insert into public.system_settings (id, clinic_name, email, phone, address, online_consultation_fee, max_patients_per_hour)
+values (true, 'Doctora Kulot Clinic', 'admin@doctora-kulot.test', '', '', 350, 5)
+on conflict (id) do nothing;
 
-drop policy if exists reservation_staff_write on public.online_booking_reservations;
-create policy reservation_staff_write on public.online_booking_reservations for all
-  using (public.is_staff()) with check (public.is_staff());
+insert into public.clinic_services (code, name, category, description, service_mode, base_price, sort_order) values
+  ('GEN-CONSULT', 'General Consultation', 'Consultation', 'General clinic consultation', 'Clinic', 350, 1),
+  ('ONLINE-CONSULT', 'Online Consultation', 'Consultation', 'Virtual consultation for eligible concerns', 'Online', 350, 2),
+  ('FOLLOW-UP', 'Follow-up Checkup', 'Consultation', 'Follow-up visit and progress review', 'Both', 350, 3),
+  ('MED-CERT', 'Medical Certificate Request', 'Document', 'Medical certificate after doctor approval', 'Clinic', 0, 4),
+  ('LAB-REF', 'Laboratory Referral', 'Referral', 'Laboratory referral based on assessment', 'Both', 0, 5),
+  ('RX-RENEW', 'Prescription Renewal', 'Prescription', 'Medication renewal review', 'Online', 350, 6),
+  ('HEALTH-COACH', 'Health Coaching', 'Wellness', 'Health coaching and adherence support', 'Both', 350, 7),
+  ('WELLNESS', 'Wellness Consultation', 'Wellness', 'Lifestyle and wellness consultation', 'Both', 350, 8)
+on conflict (code) do nothing;
 
--- PRICING
-drop policy if exists pricing_read_all on public.pricing;
-create policy pricing_read_all on public.pricing for select using (true);
+insert into public.pricing (code, name, category, price, service_id)
+select code, name, category, base_price, id from public.clinic_services
+on conflict (code) do nothing;
 
-drop policy if exists pricing_admin_write on public.pricing;
-create policy pricing_admin_write on public.pricing for all
-  using (public.is_staff()) with check (public.is_staff());
-
--- NOTIFICATIONS
-drop policy if exists notif_self_read on public.notifications;
-create policy notif_self_read on public.notifications for select
-  using (user_id = auth.uid() or public.is_staff());
-
--- SYSTEM SETTINGS
-drop policy if exists settings_read_all on public.system_settings;
-create policy settings_read_all on public.system_settings for select using (true);
-
-drop policy if exists settings_admin_write on public.system_settings;
-create policy settings_admin_write on public.system_settings for update
-  using (public.current_role() = 'super_admin')
-  with check (public.current_role() = 'super_admin');
+insert into public.faqs (category, question, answer, sort_order) values
+  ('Appointment FAQ', 'How to book an appointment?', 'Open the booking page, choose your service, select date and time, and submit your details.', 1),
+  ('Clinic Services FAQ', 'Do you accept walk-in patients?', 'Walk-ins can be encoded by staff, but scheduled patients are prioritized.', 2),
+  ('Prescription FAQ', 'How can I access my prescription?', 'Log in to the patient portal and open your consultation or prescription history.', 3),
+  ('Online Consultation FAQ', 'How do I book an online consultation?', 'Choose online consultation during booking and wait for confirmation and meeting details.', 4),
+  ('Content FAQ', 'Where can I watch doctor videos?', 'Open the Videos page for educational videos and live replays.', 5)
+on conflict do nothing;

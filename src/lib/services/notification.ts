@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 import type { NotificationChannel } from "@/src/lib/db/types";
 import { processDueNotifications } from "@/src/lib/services/notification-dispatch";
+import { renderTemplate } from "@/src/lib/services/notifier";
 
 export type NotifyTemplate =
   | "welcome"
@@ -36,10 +37,10 @@ export async function enqueueNotification(input: {
   const rows = channels.map((channel) => ({
     user_id: input.user_id,
     channel,
-    template: input.template,
-    payload: input.payload,
-    send_at: input.send_at ?? new Date().toISOString(),
     status: "queued" as const,
+    payload: input.payload,
+    template: input.template,
+    send_at: input.send_at ?? new Date().toISOString(),
   }));
   const { error } = await supabase.from("notifications").insert(rows);
   if (error) throw error;

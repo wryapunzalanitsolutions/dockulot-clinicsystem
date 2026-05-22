@@ -12,7 +12,7 @@ import type { AppointmentRecord, AppointmentStatus } from "@/src/lib/appointment
  * Translates between the legacy UI shape (doctor slugs, flat patient fields,
  * legacy status strings) and the normalized v2 schema.
  *
- * Doctor lookup key: doctors.slug (see schema.sql — seed with slug='chiara-punzalan').
+ * Doctor lookup key: doctors.slug (for example `doctora-kulot-md` in this clinic).
  * Patient identity: found/created via auth.users by email.
  */
 

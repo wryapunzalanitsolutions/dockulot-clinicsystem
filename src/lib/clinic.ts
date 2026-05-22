@@ -84,8 +84,8 @@ export type SystemSettings = {
 // All clinic data now lives in Supabase. Only INITIAL_SYSTEM_SETTINGS remains
 // as an in-memory default returned if the system_settings row is missing.
 export const INITIAL_SYSTEM_SETTINGS: SystemSettings = {
-  clinicName: "Chiara Clinic",
-  email: "admin@chiara.test",
+  clinicName: "Doctora Kulot Clinic",
+  email: "admin@doctora-kulot.test",
   phone: "+1 (555) 123-4567",
   address: "123 Medical Avenue",
   onlineConsultationFee: 120,

@@ -206,28 +206,29 @@ export default function LoginPage() {
   return (
     <main className="relative min-h-screen flex items-center justify-end bg-slate-950 overflow-hidden px-4 md:px-10 lg:px-20">
       <Image
-        src="/images/chiarabg.png"
+        src="/images/dockulotbgs.png"
         alt="Clinic consultation background"
         fill
         priority
+        unoptimized
         quality={100}
         className="object-cover object-left md:object-center"
         sizes="100vw"
       />
       <div className="absolute inset-0 bg-black/15" />
 
-      <section className="relative z-10 w-full max-w-[390px] rounded-2xl border border-emerald-400/60 bg-black/16 backdrop-blur-[2px] shadow-xl p-3.5 overflow-hidden">
+      <section className="relative z-10 w-full max-w-[390px] rounded-2xl border border-sky-300/60 bg-sky-950/20 backdrop-blur-[2px] shadow-xl p-3.5 overflow-hidden">
         <div className="relative z-10">
-          <div className="flex justify-center -mb-5 overflow-hidden">
+          <div className="flex justify-center mb-2 overflow-hidden">
             <Image
-              src="/images/chiaralogo.png"
-              alt="Chiara Logo"
+              src="/images/dockulotslogonobg.png"
+              alt="Doctora Kulot Clinic Logo"
               width={669}
               height={373}
               priority
               quality={100}
               style={{ width: "230px", height: "auto" }}
-              className="object-contain drop-shadow-lg -mt-3 -mb-4"
+              className="object-contain drop-shadow-lg mt-0 mb-2"
             />
           </div>
 
@@ -242,7 +243,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="mt-0.5 w-full rounded-lg border border-emerald-400/65 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-white/65 outline-none transition focus:ring-2 focus:ring-emerald-300/90 focus:border-emerald-300"
+                className="mt-0.5 w-full rounded-lg border border-sky-300/65 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-white/65 outline-none transition focus:ring-2 focus:ring-sky-300/90 focus:border-sky-300"
                 placeholder="name@clinicmail.com"
                 autoComplete="email"
                 required
@@ -255,7 +256,7 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="w-full rounded-lg border border-emerald-400/65 bg-white/10 px-3 py-1.5 pr-11 text-sm text-white placeholder:text-white/65 outline-none transition focus:ring-2 focus:ring-emerald-300/90 focus:border-emerald-300"
+                  className="w-full rounded-lg border border-sky-300/65 bg-white/10 px-3 py-1.5 pr-11 text-sm text-white placeholder:text-white/65 outline-none transition focus:ring-2 focus:ring-sky-300/90 focus:border-sky-300"
                   placeholder="••••••••"
                   minLength={8}
                   title="Use at least 8 characters with uppercase, lowercase, number, and special character."
@@ -286,7 +287,7 @@ export default function LoginPage() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(event) => setRememberMe(event.target.checked)}
-                  className="h-3 w-3 rounded border border-white/50 bg-white/10 accent-emerald-500"
+                  className="h-3 w-3 rounded border border-white/50 bg-white/10 accent-sky-500"
                 />
                 Remember Me
               </label>
@@ -306,9 +307,9 @@ export default function LoginPage() {
 
             {feedback ? (
               <div
-                className={`rounded-xl px-4 py-3 text-sm ${
+                  className={`rounded-xl px-4 py-3 text-sm ${
                   isSuccessFeedback(feedback)
-                    ? "border border-emerald-300/60 bg-emerald-500/20 text-emerald-100"
+                    ? "border border-sky-300/60 bg-sky-500/20 text-sky-100"
                     : "border border-amber-300/60 bg-amber-500/20 text-amber-100"
                 }`}
               >
@@ -321,7 +322,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={resendVerificationEmail}
                 disabled={isPending || isVerifyCoolingDown}
-                className="w-full rounded-lg border border-emerald-300/50 bg-emerald-500/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-100 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-lg border border-sky-300/50 bg-sky-500/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-100 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isVerifyCoolingDown ? "Verification Email Sent" : "Resend Verification Email"}
               </button>
@@ -330,7 +331,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isPending}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-linear-to-r from-emerald-700 via-emerald-600 to-green-500 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-lg shadow-emerald-900/40 transition hover:from-emerald-600 hover:via-emerald-500 hover:to-green-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-emerald-900 disabled:to-emerald-700 disabled:text-emerald-200"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-linear-to-r from-sky-700 via-sky-600 to-cyan-500 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-lg shadow-sky-900/30 transition hover:from-sky-600 hover:via-sky-500 hover:to-cyan-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-sky-900 disabled:to-sky-700 disabled:text-sky-200"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6L16.5 12L10.5 18" />
@@ -343,12 +344,12 @@ export default function LoginPage() {
           <div className="mt-2 text-center">
             <p className="text-[11px] text-white/90">
               Don&apos;t have an account?{" "}
-              <Link href="/register" className="text-emerald-300 font-semibold hover:text-emerald-200 hover:underline">
+              <Link href="/register" className="font-semibold text-sky-200 hover:text-sky-100 hover:underline">
                 Sign Up
               </Link>
             </p>
             <div className="mt-2.5 space-y-1 text-center">
-              <p className="text-[9px] text-white/70">© 2026 Chiara Clinic | All rights reserved | Powered by Chiara Clinic</p>
+              <p className="text-[9px] text-white/70">© 2026 Doctora Kulot Clinic | All rights reserved | Powered by Doctora Kulot Clinic</p>
               <p className="text-[9px] text-white/70">Having trouble?</p>
               <div className="flex items-center justify-center gap-4 text-[10px]">
                 <button type="button" className="text-white/85 hover:text-white hover:underline">
@@ -387,7 +388,7 @@ export default function LoginPage() {
                   type="email"
                   value={resetEmail}
                   onChange={(event) => setResetEmail(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-2.5 text-white placeholder:text-white/60 outline-none transition focus:ring-2 focus:ring-teal-400 focus:border-teal-400"
+                  className="mt-1 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-2.5 text-white placeholder:text-white/60 outline-none transition focus:ring-2 focus:ring-sky-400 focus:border-sky-400"
                   placeholder="name@clinicmail.com"
                   required
                 />
@@ -397,7 +398,7 @@ export default function LoginPage() {
                 <div
                   className={`rounded-xl px-4 py-3 text-xs ${
                     isSuccessFeedback(resetFeedback)
-                      ? "border border-emerald-300/60 bg-emerald-500/20 text-emerald-100"
+                      ? "border border-sky-300/60 bg-sky-500/20 text-sky-100"
                       : "border border-white/15 bg-white/10 text-white/90"
                   }`}
                 >
@@ -412,7 +413,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isPending || isResetCoolingDown}
-                className="w-full rounded-lg bg-teal-600 px-3 py-2.5 font-semibold text-white shadow-lg shadow-teal-900/30 transition hover:bg-teal-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-teal-800 disabled:text-teal-300"
+                className="w-full rounded-lg bg-sky-600 px-3 py-2.5 font-semibold text-white shadow-lg shadow-sky-900/30 transition hover:bg-sky-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-sky-800 disabled:text-sky-200"
               >
                 {isPending ? "Sending..." : isResetCoolingDown ? "Please wait..." : "Send reset link"}
               </button>

@@ -181,7 +181,7 @@ export async function createOnlineCheckoutSession(
   };
   stage("start");
 
-  const doctorId = await resolveAssignedDoctorUuid();
+  const doctorId = await resolveAssignedDoctorUuid(input.doctorId);
   stage("resolved-doctor", { doctorId });
   const patientId = await resolveBookingPatientId(input, {
     actorRole: actor.profile.role === "patient" ? "PATIENT" : undefined,

@@ -32,12 +32,12 @@ const INITIAL_CONSENTS: Record<ConsentKey, boolean> = {
 
 const POLICY_CONTENT = {
   terms: {
-    title: "Chiara Clinic Terms and Conditions",
+    title: "Doctora Kulot Clinic Terms and Conditions",
     sections: [
       {
         heading: "1. Appointment and Account Information",
         body:
-          "By creating an account with Chiara Clinic, you confirm that the personal details you provide are accurate, complete, and updated. You are responsible for keeping your login credentials secure and for any activity made through your account.",
+          "By creating an account with Doctora Kulot Clinic, you confirm that the personal details you provide are accurate, complete, and updated. You are responsible for keeping your login credentials secure and for any activity made through your account.",
       },
       {
         heading: "2. Use of Clinic Services",
@@ -47,7 +47,7 @@ const POLICY_CONTENT = {
       {
         heading: "3. Medical and Administrative Limitations",
         body:
-          "Booking an appointment through the website does not replace emergency care or professional medical advice. Chiara Clinic may reschedule, adjust, or decline appointments when necessary because of doctor availability, emergencies, or incomplete patient information.",
+          "Booking an appointment through the website does not replace emergency care or professional medical advice. Doctora Kulot Clinic may reschedule, adjust, or decline appointments when necessary because of doctor availability, emergencies, or incomplete patient information.",
       },
       {
         heading: "4. Privacy and Records",
@@ -57,12 +57,12 @@ const POLICY_CONTENT = {
       {
         heading: "5. Acceptance of Policies",
         body:
-          "By proceeding with account registration, you acknowledge that you have read and accepted these terms together with the clinic cancellation policy. Chiara Clinic may update these terms from time to time, and continued use of the platform means you accept the latest version.",
+          "By proceeding with account registration, you acknowledge that you have read and accepted these terms together with the clinic cancellation policy. Doctora Kulot Clinic may update these terms from time to time, and continued use of the platform means you accept the latest version.",
       },
     ],
   },
   cancellation: {
-    title: "Chiara Clinic Cancellation Policy",
+    title: "Doctora Kulot Clinic Cancellation Policy",
     sections: [
       {
         heading: "1. Notice of Cancellation",
@@ -72,7 +72,7 @@ const POLICY_CONTENT = {
       {
         heading: "2. Late Cancellation and No-Show",
         body:
-          "Repeated late cancellations or failure to attend a scheduled appointment without notice may affect future booking privileges. Chiara Clinic may flag or review accounts that repeatedly reserve slots without completing appointments.",
+          "Repeated late cancellations or failure to attend a scheduled appointment without notice may affect future booking privileges. Doctora Kulot Clinic may flag or review accounts that repeatedly reserve slots without completing appointments.",
       },
       {
         heading: "3. Online Booking and Payment-Related Appointments",
@@ -82,7 +82,7 @@ const POLICY_CONTENT = {
       {
         heading: "4. Clinic-Initiated Changes",
         body:
-          "Chiara Clinic may reschedule or cancel appointments when required due to doctor emergencies, unforeseen schedule changes, technical issues, or patient safety concerns. When possible, the clinic will notify affected patients using the contact details on file.",
+          "Doctora Kulot Clinic may reschedule or cancel appointments when required due to doctor emergencies, unforeseen schedule changes, technical issues, or patient safety concerns. When possible, the clinic will notify affected patients using the contact details on file.",
       },
       {
         heading: "5. Patient Responsibility",
@@ -259,10 +259,11 @@ export default function RegisterPage() {
   return (
     <main className="relative min-h-screen flex items-center justify-end bg-slate-950 overflow-hidden px-4 md:px-10 lg:px-20">
       <Image
-        src="/images/chiarabg.png"
+        src="/images/dockulotbgs.png"
         alt="Clinic consultation background"
         fill
         priority
+        unoptimized
         quality={100}
         className="object-cover object-left md:object-center"
         sizes="100vw"
@@ -282,12 +283,12 @@ export default function RegisterPage() {
         }
       `}</style>
 
-      <section className="relative z-10 w-full max-w-[400px] rounded-2xl border border-emerald-400/60 bg-black/16 p-3 backdrop-blur-[2px] shadow-xl overflow-hidden">
+      <section className="relative z-10 w-full max-w-[400px] rounded-2xl border border-sky-300/60 bg-sky-950/20 p-3 backdrop-blur-[2px] shadow-xl overflow-hidden">
         <div className="relative z-10">
           <div className="flex justify-center overflow-hidden">
             <Image
-              src="/images/chiaralogo.png"
-              alt="Chiara Logo"
+              src="/images/dockulotslogonobg.png"
+              alt="Doctora Kulot Clinic Logo"
               width={669}
               height={373}
               priority
@@ -307,7 +308,7 @@ export default function RegisterPage() {
                 type="text"
                 value={formData.fullName}
                 onChange={(event) => updateField("fullName", event.target.value)}
-                className="mt-0.5 w-full rounded-lg border border-emerald-400/65 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-white/65 outline-none transition focus:ring-2 focus:ring-emerald-300/90 focus:border-emerald-300"
+                className="mt-0.5 w-full rounded-lg border border-sky-300/65 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-white/65 outline-none transition focus:ring-2 focus:ring-sky-300/90 focus:border-sky-300"
                 placeholder="Juan Dela Cruz"
                 minLength={2}
                 maxLength={80}
@@ -330,7 +331,7 @@ export default function RegisterPage() {
                   type="tel"
                   value={formData.phone}
                   onChange={(event) => updateField("phone", event.target.value)}
-                  className="w-full rounded-lg border border-emerald-400/65 bg-white/10 py-1.5 pl-24 pr-3 text-sm text-white placeholder:text-white/65 outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-300/90"
+                  className="w-full rounded-lg border border-sky-300/65 bg-white/10 py-1.5 pl-24 pr-3 text-sm text-white placeholder:text-white/65 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-300/90"
                   placeholder="912 345 6789"
                   inputMode="tel"
                   title="Use PH format (+639XXXXXXXXX or 09XXXXXXXXX) or international +countrycode."
@@ -345,7 +346,7 @@ export default function RegisterPage() {
                 type="email"
                 value={formData.email}
                 onChange={(event) => updateField("email", event.target.value)}
-                className="mt-0.5 w-full rounded-lg border border-emerald-400/65 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-white/65 outline-none transition focus:ring-2 focus:ring-emerald-300/90 focus:border-emerald-300"
+                className="mt-0.5 w-full rounded-lg border border-sky-300/65 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-white/65 outline-none transition focus:ring-2 focus:ring-sky-300/90 focus:border-sky-300"
                 placeholder="name@clinicmail.com"
                 autoComplete="email"
                 required
@@ -359,7 +360,7 @@ export default function RegisterPage() {
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={(event) => updateField("password", event.target.value)}
-                  className="w-full rounded-lg border border-emerald-400/65 bg-white/10 px-3 py-1.5 pr-11 text-sm text-white placeholder:text-white/65 outline-none transition focus:ring-2 focus:ring-emerald-300/90 focus:border-emerald-300"
+                  className="w-full rounded-lg border border-sky-300/65 bg-white/10 px-3 py-1.5 pr-11 text-sm text-white placeholder:text-white/65 outline-none transition focus:ring-2 focus:ring-sky-300/90 focus:border-sky-300"
                   placeholder="••••••••"
                   minLength={8}
                   title="Use at least 8 characters with uppercase, lowercase, number, and special character."
@@ -392,7 +393,7 @@ export default function RegisterPage() {
                   value={formData.dateOfBirth}
                   onChange={(event) => updateField("dateOfBirth", event.target.value)}
                   max={maxBirthDate}
-                  className="mt-0.5 w-full rounded-lg border border-emerald-400/65 bg-white/10 px-3 py-1.5 text-sm text-white outline-none transition focus:ring-2 focus:ring-emerald-300/90 focus:border-emerald-300"
+                  className="mt-0.5 w-full rounded-lg border border-sky-300/65 bg-white/10 px-3 py-1.5 text-sm text-white outline-none transition focus:ring-2 focus:ring-sky-300/90 focus:border-sky-300"
                   required
                 />
                 {fieldErrors.dateOfBirth ? <FieldError message={fieldErrors.dateOfBirth} /> : null}
@@ -403,7 +404,7 @@ export default function RegisterPage() {
                   <select
                     value={formData.gender}
                     onChange={(event) => updateField("gender", event.target.value)}
-                    className={`w-full appearance-none rounded-lg border border-emerald-400/65 bg-white/10 px-3 py-1.5 pr-8 text-sm outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-300/90 ${
+                    className={`w-full appearance-none rounded-lg border border-sky-300/65 bg-white/10 px-3 py-1.5 pr-8 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-300/90 ${
                       formData.gender ? "text-white" : "text-white/65"
                     }`}
                     required
@@ -436,7 +437,7 @@ export default function RegisterPage() {
                 type="text"
                 value={formData.address}
                 onChange={(event) => updateField("address", event.target.value)}
-                className="mt-0.5 w-full rounded-lg border border-emerald-400/65 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-white/65 outline-none transition focus:ring-2 focus:ring-emerald-300/90 focus:border-emerald-300"
+                className="mt-0.5 w-full rounded-lg border border-sky-300/65 bg-white/10 px-3 py-1.5 text-sm text-white placeholder:text-white/65 outline-none transition focus:ring-2 focus:ring-sky-300/90 focus:border-sky-300"
                 placeholder="123 Main Street, City"
                 required
               />
@@ -449,15 +450,15 @@ export default function RegisterPage() {
                   type="checkbox"
                   checked={consents.termsAccepted}
                   onChange={(event) => updateConsent("termsAccepted", event.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border border-emerald-400/65 bg-white/10 text-emerald-400 accent-emerald-500"
+                  className="mt-0.5 h-4 w-4 rounded border border-sky-300/65 bg-white/10 text-sky-300 accent-sky-500"
                   required
                 />
                 <span>
-                  I agree with Chiara Clinic{" "}
+                  I agree with Doctora Kulot Clinic{" "}
                   <button
                     type="button"
                     onClick={() => setActiveModal("terms")}
-                    className="font-semibold text-emerald-300 underline underline-offset-2 hover:text-emerald-200"
+                    className="font-semibold text-sky-300 underline underline-offset-2 hover:text-sky-200"
                   >
                     terms and conditions
                   </button>
@@ -470,7 +471,7 @@ export default function RegisterPage() {
                   type="checkbox"
                   checked={consents.cancellationAccepted}
                   onChange={(event) => updateConsent("cancellationAccepted", event.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border border-emerald-400/65 bg-white/10 text-emerald-400 accent-emerald-500"
+                  className="mt-0.5 h-4 w-4 rounded border border-sky-300/65 bg-white/10 text-sky-300 accent-sky-500"
                   required
                 />
                 <span>
@@ -478,7 +479,7 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => setActiveModal("cancellation")}
-                    className="font-semibold text-emerald-300 underline underline-offset-2 hover:text-emerald-200"
+                    className="font-semibold text-sky-300 underline underline-offset-2 hover:text-sky-200"
                   >
                     cancellation policy
                   </button>
@@ -491,7 +492,7 @@ export default function RegisterPage() {
               <div
                 className={`rounded-xl px-4 py-3 text-sm ${
                   isSuccessFeedback(feedback)
-                    ? "border border-emerald-300/60 bg-emerald-500/20 text-emerald-100"
+                    ? "border border-sky-300/60 bg-sky-500/20 text-sky-100"
                     : "border border-amber-300/60 bg-amber-500/20 text-amber-100"
                 }`}
               >
@@ -502,7 +503,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isPending}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-linear-to-r from-emerald-700 via-emerald-600 to-green-500 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-lg shadow-emerald-900/40 transition hover:from-emerald-600 hover:via-emerald-500 hover:to-green-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-emerald-900 disabled:to-emerald-700 disabled:text-emerald-200"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-linear-to-r from-sky-700 via-sky-600 to-sky-500 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-lg shadow-sky-900/40 transition hover:from-sky-600 hover:via-sky-500 hover:to-sky-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-sky-900 disabled:to-sky-700 disabled:text-sky-200"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -516,7 +517,7 @@ export default function RegisterPage() {
           <div className="mt-1.5 text-center">
             <p className="text-xs text-white/95">
               Already have an account?{" "}
-              <Link href="/login" className="text-emerald-300 font-semibold hover:text-emerald-200 hover:underline">
+              <Link href="/login" className="text-sky-300 font-semibold hover:text-sky-200 hover:underline">
                 Sign In
               </Link>
             </p>
@@ -573,23 +574,23 @@ function PolicyModalCard({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-[28px] border border-emerald-400/55 bg-white p-5 shadow-2xl shadow-slate-950/30">
+      <div className="w-full max-w-xl rounded-[28px] border border-sky-300/55 bg-white p-5 shadow-2xl shadow-slate-950/30">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600/85">Policy Details</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600/85">Policy Details</p>
             <h2 className="mt-1 text-lg font-bold text-slate-900">{title}</h2>
             <p className="mt-1 text-xs leading-5 text-slate-600">Please review this policy before continuing with registration.</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-slate-900"
+            className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-sky-300 hover:bg-sky-50 hover:text-slate-900"
           >
             Close
           </button>
         </div>
 
-        <div className="mt-4 h-px w-full bg-linear-to-r from-emerald-400/0 via-emerald-400/45 to-emerald-400/0" />
+        <div className="mt-4 h-px w-full bg-linear-to-r from-sky-300/0 via-sky-300/45 to-sky-300/0" />
 
         <div className="policy-scroll mt-4 max-h-[65vh] space-y-3 overflow-y-auto pr-1">
           {sections.map((section) => (
@@ -597,7 +598,7 @@ function PolicyModalCard({
               key={section.heading}
               className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5"
             >
-              <h3 className="text-sm font-semibold text-emerald-700">{section.heading}</h3>
+              <h3 className="text-sm font-semibold text-sky-700">{section.heading}</h3>
               <p className="mt-1.5 text-xs leading-5 text-slate-700">{section.body}</p>
             </div>
           ))}

@@ -159,7 +159,7 @@ Authorization: Bearer <JWT_TOKEN>
 
 | Role | Use Case | Can Do |
 |------|----------|--------|
-| **SUPER_ADMIN** | System owner (Dr. Chiara) | Everything + user management |
+| **SUPER_ADMIN** | System owner (Doctora Kulot, MD) | Everything + user management |
 | **ADMIN** | Clinic manager | Staff + settings (limited) |
 | **SECRETARY** | Front desk | Check-in, billing, scheduling |
 | **DOCTOR** | Medical provider | Consultations, notes, schedule own |

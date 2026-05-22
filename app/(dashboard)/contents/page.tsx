@@ -307,7 +307,7 @@ export default function ContentsManagerPage() {
   }
 
   if (isLoading || loading) {
-    return <div className="h-40 animate-pulse rounded-3xl border border-emerald-100 bg-white shadow-sm" />;
+    return <div className="h-40 animate-pulse rounded-3xl border border-sky-100 bg-white shadow-sm" />;
   }
 
   if (!canEdit) {
@@ -329,10 +329,10 @@ export default function ContentsManagerPage() {
   return (
     <div className="space-y-6 pb-8">
       {/* Header toolbar */}
-      <div className="rounded-3xl border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-5 shadow-[0_18px_45px_rgba(16,185,129,0.08)] sm:p-6">
+      <div className="rounded-3xl border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f0f9ff_100%)] p-5 shadow-[0_18px_45px_rgba(14,165,233,0.06)] sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">
+            <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">
               <FaWandMagicSparkles className="h-3 w-3" aria-hidden="true" /> Contents Manager
             </p>
             <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-[1.75rem]">
@@ -347,7 +347,7 @@ export default function ContentsManagerPage() {
             href="/"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 self-start rounded-full border border-emerald-200 bg-white px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50"
+            className="inline-flex items-center justify-center gap-1.5 self-start rounded-full border border-sky-200 bg-white px-4 py-2 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
           >
             Preview public landing →
           </a>
@@ -358,12 +358,12 @@ export default function ContentsManagerPage() {
         <div
           className={`flex items-start gap-2.5 rounded-2xl px-4 py-3 text-sm font-medium ${
             feedback.kind === "ok"
-              ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+              ? "border border-sky-200 bg-sky-50 text-sky-800"
               : "border border-red-200 bg-red-50 text-red-800"
           }`}
         >
           {feedback.kind === "ok" ? (
-            <FaCircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+            <FaCircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" aria-hidden="true" />
           ) : (
             <FaCircleXmark className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden="true" />
           )}
@@ -373,7 +373,7 @@ export default function ContentsManagerPage() {
 
       {/* Tab pill — wraps to a second row on narrow screens; keeps focus
           state semantic so keyboard nav works. */}
-      <div className="flex flex-wrap gap-1.5 rounded-2xl border border-emerald-100 bg-white p-1.5">
+      <div className="flex flex-wrap gap-1.5 rounded-2xl border border-sky-100 bg-white p-1.5">
         {TABS.map((t) => {
           const active = activeTab === t.id;
           return (
@@ -384,8 +384,8 @@ export default function ContentsManagerPage() {
               aria-pressed={active}
               className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition sm:text-sm ${
                 active
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+                  ? "bg-sky-600 text-white shadow-sm"
+                    : "text-slate-700 hover:bg-sky-50 hover:text-sky-700"
               }`}
             >
               {t.label}
@@ -398,7 +398,7 @@ export default function ContentsManagerPage() {
         <Section title="Hero (above the fold)">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <div className="space-y-3">
-              <Field label="Eyebrow text (optional)" value={content.hero_eyebrow} onChange={(v) => update("hero_eyebrow", v)} placeholder="e.g., Welcome to Chiara Clinic" />
+              <Field label="Eyebrow text (optional)" value={content.hero_eyebrow} onChange={(v) => update("hero_eyebrow", v)} placeholder="e.g., Welcome to Doctora Kulot Clinic" />
               <Field label="Title — Line 1" value={content.hero_title_line1} onChange={(v) => update("hero_title_line1", v)} />
               <Field label="Title — Line 2 (highlighted)" value={content.hero_title_line2} onChange={(v) => update("hero_title_line2", v)} />
               <Textarea label="Subtitle" rows={3} value={content.hero_subtitle} onChange={(v) => update("hero_subtitle", v)} />
@@ -433,8 +433,8 @@ export default function ContentsManagerPage() {
                 <Field label="Doctor title" value={content.doctor_title} onChange={(v) => update("doctor_title", v)} />
               </div>
 
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 space-y-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Three Highlights</p>
+              <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-3 space-y-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">Three Highlights</p>
                 <FeatureRow
                   index={1}
                   title={content.feature_1_title}
@@ -490,7 +490,7 @@ export default function ContentsManagerPage() {
             <button
               type="button"
               onClick={addNavItem}
-              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
             >
               <FaPlus className="h-3 w-3" aria-hidden="true" /> Add link
             </button>
@@ -503,8 +503,8 @@ export default function ContentsManagerPage() {
             <EmptyHint label="No nav links yet." />
           ) : (
             <div className="space-y-2">
-              {content.nav_items.map((n, idx) => (
-                <div key={idx} className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+                {content.nav_items.map((n, idx) => (
+                <div key={idx} className="rounded-xl border border-sky-100 bg-sky-50/40 p-3">
                   <div className="flex items-start gap-2">
                     <div className="flex-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <Field label="Label" value={n.label} onChange={(v) => updateNavItem(idx, { label: v })} placeholder="Home" />
@@ -527,12 +527,12 @@ export default function ContentsManagerPage() {
             <Textarea label="Section subtitle" rows={2} value={content.services_subtitle} onChange={(v) => update("services_subtitle", v)} />
           </div>
 
-          <div className="flex items-center justify-between mb-3 border-t border-emerald-100 pt-4">
+            <div className="flex items-center justify-between mb-3 border-t border-sky-100 pt-4">
             <h3 className="text-sm font-bold text-slate-900">Service cards</h3>
             <button
               type="button"
               onClick={addService}
-              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
             >
               <FaPlus className="h-3 w-3" aria-hidden="true" /> Add service
             </button>
@@ -541,8 +541,8 @@ export default function ContentsManagerPage() {
             <EmptyHint label="No service cards yet." />
           ) : (
             <div className="space-y-3">
-              {content.services.map((s, idx) => (
-                <div key={idx} className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 space-y-3">
+                {content.services.map((s, idx) => (
+                <div key={idx} className="rounded-xl border border-sky-100 bg-sky-50/40 p-3 space-y-3">
                   <div className="flex items-start gap-2">
                     <div className="flex-1 grid gap-2 sm:grid-cols-[12rem_minmax(0,1fr)]">
                       <KindSelect value={s.kind} onChange={(v) => updateService(idx, { kind: v })} />
@@ -551,13 +551,13 @@ export default function ContentsManagerPage() {
                     <RemoveButton onClick={() => removeService(idx)} title="Remove service" />
                   </div>
                   <Textarea label="Short description" rows={2} value={s.description} onChange={(v) => updateService(idx, { description: v })} />
-                  <div className="rounded-lg border border-emerald-100 bg-white p-3">
+                      <div className="rounded-lg border border-sky-100 bg-white p-3">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Bullet points</p>
                       <button
                         type="button"
                         onClick={() => addBullet(idx)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-50"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-50"
                       >
                         <FaPlus className="h-2.5 w-2.5" aria-hidden="true" /> Add bullet
                       </button>
@@ -567,7 +567,7 @@ export default function ContentsManagerPage() {
                     ) : (
                       <div className="space-y-2">
                         {s.bullets.map((b, bi) => (
-                          <div key={bi} className="flex items-start gap-2 rounded-lg border border-emerald-100 bg-emerald-50/40 p-2">
+                          <div key={bi} className="flex items-start gap-2 rounded-lg border border-sky-100 bg-sky-50/40 p-2">
                             <div className="flex-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
                               <Field label="Title" value={b.title} onChange={(v) => updateBullet(idx, bi, { title: v })} />
                               <Field label="Body" value={b.body} onChange={(v) => updateBullet(idx, bi, { body: v })} />
@@ -582,7 +582,7 @@ export default function ContentsManagerPage() {
               ))}
             </div>
           )}
-          <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+          <p className="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
             <strong>Note:</strong> hourly rates shown on each card come from the <a href="/pricing" className="underline">Pricing</a> module — they update automatically when you change consultation fees there.
           </p>
         </Section>
@@ -595,7 +595,7 @@ export default function ContentsManagerPage() {
             <button
               type="button"
               onClick={addStep}
-              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
             >
               <FaPlus className="h-3 w-3" aria-hidden="true" /> Add step
             </button>
@@ -610,9 +610,9 @@ export default function ContentsManagerPage() {
           ) : (
             <div className="space-y-2">
               {content.how_to_steps.map((s, idx) => (
-                <div key={idx} className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+                <div key={idx} className="rounded-xl border border-sky-100 bg-sky-50/40 p-3">
                   <div className="flex items-start gap-2">
-                    <span className="mt-7 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-black text-white">
+                    <span className="mt-7 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-600 text-sm font-black text-white">
                       {idx + 1}
                     </span>
                     <div className="flex-1 space-y-2">
@@ -635,7 +635,7 @@ export default function ContentsManagerPage() {
             <button
               type="button"
               onClick={addTestimonial}
-              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
             >
               <FaPlus className="h-3 w-3" aria-hidden="true" /> Add testimonial
             </button>
@@ -647,16 +647,16 @@ export default function ContentsManagerPage() {
             <Textarea label="Section subtitle" rows={2} value={content.testimonials_subtitle} onChange={(v) => update("testimonials_subtitle", v)} />
           </div>
 
-          <div className="border-t border-emerald-100 pt-4">
+          <div className="border-t border-sky-100 pt-4">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Patient quotes</p>
             {content.testimonials.length === 0 ? (
               <EmptyHint label="No testimonials yet." />
             ) : (
               <div className="space-y-3">
                 {content.testimonials.map((t, idx) => (
-                  <div key={idx} className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+                  <div key={idx} className="rounded-xl border border-sky-100 bg-sky-50/40 p-3">
                     <div className="flex items-start gap-2">
-                      <FaQuoteLeft className="mt-1 h-4 w-4 shrink-0 text-emerald-500" aria-hidden="true" />
+                      <FaQuoteLeft className="mt-1 h-4 w-4 shrink-0 text-sky-500" aria-hidden="true" />
                       <div className="flex-1 space-y-2.5">
                         <div className="grid grid-cols-2 gap-2.5">
                           <Field
@@ -711,7 +711,7 @@ export default function ContentsManagerPage() {
             <Field label="Contact info card title" value={content.contact_info_title} onChange={(v) => update("contact_info_title", v)} />
             <Field label="Office hours line" value={content.contact_hours_label} onChange={(v) => update("contact_hours_label", v)} />
           </div>
-          <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+          <p className="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
             <strong>Note:</strong> phone and email come from <a href="/settings" className="underline">Settings → Clinic info</a> so they stay consistent across the site.
           </p>
         </Section>
@@ -746,7 +746,7 @@ export default function ContentsManagerPage() {
       ) : null}
 
       {/* Sticky save bar */}
-      <div className="sticky bottom-4 z-30 mt-2 flex flex-col items-stretch gap-3 rounded-2xl border border-emerald-100 bg-white/95 p-3 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+      <div className="sticky bottom-4 z-30 mt-2 flex flex-col items-stretch gap-3 rounded-2xl border border-sky-100 bg-white/95 p-3 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <p className={`text-xs font-semibold ${dirty ? "text-amber-700" : "text-slate-500"}`}>
           {dirty ? "Unsaved changes" : "All changes saved"}
         </p>
@@ -763,7 +763,7 @@ export default function ContentsManagerPage() {
             type="button"
             onClick={handleSave}
             disabled={!dirty || saving}
-            className="rounded-full bg-emerald-600 px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full bg-sky-600 px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? "Saving…" : "Save changes"}
           </button>
@@ -783,7 +783,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
+    <section className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-bold text-slate-900">{title}</h2>
         {action}
@@ -807,12 +807,12 @@ function Field({
   return (
     <label className="block">
       <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">{label}</span>
-      <input
+        <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="mt-1.5 w-full rounded-lg border border-emerald-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+        className="mt-1.5 w-full rounded-lg border border-sky-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
       />
     </label>
   );
@@ -839,7 +839,7 @@ function Textarea({
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className="mt-1.5 w-full rounded-lg border border-emerald-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+        className="mt-1.5 w-full rounded-lg border border-sky-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
       />
     </label>
   );
@@ -922,7 +922,7 @@ function ImageUploader({
   }
 
   return (
-    <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+    <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
@@ -939,7 +939,7 @@ function ImageUploader({
       </div>
 
       <div
-        className={`mt-3 overflow-hidden rounded-lg border border-emerald-100 bg-white ${
+        className={`mt-3 overflow-hidden rounded-lg border border-sky-100 bg-white ${
           aspect === "portrait" ? "aspect-[3/4]" : "aspect-[16/9]"
         } relative`}
       >
@@ -951,7 +951,7 @@ function ImageUploader({
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-full bg-sky-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <FaCloudArrowUp className="h-3 w-3" aria-hidden="true" />
           {uploading ? "Uploading…" : currentUrl ? "Replace image" : "Upload image"}
@@ -1015,7 +1015,7 @@ function KindSelect({ value, onChange }: { value: string; onChange: (v: string) 
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 w-full rounded-lg border border-emerald-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+        className="mt-1.5 w-full rounded-lg border border-sky-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
       >
         <option value="clinic">Clinic visit (emerald)</option>
         <option value="online">Online consultation (sky)</option>
@@ -1043,13 +1043,13 @@ function FooterStringList({
   placeholder?: string;
 }) {
   return (
-    <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3">
+    <div className="rounded-xl border border-sky-100 bg-sky-50/30 p-3">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">{label}</p>
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-50"
+          className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-50"
         >
           <FaPlus className="h-2.5 w-2.5" aria-hidden="true" /> Add
         </button>
@@ -1065,7 +1065,7 @@ function FooterStringList({
                 value={v}
                 onChange={(e) => onChange(i, e.target.value)}
                 placeholder={placeholder}
-                className="flex-1 rounded-lg border border-emerald-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                className="flex-1 rounded-lg border border-sky-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
               />
               <RemoveButton onClick={() => onRemove(i)} title="Remove" />
             </div>

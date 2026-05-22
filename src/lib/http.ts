@@ -116,8 +116,12 @@ export async function requireRole(req: Request, allow: DbRole[]): Promise<Actor>
   return actor;
 }
 
-export const STAFF_ROLES: DbRole[] = ["admin", "secretary", "super_admin"];
+export const STAFF_ROLES: DbRole[] = ["admin", "secretary", "staff", "super_admin"];
 
 export function isStaff(role: DbRole) {
   return STAFF_ROLES.includes(role);
+}
+
+export function isClinicStaff(role: DbRole) {
+  return isStaff(role) || role === "doctor";
 }

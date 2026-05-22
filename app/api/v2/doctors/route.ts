@@ -1,8 +1,8 @@
-import { httpError, ok, requireActor } from "@/src/lib/http";
+import { httpError, ok } from "@/src/lib/http";
 import { normalizeConfiguredConsultationRate } from "@/src/lib/consultation-pricing";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 
-const FALLBACK_DOCTOR_SPECIALTY = "General Medicine";
+const FALLBACK_DOCTOR_SPECIALTY = "Family Medicine Specialist";
 
 type DoctorRow = {
   id: string;
@@ -32,9 +32,8 @@ function pickProfile(row: DoctorRow) {
   return row.profiles ?? null;
 }
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    await requireActor(req);
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("doctors")

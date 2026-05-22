@@ -43,9 +43,9 @@ const ROLE_GREETINGS: Record<UserRole, { greeting: string; subtitle: string }> =
   },
 };
 
-const DONUT_COLORS_APPOINTMENT = ["#14b8a6", "#38bdf8"];
-const DONUT_COLORS_PATIENT = ["#10b981", "#94a3b8"];
-const DONUT_COLORS_PAYMENT = ["#14b8a6", "#fbbf24", "#f87171"];
+const DONUT_COLORS_APPOINTMENT = ["#0ea5e9", "#38bdf8"];
+const DONUT_COLORS_PATIENT = ["#0ea5e9", "#94a3b8"];
+const DONUT_COLORS_PAYMENT = ["#0ea5e9", "#fbbf24", "#f87171"];
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
@@ -211,7 +211,7 @@ function Calendar({ appointments }: { appointments: AppointmentRecord[] }) {
                 day === null
                   ? ""
                   : isToday(day)
-                    ? "bg-teal-600 text-white font-bold"
+                    ? "bg-sky-600 text-white font-bold"
                     : hasAppts
                       ? "text-slate-900 font-semibold hover:bg-slate-100 cursor-pointer"
                       : "text-slate-700 hover:bg-slate-100 cursor-pointer"
@@ -219,7 +219,7 @@ function Calendar({ appointments }: { appointments: AppointmentRecord[] }) {
             >
               {day}
               {hasAppts && !isToday(day ?? 0) ? (
-                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-teal-500" />
+                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-sky-500" />
               ) : null}
             </div>
           );
@@ -244,7 +244,7 @@ function ActivityDetails({ appointments }: { appointments: AppointmentRecord[] }
         <div className="space-y-3">
           {todayAppts.map((appt) => {
             const color =
-              appt.type === "Online" ? "bg-sky-500" : appt.status === "Completed" ? "bg-emerald-500" : "bg-teal-500";
+              appt.type === "Online" ? "bg-sky-500" : appt.status === "Completed" ? "bg-sky-500" : "bg-sky-500";
             return (
               <div key={appt.id} className="flex items-center gap-3">
                 <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${color}`} />
@@ -258,7 +258,7 @@ function ActivityDetails({ appointments }: { appointments: AppointmentRecord[] }
                 </div>
                 <span
                   className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    appt.type === "Online" ? "bg-sky-50 text-sky-600" : "bg-teal-50 text-teal-600"
+                    appt.type === "Online" ? "bg-sky-50 text-sky-600" : "bg-sky-50 text-sky-600"
                   }`}
                 >
                   {appt.type}
@@ -384,15 +384,15 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 pb-8">
-      <div className="overflow-hidden rounded-[2.25rem] border border-emerald-100 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.22),_transparent_34%),linear-gradient(135deg,_#f8fffb,_#effcf3_52%,_#dcfce7)] p-6 shadow-[0_28px_70px_rgba(16,185,129,0.12)] animate-fade-in-down">
+      <div className="overflow-hidden rounded-[2.25rem] border border-sky-100 bg-[radial-gradient(circle_at_top_left,_rgba(2,132,199,0.16),_transparent_34%),linear-gradient(135deg,_#f8fbff,_#eff7ff_52%,_#e0f2fe)] p-6 shadow-[0_28px_70px_rgba(14,165,233,0.12)] animate-fade-in-down">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">Clinic Overview</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-700">Clinic Overview</p>
             <h1 className="mt-3 text-3xl font-black text-slate-900">{greetingTitle}</h1>
             <p className="mt-3 text-sm text-slate-600 mt-0.5">{greeting.subtitle}</p>
           </div>
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-800">
+            <span className="h-2 w-2 rounded-full bg-sky-500 animate-pulse" />
             {todayAppointments.length} appointments today
           </div>
         </div>
@@ -400,7 +400,7 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Link href="/patients" className="block no-underline">
-          <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-teal-600 to-emerald-600 p-5 shadow-md text-white transition-all duration-300 hover:shadow-xl hover:scale-[1.03] animate-fade-in-up stagger-1">
+          <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-sky-600 to-sky-500 p-5 shadow-md text-white transition-all duration-300 hover:shadow-xl hover:scale-[1.03] animate-fade-in-up stagger-1">
           <div className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-white/10 animate-float-slow" />
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-white/70">Total Patients</p>
@@ -414,16 +414,16 @@ export default function AdminDashboard() {
         </Link>
 
         <Link href="/appointments" className="block no-underline">
-          <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg hover:scale-[1.03] hover:border-teal-300 animate-fade-in-up stagger-2">
-          <div className="absolute -top-4 -right-4 h-16 w-16 rounded-full bg-teal-500 opacity-10" />
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg hover:scale-[1.03] hover:border-sky-300 animate-fade-in-up stagger-2">
+          <div className="absolute -top-4 -right-4 h-16 w-16 rounded-full bg-sky-500 opacity-10" />
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Appointments</p>
-            <span className="text-xs font-semibold text-emerald-600">today</span>
+            <span className="text-xs font-semibold text-sky-600">today</span>
           </div>
           <p className="text-3xl font-bold text-slate-900 mt-2">{todayAppointments.length}</p>
           <p className="text-xs text-slate-400 mt-1">Scheduled for today</p>
-          <MiniSparkline data={sparkAppts.length ? sparkAppts : [0]} color="#14b8a6" />
-          <ProgressBar value={todayAppointments.length} max={25} color="#14b8a6" />
+          <MiniSparkline data={sparkAppts.length ? sparkAppts : [0]} color="#0ea5e9" />
+          <ProgressBar value={todayAppointments.length} max={25} color="#0ea5e9" />
           </div>
         </Link>
 
@@ -432,7 +432,7 @@ export default function AdminDashboard() {
           <div className="absolute -top-4 -right-4 h-16 w-16 rounded-full bg-sky-500 opacity-10" />
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Online Consults</p>
-            <span className="text-xs font-semibold text-emerald-600">today</span>
+            <span className="text-xs font-semibold text-sky-600">today</span>
           </div>
           <p className="text-3xl font-bold text-slate-900 mt-2">{onlineConsultsToday}</p>
           <p className="text-xs text-slate-400 mt-1">Virtual consultations today</p>
@@ -460,7 +460,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <div className="min-w-0 rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-5">
+        <div className="min-w-0 rounded-4xl border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-slate-900">Patient Trends</h2>
             <span className="text-xs text-slate-400">Last 7 days</span>
@@ -469,20 +469,20 @@ export default function AdminDashboard() {
               <AreaChart data={weeklyPatientData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="patientGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.25} />
-                    <stop offset="100%" stopColor="#14b8a6" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="day" tick={{ fontSize: 12, fill: "#94a3b8" }} />
                 <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} allowDecimals={false} />
                 <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: "13px" }} />
-                <Area type="monotone" dataKey="patients" stroke="#14b8a6" strokeWidth={2.5} fill="url(#patientGrad)" dot={{ r: 4, fill: "#14b8a6", strokeWidth: 2, stroke: "#fff" }} />
+                <Area type="monotone" dataKey="patients" stroke="#0ea5e9" strokeWidth={2.5} fill="url(#patientGrad)" dot={{ r: 4, fill: "#0ea5e9", strokeWidth: 2, stroke: "#fff" }} />
               </AreaChart>
           </ChartContainer>
         </div>
 
-        <div className="min-w-0 rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-6">
+        <div className="min-w-0 rounded-4xl border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-slate-900">Appointment Trends</h2>
             <span className="text-xs text-slate-400">Last 7 days</span>
@@ -494,14 +494,14 @@ export default function AdminDashboard() {
                 <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} allowDecimals={false} />
                 <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: "13px" }} />
                 <Legend wrapperStyle={{ fontSize: "13px" }} />
-                <Bar dataKey="Clinic" fill="#14b8a6" radius={[6, 6, 0, 0]} barSize={20} />
+                <Bar dataKey="Clinic" fill="#0ea5e9" radius={[6, 6, 0, 0]} barSize={20} />
                 <Bar dataKey="Online" fill="#38bdf8" radius={[6, 6, 0, 0]} barSize={20} />
               </BarChart>
           </ChartContainer>
         </div>
       </div>
 
-      <div className="rounded-4xl border border-emerald-100 bg-white px-5 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-7">
+      <div className="rounded-4xl border border-sky-100 bg-white px-5 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-7">
         <h3 className="text-base font-bold text-slate-900 mb-3">Overview</h3>
         <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           <DonutSection title="Appointment Types" data={appointmentTypeData} colors={DONUT_COLORS_APPOINTMENT} />
@@ -511,15 +511,15 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] space-y-6 animate-fade-in-up stagger-8">
+        <div className="rounded-4xl border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] space-y-6 animate-fade-in-up stagger-8">
           <Calendar appointments={appointments} />
         </div>
-        <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-8">
+        <div className="rounded-4xl border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-8">
           <ActivityDetails appointments={appointments} />
         </div>
       </div>
 
-      <div className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-8">
+      <div className="rounded-4xl border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-8">
         <h2 className="text-base font-bold text-slate-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <QuickAction label="Book Appointment" href="/appointments" color="teal" />
@@ -534,15 +534,15 @@ export default function AdminDashboard() {
 
 function QuickAction({ label, href, color }: { label: string; href: string; color: "teal" | "sky" | "emerald" | "amber" }) {
   const colorMap = {
-    teal: "border-teal-200 hover:bg-teal-50 hover:border-teal-400 text-teal-700",
+    teal: "border-sky-200 hover:bg-sky-50 hover:border-sky-400 text-sky-700",
     sky: "border-sky-200 hover:bg-sky-50 hover:border-sky-400 text-sky-700",
-    emerald: "border-emerald-200 hover:bg-emerald-50 hover:border-emerald-400 text-emerald-700",
+    emerald: "border-sky-200 hover:bg-sky-50 hover:border-sky-400 text-sky-700",
     amber: "border-amber-200 hover:bg-amber-50 hover:border-amber-400 text-amber-700",
   };
   return (
     <Link
       href={href}
-      className={`group flex items-center justify-center gap-1.5 rounded-[1.2rem] border bg-white px-4 py-3 text-sm font-semibold transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_16px_30px_rgba(16,185,129,0.10)] ${colorMap[color]}`}
+      className={`group flex items-center justify-center gap-1.5 rounded-[1.2rem] border bg-white px-4 py-3 text-sm font-semibold transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_16px_30px_rgba(14,165,233,0.10)] ${colorMap[color]}`}
     >
       <span>{label}</span>
       <span className="opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0">→</span>

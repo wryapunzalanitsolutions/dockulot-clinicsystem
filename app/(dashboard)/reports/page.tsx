@@ -46,9 +46,9 @@ type ReportsPayload = {
   appointment_types: AppointmentTypeBreakdown[];
 };
 
-const PAYMENT_COLORS = ["#0f766e", "#14b8a6", "#2dd4bf", "#99f6e4", "#ccfbf1"];
+const PAYMENT_COLORS = ["#0284c7", "#14b8a6", "#2dd4bf", "#99f6e4", "#ccfbf1"];
 const TYPE_COLORS: Record<string, string> = {
-  Clinic: "#0f766e",
+  Clinic: "#0284c7",
   Online: "#2563eb",
 };
 
@@ -239,7 +239,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[linear-gradient(135deg,#0f172a_0%,#0f766e_55%,#ecfeff_100%)] px-6 py-7 text-white shadow-[0_30px_80px_rgba(15,23,42,0.22)] animate-fade-in-down">
+      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[linear-gradient(135deg,#0f172a_0%,#0284c7_55%,#ecfeff_100%)] px-6 py-7 text-white shadow-[0_30px_80px_rgba(15,23,42,0.22)] animate-fade-in-down">
         <div className="absolute inset-y-0 right-0 w-72 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.24),transparent_58%)]" />
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
@@ -285,14 +285,14 @@ export default function ReportsPage() {
                 type="date"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
-                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
               />
               <label className="text-slate-500">To</label>
               <input
                 type="date"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
-                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
               />
               <button
                 type="button"
@@ -360,8 +360,8 @@ export default function ReportsPage() {
                 <AreaChart data={data.daily_trends} margin={{ top: 12, right: 20, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0f766e" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#0f766e" stopOpacity={0.03} />
+                      <stop offset="5%" stopColor="#0284c7" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#0284c7" stopOpacity={0.03} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
@@ -378,7 +378,7 @@ export default function ReportsPage() {
                     contentStyle={{ borderRadius: 18, borderColor: "#dbeafe", boxShadow: "0 20px 45px rgba(15,23,42,0.12)" }}
                   />
                   <Legend />
-                  <Area yAxisId="left" type="monotone" dataKey="revenue" name="Revenue" stroke="#0f766e" fill="url(#revenueFill)" strokeWidth={3} />
+                  <Area yAxisId="left" type="monotone" dataKey="revenue" name="Revenue" stroke="#0284c7" fill="url(#revenueFill)" strokeWidth={3} />
                   <Bar yAxisId="right" dataKey="appointments" name="Appointments" fill="#38bdf8" radius={[8, 8, 0, 0]} maxBarSize={26} />
                   <Bar yAxisId="right" dataKey="patients" name="Patients" fill="#2563eb" radius={[8, 8, 0, 0]} maxBarSize={26} />
                 </AreaChart>
@@ -496,7 +496,7 @@ export default function ReportsPage() {
                       <div
                         className={`h-2.5 rounded-full ${
                           row.status === "Paid"
-                            ? "bg-emerald-500"
+                            ? "bg-sky-500"
                             : row.status === "Pending"
                               ? "bg-amber-400"
                               : row.status === "Refunded"
@@ -532,7 +532,7 @@ export default function ReportsPage() {
                     formatter={(value) => `${numberFromChartValue(value)} bookings`}
                     contentStyle={{ borderRadius: 18 }}
                   />
-                  <Bar dataKey="count" fill="#0f766e" radius={[12, 12, 0, 0]} maxBarSize={34} />
+                  <Bar dataKey="count" fill="#0284c7" radius={[12, 12, 0, 0]} maxBarSize={34} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -561,7 +561,7 @@ export default function ReportsPage() {
                           ? "bg-rose-100 text-rose-700"
                           : row.rate >= 0.1
                             ? "bg-amber-100 text-amber-700"
-                            : "bg-emerald-100 text-emerald-700"
+                            : "bg-sky-100 text-sky-700"
                       }`}
                     >
                       {formatPercent(row.rate)}
@@ -570,7 +570,7 @@ export default function ReportsPage() {
                   <div className="mt-3 h-2.5 rounded-full bg-slate-200">
                     <div
                       className={`h-2.5 rounded-full ${
-                        row.rate >= 0.2 ? "bg-rose-500" : row.rate >= 0.1 ? "bg-amber-400" : "bg-emerald-500"
+                        row.rate >= 0.2 ? "bg-rose-500" : row.rate >= 0.1 ? "bg-amber-400" : "bg-sky-500"
                       }`}
                       style={{ width: `${Math.max(row.rate * 100, 4)}%` }}
                     />
@@ -627,8 +627,8 @@ function MetricCard({
   accent: "teal" | "emerald" | "sky" | "rose" | "amber";
 }) {
   const accents = {
-    teal: "from-teal-500/20 to-teal-50 border-teal-100",
-    emerald: "from-emerald-500/20 to-emerald-50 border-emerald-100",
+    teal: "from-cyan-500/20 to-cyan-50 border-cyan-100",
+    emerald: "from-sky-500/20 to-sky-50 border-sky-100",
     sky: "from-sky-500/20 to-sky-50 border-sky-100",
     rose: "from-rose-500/20 to-rose-50 border-rose-100",
     amber: "from-amber-400/20 to-amber-50 border-amber-100",
@@ -659,7 +659,7 @@ function PresetButton({ label, onClick }: { label: string; onClick: () => void }
     <button
       type="button"
       onClick={onClick}
-      className="rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+      className="rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700"
     >
       {label}
     </button>

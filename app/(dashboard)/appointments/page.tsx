@@ -99,7 +99,7 @@ export default function AppointmentsPage() {
   }, [isLoading, role, router]);
 
   if (isLoading || role === "DOCTOR") {
-    return <div className="h-40 rounded-4xl border border-emerald-100 bg-white animate-pulse shadow-sm" />;
+    return <div className="h-40 rounded-4xl border border-sky-100 bg-white animate-pulse shadow-sm" />;
   }
 
   const isStaff = role === "SUPER_ADMIN" || role === "SECRETARY";
@@ -108,10 +108,10 @@ export default function AppointmentsPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <section className="overflow-hidden rounded-[2.25rem] border border-emerald-100 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),linear-gradient(135deg,#f8fffb_0%,#ffffff_100%)] p-6 shadow-[0_24px_60px_rgba(16,185,129,0.10)]">
+      <section className="overflow-hidden rounded-[2.25rem] border border-sky-100 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(135deg,#f0faff_0%,#ffffff_100%)] p-6 shadow-[0_24px_60px_rgba(14,165,233,0.10)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">Appointments</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-700">Appointments</p>
             <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900">Book and manage visits in one place</h1>
             <p className="mt-3 text-sm leading-6 text-slate-600">
               A calmer booking flow for patients and front-desk staff, with shortcuts to payments and records.
@@ -132,13 +132,13 @@ export default function AppointmentsPage() {
         </div>
       ) : null}
       {finalize.kind === "success" ? (
-        <div className="flex items-start gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-          <FaCircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+        <div className="flex items-start gap-2.5 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-medium text-sky-800">
+          <FaCircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" aria-hidden="true" />
           <div>
             <p className="font-semibold">Booking confirmed!</p>
             <p className="mt-0.5">
               Your online consultation has been recorded.{" "}
-              <Link href={manageHref} className="font-semibold underline underline-offset-2 hover:text-emerald-900">
+              <Link href={manageHref} className="font-semibold underline underline-offset-2 hover:text-sky-900">
                 View your appointments →
               </Link>
             </p>
@@ -164,7 +164,7 @@ function Shortcut({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="rounded-full border border-emerald-100 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50"
+      className="rounded-full border border-sky-100 bg-white px-4 py-2.5 text-sm font-semibold text-sky-700 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-50"
     >
       {label}
     </Link>

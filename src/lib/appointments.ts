@@ -54,11 +54,11 @@ export type BlockedDayLookup = Record<string, { reason: string }>;
 export const MAX_PATIENTS_PER_HOUR = 5;
 
 export const DOCTORS: Doctor[] = [
-  { id: "chiara-punzalan", name: "Dra. Chiara C. Punzalan M.D.", specialty: "General Medicine" },
+  { id: "doctora-kulot-md", name: "Doctora Kulot, MD", specialty: "Family Medicine Specialist" },
 ];
 
 export const SLOT_TEMPLATES_BY_DOCTOR: Record<string, SlotTemplate[]> = {
-  "chiara-punzalan": [
+  "doctora-kulot-md": [
     { start: "08:00", end: "09:00", mode: "Both" },
     { start: "09:00", end: "10:00", mode: "Both" },
     { start: "10:00", end: "11:00", mode: "Both" },
@@ -270,7 +270,7 @@ export function buildMeetingLink(appointment: Pick<
 >) {
   const compactDate = appointment.date.replaceAll("-", "");
   const compactTime = appointment.start.replace(":", "");
-  return `https://meet.chiara.app/${appointment.doctorId}-${compactDate}-${compactTime}-${appointment.queueNumber}`;
+  return `https://meet.doctora-kulot.app/${appointment.doctorId}-${compactDate}-${compactTime}-${appointment.queueNumber}`;
 }
 
 export function getWeekDates(startDate: string, length = 7) {

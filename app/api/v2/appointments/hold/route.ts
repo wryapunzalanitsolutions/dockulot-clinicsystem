@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       reason?: string;
     };
 
-    const doctorUuid = doctorId ? await resolveAssignedDoctorUuid() : await resolveAssignedDoctorUuid();
+    const doctorUuid = await resolveAssignedDoctorUuid(doctorId);
     const start_time = `${start}:00`;
     const end_time = `${addOneHour(start)}:00`;
 

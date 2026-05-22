@@ -27,6 +27,9 @@ import {
   FaMapLocationDot,
   FaCloud,
   FaWandMagicSparkles,
+  FaBoxesStacked,
+  FaInbox,
+  FaPrescriptionBottleMedical,
 } from "react-icons/fa6";
 import type { UserRole } from "@/src/lib/roles";
 
@@ -95,7 +98,12 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     },
     { label: "Pricing", href: "/pricing", icon: FaCreditCard },
     { label: "Reports", href: "/reports", icon: FaChartLine },
-    { label: "Contents Manager", href: "/contents", icon: FaWandMagicSparkles },
+    { label: "Inventory", href: "/inventory", icon: FaBoxesStacked },
+    { label: "Prescriptions", href: "/prescriptions", icon: FaPrescriptionBottleMedical },
+    { label: "Inquiries", href: "/inquiries", icon: FaInbox },
+    { label: "FAQ Content", href: "/faq-content", icon: FaCircleQuestion },
+    { label: "Website Content", href: "/contents", icon: FaWandMagicSparkles },
+    { label: "Creator Posts", href: "/creator-content", icon: FaVideo },
     { label: "Settings", href: "/settings", icon: FaGear },
     { label: "Help Center", href: "/help", icon: FaCircleQuestion },
   ],
@@ -140,6 +148,9 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     },
     { label: "Pricing", href: "/pricing", icon: FaCreditCard },
     { label: "Reports", href: "/reports", icon: FaChartLine },
+    { label: "Inventory", href: "/inventory", icon: FaBoxesStacked },
+    { label: "Inquiries", href: "/inquiries", icon: FaInbox },
+    { label: "FAQ Content", href: "/faq-content", icon: FaCircleQuestion },
   ],
   DOCTOR: [
     { label: "Dashboard", href: "/dashboard", icon: FaHouse },
@@ -191,7 +202,12 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     },
     { label: "Pricing", href: "/pricing", icon: FaCreditCard },
     { label: "Reports", href: "/reports", icon: FaChartLine },
-    { label: "Contents Manager", href: "/contents", icon: FaWandMagicSparkles },
+    { label: "Inventory", href: "/inventory", icon: FaBoxesStacked },
+    { label: "Prescriptions", href: "/prescriptions", icon: FaPrescriptionBottleMedical },
+    { label: "Inquiries", href: "/inquiries", icon: FaInbox },
+    { label: "FAQ Content", href: "/faq-content", icon: FaCircleQuestion },
+    { label: "Website Content", href: "/contents", icon: FaWandMagicSparkles },
+    { label: "Creator Posts", href: "/creator-content", icon: FaVideo },
     { label: "Settings", href: "/settings", icon: FaGear },
   ],
   PATIENT: [
@@ -224,6 +240,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
         { label: "Consultation History", href: "/consultations/history", icon: FaClockRotateLeft },
       ],
     },
+    { label: "Prescriptions", href: "/prescriptions", icon: FaPrescriptionBottleMedical },
     { label: "My Settings", href: "/profile/settings", icon: FaGear },
     { label: "Help Center", href: "/profile/help", icon: FaCircleQuestion },
   ],
@@ -277,8 +294,8 @@ export function Sidebar({ role, isOpen, onClose }: SidebarProps) {
         <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2">
           <div className="flex items-center justify-between">
             <Image
-              src="/images/chiaralogo.png"
-              alt="Chiara Logo"
+              src="/images/dockulotslogonobg.png"
+              alt="Doctora Kulot Clinic Logo"
               width={669}
               height={373}
               priority
@@ -309,21 +326,21 @@ export function Sidebar({ role, isOpen, onClose }: SidebarProps) {
                 <div key={item.label} className="min-h-0">
                   <div
                     className={`group flex items-center rounded-xl px-2 py-2 transition-colors duration-150 ${
-                      itemActive ? "bg-teal-50" : "hover:bg-slate-100"
+                      itemActive ? "bg-sky-50" : "hover:bg-slate-100"
                     }`}
                   >
                     <Link href={item.href} className="flex min-w-0 flex-1 items-center gap-2">
                       <item.icon
                         className={`h-4 w-4 shrink-0 ${
-                          itemActive ? "text-teal-600" : "text-slate-400 group-hover:text-teal-600"
+                          itemActive ? "text-sky-600" : "text-slate-400 group-hover:text-sky-600"
                         }`}
                         aria-hidden="true"
                       />
                       <span
                         className={`truncate text-[15px] leading-4 ${
                           itemActive
-                            ? "font-semibold text-teal-700"
-                            : "font-medium text-slate-700 group-hover:text-teal-700"
+                            ? "font-semibold text-sky-700"
+                            : "font-medium text-slate-700 group-hover:text-sky-700"
                         }`}
                       >
                         {item.label}
@@ -333,7 +350,7 @@ export function Sidebar({ role, isOpen, onClose }: SidebarProps) {
                     {item.subItems ? (
                       <button
                         type="button"
-                        className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-teal-600"
+                        className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-sky-600"
                         onClick={() => toggleExpand(item.label)}
                         aria-label={`Toggle ${item.label} submenu`}
                       >
@@ -358,13 +375,13 @@ export function Sidebar({ role, isOpen, onClose }: SidebarProps) {
                             href={subItem.href}
                             className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium leading-4 transition ${
                               subItemActive
-                                ? "bg-teal-50 text-teal-700"
-                                : "text-slate-500 hover:bg-slate-100 hover:text-teal-700"
+                                ? "bg-sky-50 text-sky-700"
+                                  : "text-slate-500 hover:bg-slate-100 hover:text-sky-700"
                             }`}
                           >
                             <subItem.icon
                               className={`h-3.5 w-3.5 shrink-0 ${
-                                subItemActive ? "text-teal-600" : "text-slate-400"
+                                subItemActive ? "text-sky-600" : "text-slate-400"
                               }`}
                               aria-hidden="true"
                             />
@@ -381,14 +398,14 @@ export function Sidebar({ role, isOpen, onClose }: SidebarProps) {
         </nav>
 
         <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-3">
-          <div className="rounded-2xl border border-cyan-200/60 bg-linear-to-b from-cyan-100/70 via-emerald-100/60 to-cyan-100/70 px-4 py-3 shadow-lg">
+          <div className="rounded-2xl border border-cyan-200/60 bg-linear-to-b from-cyan-100/70 via-sky-100/60 to-cyan-100/70 px-4 py-3 shadow-lg">
             {/* Status Header */}
             <div className="flex flex-col items-center justify-center gap-1 text-center">
               <div className="flex items-center justify-center gap-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-700/80">
-                  Chiara Clinic Status
+                <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-sky-700/80">
+                  Doctora Kulot Clinic Status
                 </span>
-                <FaCircleCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                <FaCircleCheck className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
               </div>
             </div>
 
@@ -406,15 +423,15 @@ export function Sidebar({ role, isOpen, onClose }: SidebarProps) {
                 </div>
                 <span className="text-cyan-300">•</span>
                 <div className="flex items-center gap-1">
-                  <FaCloud className="h-3 w-3 shrink-0 text-emerald-600" aria-hidden="true" />
+                  <FaCloud className="h-3 w-3 shrink-0 text-sky-600" aria-hidden="true" />
                   <span>28°C</span>
                 </div>
               </div>
             </div>
 
             {/* Hours */}
-            <div className="mt-1.5 rounded-xl border border-emerald-200/40 bg-emerald-50/50 px-3 py-1.5">
-              <div className="flex items-center justify-center gap-2 text-emerald-700">
+            <div className="mt-1.5 rounded-xl border border-sky-200/40 bg-sky-50/50 px-3 py-1.5">
+              <div className="flex items-center justify-center gap-2 text-sky-700">
                 <FaClock className="h-3 w-3 shrink-0" aria-hidden="true" />
                 <span className="text-xs font-semibold">8:00 AM - 5:00 PM</span>
               </div>

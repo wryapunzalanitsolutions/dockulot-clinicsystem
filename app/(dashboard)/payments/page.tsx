@@ -29,7 +29,7 @@ function formatMethod(method: OnlinePaymentRecord["method"]) {
 }
 
 function statusTone(status: OnlinePaymentRecord["status"]) {
-  if (status === "Paid") return "bg-emerald-50 text-emerald-700";
+  if (status === "Paid") return "bg-sky-50 text-sky-700";
   if (status === "Failed") return "bg-red-50 text-red-700";
   return "bg-amber-50 text-amber-700";
 }
@@ -83,12 +83,12 @@ export default function OnlinePaymentPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <section className="overflow-hidden rounded-[2.25rem] border border-emerald-200 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.2),transparent_32%),linear-gradient(135deg,#064e3b_0%,#0f766e_46%,#14532d_100%)] p-6 text-white shadow-[0_28px_70px_rgba(16,185,129,0.18)]">
+      <section className="overflow-hidden rounded-[2.25rem] border border-sky-200 bg-[radial-gradient(circle_at_top_left,rgba(125,211,252,0.22),transparent_32%),linear-gradient(135deg,#0c4a6e_0%,#0284c7_46%,#075985_100%)] p-6 text-white shadow-[0_28px_70px_rgba(14,165,233,0.18)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-100">Payments</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-100">Payments</p>
             <h1 className="mt-3 text-3xl font-bold tracking-tight">Online Payment Records</h1>
-            <p className="mt-3 text-sm leading-6 text-emerald-50/85">
+            <p className="mt-3 text-sm leading-6 text-sky-50/85">
               Quickly review payment status and move to history, POS billing, or the appointment queue.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
@@ -109,7 +109,7 @@ export default function OnlinePaymentPage() {
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       ) : null}
 
-      <section className="rounded-4xl border border-emerald-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+      <section className="rounded-4xl border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Overview</p>
@@ -117,7 +117,7 @@ export default function OnlinePaymentPage() {
           </div>
           <Link
             href="/payments/history"
-            className="rounded-full bg-[linear-gradient(135deg,#059669,#10b981)] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
+            className="rounded-full bg-[linear-gradient(135deg,#0284c7,#0ea5e9)] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(14,165,233,0.22)] transition hover:-translate-y-0.5"
           >
             View Payment History
           </Link>
@@ -130,7 +130,7 @@ export default function OnlinePaymentPage() {
               const doctor = appointment ? getDoctorById(appointment.doctorId) : null;
 
               return (
-                <div key={payment.id} className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
+                <div key={payment.id} className="rounded-3xl border border-sky-100 bg-white p-4 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-slate-900">
@@ -182,7 +182,7 @@ export default function OnlinePaymentPage() {
 function HeroMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-3xl border border-white/10 bg-white/10 px-4 py-4 backdrop-blur">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-100">{label}</p>
       <p className="mt-2 text-2xl font-bold text-white">{value}</p>
     </div>
   );
@@ -198,3 +198,4 @@ function Shortcut({ href, label }: { href: string; label: string }) {
     </Link>
   );
 }
+

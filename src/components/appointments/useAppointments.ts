@@ -11,7 +11,12 @@ export function useAppointments() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isAuthLoading || !accessToken) {
+    if (isAuthLoading) {
+      return;
+    }
+
+    if (!accessToken) {
+      setIsLoading(false);
       return;
     }
 

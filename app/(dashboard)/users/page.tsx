@@ -111,6 +111,8 @@ function roleLabel(role: DbRole) {
       return "Super Admin";
     case "secretary":
       return "Secretary";
+    case "staff":
+      return "Staff";
     case "doctor":
       return "Doctor";
     case "patient":
@@ -691,7 +693,7 @@ export default function UsersPage() {
       {/* Toolbar header — same compact style as the POS terminal so the dashboard reads as one tool, not many. */}
       <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white">
             <FaUsers className="h-4 w-4" aria-hidden="true" />
           </div>
           <div>
@@ -709,10 +711,10 @@ export default function UsersPage() {
               type="button"
               onClick={() => setActiveTab("accounts")}
               className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                activeTab === "accounts"
-                  ? "bg-white text-emerald-700 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
+                  activeTab === "accounts"
+                    ? "bg-white text-sky-700 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
             >
               Accounts
             </button>
@@ -720,10 +722,10 @@ export default function UsersPage() {
               type="button"
               onClick={() => setActiveTab("roles")}
               className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                activeTab === "roles"
-                  ? "bg-white text-emerald-700 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
+                  activeTab === "roles"
+                    ? "bg-white text-sky-700 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
             >
               Roles & Permissions
             </button>
@@ -736,7 +738,7 @@ export default function UsersPage() {
                 setFeedback(null);
                 setShowAddModal(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-sky-700"
             >
               <FaUserPlus className="h-3 w-3" aria-hidden="true" />
               Add User
@@ -749,7 +751,7 @@ export default function UsersPage() {
         <div
           className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm ${
             feedback.type === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              ? "border-sky-200 bg-sky-50 text-sky-800"
               : "border-red-200 bg-red-50 text-red-800"
           }`}
         >
@@ -782,7 +784,7 @@ export default function UsersPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Email or name…"
-              className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+              className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200"
             />
           </label>
           <label className="flex w-full flex-col gap-1 sm:w-40">
@@ -790,7 +792,7 @@ export default function UsersPage() {
             <select
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value as DbRole | "all")}
-              className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+              className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200"
             >
               <option value="all">All roles</option>
               <option value="super_admin">Super Admin</option>
@@ -804,7 +806,7 @@ export default function UsersPage() {
             <select
               value={filterActive}
               onChange={(e) => setFilterActive(e.target.value as typeof filterActive)}
-              className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+              className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200"
             >
               <option value="all">All</option>
               <option value="active">Active</option>
@@ -818,7 +820,7 @@ export default function UsersPage() {
               onChange={(e) =>
                 setPageSize(Number(e.target.value) as (typeof PAGE_SIZE_OPTIONS)[number])
               }
-              className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+              className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200"
             >
               {PAGE_SIZE_OPTIONS.map((size) => (
                 <option key={size} value={size}>
@@ -842,8 +844,8 @@ export default function UsersPage() {
 
         {/* Bulk action strip — only visible when one or more rows are selected. */}
         {selectedUserIds.length > 0 ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2">
-            <span className="text-xs font-bold text-emerald-800">
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-sky-200 bg-sky-50/60 px-3 py-2">
+            <span className="text-xs font-bold text-sky-800">
               {selectedUserIds.length} selected
             </span>
             <span className="text-slate-300">·</span>
@@ -851,7 +853,7 @@ export default function UsersPage() {
               type="button"
               disabled={isMutating}
               onClick={() => bulkSetActive(true)}
-              className="rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-50"
+              className="rounded-md border border-sky-300 bg-white px-2.5 py-1 text-xs font-semibold text-sky-800 transition hover:bg-sky-100 disabled:opacity-50"
             >
               Activate
             </button>
@@ -900,7 +902,7 @@ export default function UsersPage() {
                   type="checkbox"
                   checked={selectedUserIds.includes(u.id)}
                   onChange={() => toggleUserSelection(u.id)}
-                  className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                   aria-label={`Select ${u.full_name}`}
                 />
               </label>
@@ -911,7 +913,7 @@ export default function UsersPage() {
                   <RolePill role={u.role} />
                   <span
                     className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      u.is_active ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-600"
+                      u.is_active ? "bg-sky-100 text-sky-800" : "bg-slate-200 text-slate-600"
                     }`}
                   >
                     {u.is_active ? "Active" : "Inactive"}
@@ -926,7 +928,7 @@ export default function UsersPage() {
                   type="button"
                   disabled={isMutating}
                   onClick={() => openEditModal(u)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label={`Edit ${u.full_name}`}
                   title="Edit"
                 >
@@ -939,7 +941,7 @@ export default function UsersPage() {
                   className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition disabled:cursor-not-allowed disabled:opacity-60 ${
                     u.is_active
                       ? "border-red-200 text-red-700 hover:bg-red-50"
-                      : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                      : "border-sky-200 text-sky-700 hover:bg-sky-50"
                   }`}
                   aria-label={`${u.is_active ? "Deactivate" : "Activate"} ${u.full_name}`}
                   title={u.is_active ? "Deactivate" : "Activate"}
@@ -962,7 +964,7 @@ export default function UsersPage() {
                   type="checkbox"
                   checked={allVisibleSelected}
                   onChange={toggleSelectAllVisible}
-                  className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                   aria-label="Select all visible users"
                 />
               </th>
@@ -986,20 +988,20 @@ export default function UsersPage() {
             {paginatedUsers.map((u) => (
               <tr
                 key={u.id}
-                className="border-t border-slate-100 text-xs text-slate-700 transition hover:bg-emerald-50/40"
+                className="border-t border-slate-100 text-xs text-slate-700 transition hover:bg-sky-50/40"
               >
                 <td className="px-3 py-2 align-middle">
                   <input
                     type="checkbox"
                     checked={selectedUserIds.includes(u.id)}
                     onChange={() => toggleUserSelection(u.id)}
-                    className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    className="h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                     aria-label={`Select ${u.full_name}`}
                   />
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white">
                       {u.full_name
                         .split(" ")
                         .filter(Boolean)
@@ -1022,7 +1024,7 @@ export default function UsersPage() {
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                       u.is_active
-                        ? "bg-emerald-100 text-emerald-800"
+                        ? "bg-sky-100 text-sky-800"
                         : "bg-slate-200 text-slate-600"
                     }`}
                   >
@@ -1042,7 +1044,7 @@ export default function UsersPage() {
                       type="button"
                       disabled={isMutating}
                       onClick={() => openEditModal(u)}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
                       aria-label={`Edit ${u.full_name}`}
                       title="Edit"
                     >
@@ -1055,7 +1057,7 @@ export default function UsersPage() {
                       className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition disabled:cursor-not-allowed disabled:opacity-60 ${
                         u.is_active
                           ? "border-red-200 text-red-700 hover:bg-red-50"
-                          : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          : "border-sky-200 text-sky-700 hover:bg-sky-50"
                       }`}
                       aria-label={`${u.is_active ? "Deactivate" : "Activate"} ${u.full_name}`}
                       title={u.is_active ? "Deactivate" : "Activate"}
@@ -1109,7 +1111,7 @@ export default function UsersPage() {
           {/* Save bar — sticky at the top of the tab so the cashier never loses sight of "your changes haven't been saved yet". */}
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
             <div className="flex items-center gap-2">
-              <FaShieldHalved className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+              <FaShieldHalved className="h-4 w-4 text-sky-700" aria-hidden="true" />
               <div>
                 <p className="text-xs font-bold text-slate-900">Roles &amp; Permissions Matrix</p>
                 <p className="text-[11px] text-slate-500">
@@ -1129,7 +1131,7 @@ export default function UsersPage() {
                 type="button"
                 onClick={saveRolePermissions}
                 disabled={!rolesDirty || isMutating}
-                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
               >
                 <FaCircleCheck className="h-3 w-3" aria-hidden="true" />
                 {isMutating ? "Saving…" : "Save Permissions"}
@@ -1155,9 +1157,9 @@ export default function UsersPage() {
                   title: "Secretary / Admin Staff",
                   icon: FaUserTie,
                   count: secretaryUsers,
-                  accent: "border-emerald-200 bg-emerald-50/40",
-                  badge: "bg-emerald-100 text-emerald-800",
-                  iconBg: "bg-emerald-600",
+                  accent: "border-sky-200 bg-sky-50/40",
+                  badge: "bg-sky-100 text-sky-800",
+                  iconBg: "bg-sky-600",
                 },
                 {
                   key: "patient",
@@ -1215,11 +1217,11 @@ export default function UsersPage() {
                             type="checkbox"
                             checked={enabled}
                             onChange={(e) => setPermission(cfg.key, permission.key, e.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                            className="h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                           />
                           <span className={enabled ? "font-semibold" : ""}>{permission.label}</span>
                           {enabled ? (
-                            <FaCircleCheck className="ml-auto h-3 w-3 shrink-0 text-emerald-600" aria-hidden="true" />
+                            <FaCircleCheck className="ml-auto h-3 w-3 shrink-0 text-sky-600" aria-hidden="true" />
                           ) : null}
                         </label>
                       );
@@ -1315,7 +1317,7 @@ export default function UsersPage() {
 
             {doctorUsers > 0 ? (
               <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
-                This clinic is configured for one doctor only: Dra. Chiara C. Punzalan M.D.
+                This clinic is configured for one doctor only: Doctora Kulot, MD.
               </p>
             ) : null}
 
@@ -1334,7 +1336,7 @@ export default function UsersPage() {
               <button
                 type="submit"
                 disabled={isMutating || isCheckingDuplicate || emailCheck.status === "duplicate"}
-                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
               >
                 <FaUserPlus className="h-3 w-3" aria-hidden="true" />
                 {isCheckingDuplicate ? "Checking email…" : isMutating ? "Creating…" : "Create User"}
@@ -1391,7 +1393,7 @@ export default function UsersPage() {
                 type="checkbox"
                 checked={editUser.is_active}
                 onChange={(e) => setEditUser((p) => ({ ...p, is_active: e.target.checked }))}
-                className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                className="h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
               />
               Account active
             </label>
@@ -1411,7 +1413,7 @@ export default function UsersPage() {
               <button
                 type="submit"
                 disabled={isMutating}
-                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
               >
                 <FaCircleCheck className="h-3 w-3" aria-hidden="true" />
                 {isMutating ? "Saving…" : "Save Changes"}
@@ -1470,7 +1472,7 @@ export default function UsersPage() {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 const INPUT_CLASS =
-  "w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200";
+  "w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200";
 
 function StatTile({
   label,
@@ -1487,7 +1489,7 @@ function StatTile({
         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p>
         <p className="font-mono text-xl font-black tabular-nums text-slate-900">{value}</p>
       </div>
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
         {icon}
       </div>
     </div>
@@ -1498,7 +1500,8 @@ function RolePill({ role }: { role: DbRole }) {
   const styles: Record<DbRole, string> = {
     super_admin: "bg-violet-100 text-violet-800",
     doctor: "bg-sky-100 text-sky-800",
-    secretary: "bg-emerald-100 text-emerald-800",
+    secretary: "bg-sky-100 text-sky-800",
+    staff: "bg-sky-100 text-sky-800",
     patient: "bg-amber-100 text-amber-800",
     admin: "bg-slate-200 text-slate-700",
   };
@@ -1524,7 +1527,7 @@ function Field({
 }) {
   const toneClass =
     hintTone === "success"
-      ? "text-emerald-700"
+      ? "text-sky-700"
       : hintTone === "error"
         ? "text-red-600"
         : "text-slate-500";
@@ -1566,7 +1569,7 @@ function ModalShell({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const accent = tone === "red" ? "bg-red-50 border-red-100" : "bg-emerald-50 border-emerald-100";
+  const accent = tone === "red" ? "bg-red-50 border-red-100" : "bg-sky-50 border-sky-100";
   const widthClass = maxWidth === "md" ? "max-w-md" : maxWidth === "xl" ? "max-w-2xl" : "max-w-lg";
 
   return (

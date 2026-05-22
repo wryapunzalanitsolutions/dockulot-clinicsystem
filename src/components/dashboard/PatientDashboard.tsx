@@ -53,29 +53,29 @@ export default function PatientDashboard() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard href="/appointments/my" label="Upcoming" value={upcoming.length} helper="Appointments waiting for you" tone="emerald" icon={<FaCalendarDays className="text-2xl" />} />
+        <MetricCard href="/appointments/my" label="Upcoming" value={upcoming.length} helper="Appointments waiting for you" tone="sky" icon={<FaCalendarDays className="text-2xl" />} />
         <MetricCard href="/appointments/my?filter=clinic" label="Clinic Visits" value={clinicVisits} helper="In-person appointments" tone="teal" icon={<FaHospital className="text-2xl" />} />
         <MetricCard href="/consultations" label="Online Consults" value={onlineConsultations} helper="Video consultations" tone="sky" icon={<FaVideo className="text-2xl" />} />
-        <MetricCard href="/appointments/my?tab=completed" label="Completed" value={pastCompleted} helper="Past visits completed" tone="emerald" icon={<FaChevronRight className="text-2xl" />} />
+        <MetricCard href="/appointments/my?tab=completed" label="Completed" value={pastCompleted} helper="Past visits completed" tone="sky" icon={<FaChevronRight className="text-2xl" />} />
       </div>
 
       {next ? (
-        <section className="relative overflow-hidden rounded-[2.5rem] border-2 border-emerald-200 bg-linear-to-br from-emerald-50/80 via-teal-50/40 to-cyan-50/20 p-8 shadow-[0_28px_54px_rgba(16,185,129,0.16)] animate-pop-in transition hover:-translate-y-1">
-          <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-linear-to-br from-emerald-300/20 to-teal-300/10 blur-3xl" />
-          <div className="absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-linear-to-r from-teal-300/20 to-cyan-300/10 blur-3xl" />
+          <section className="relative overflow-hidden rounded-[2.5rem] border-2 border-sky-200 bg-linear-to-br from-sky-50/80 via-sky-50/40 to-sky-50/20 p-8 shadow-[0_28px_54px_rgba(14,165,233,0.16)] animate-pop-in transition hover:-translate-y-1">
+            <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-linear-to-br from-sky-300/20 to-sky-200/10 blur-3xl" />
+            <div className="absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-linear-to-r from-sky-200/20 to-sky-100/10 blur-3xl" />
           <div className="relative">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex-1 max-w-2xl">
-                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-2 mb-4">
-                  <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
-                  <span className="text-xs font-bold text-emerald-700">YOUR NEXT APPOINTMENT</span>
+                <div className="inline-flex items-center gap-2 rounded-full bg-sky-100 px-4 py-2 mb-4">
+                  <span className="h-2 w-2 rounded-full bg-sky-600 animate-pulse" />
+                  <span className="text-xs font-bold text-sky-700">YOUR NEXT APPOINTMENT</span>
                 </div>
                 <h2 className="text-3xl lg:text-4xl font-black tracking-tight text-slate-900 mt-3">
-                  {formatDate(next.date)} <span className="text-emerald-600">·</span> {next.start}
+                  {formatDate(next.date)} <span className="text-sky-600">·</span> {next.start}
                 </h2>
                 <div className="mt-6 space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100">
                       <span className="text-lg">#{next.queueNumber}</span>
                     </div>
                     <div>
@@ -84,8 +84,8 @@ export default function PatientDashboard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100">
-                      {next.type === "Online" ? <FaVideo className="text-sm text-teal-700" /> : <FaHospital className="text-sm text-teal-700" />}
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100">
+                      {next.type === "Online" ? <FaVideo className="text-sm text-sky-700" /> : <FaHospital className="text-sm text-sky-700" />}
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{next.type === "Online" ? "Online Consultation" : "Clinic Visit"}</p>
@@ -95,7 +95,7 @@ export default function PatientDashboard() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3 lg:flex-col lg:items-end">
-                <StatusPill tone={next.status === "Confirmed" ? "emerald" : next.status === "In Progress" ? "amber" : "slate"}>
+                <StatusPill tone={next.status === "Confirmed" ? "sky" : next.status === "In Progress" ? "amber" : "slate"}>
                   {next.status}
                 </StatusPill>
                 {next.type === "Online" && next.meetingLink ? (
@@ -103,7 +103,7 @@ export default function PatientDashboard() {
                     href={next.meetingLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full bg-linear-to-r from-emerald-600 to-teal-600 px-6 py-3 text-sm font-bold text-white shadow-[0_16px_32px_rgba(16,185,129,0.3)] transition hover:-translate-y-1 hover:shadow-[0_24px_48px_rgba(16,185,129,0.4)]"
+                    className="inline-flex items-center gap-2 rounded-full bg-linear-to-r from-sky-600 to-sky-500 px-6 py-3 text-sm font-bold text-white shadow-[0_16px_32px_rgba(14,165,233,0.3)] transition hover:-translate-y-1 hover:shadow-[0_24px_48px_rgba(14,165,233,0.4)]"
                   >
                     <FaVideo />
                     Join consultation
@@ -128,15 +128,15 @@ export default function PatientDashboard() {
             ))}
           </div>
         ) : upcoming.length === 0 ? (
-          <div className="rounded-[1.75rem] border-2 border-dashed border-emerald-200 px-8 py-12 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <FaCalendarDays className="text-2xl text-emerald-700" />
+          <div className="rounded-[1.75rem] border-2 border-dashed border-sky-200 px-8 py-12 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-sky-100">
+              <FaCalendarDays className="text-2xl text-sky-700" />
             </div>
             <p className="text-base font-semibold text-slate-900">No upcoming appointments</p>
             <p className="mt-2 text-sm text-slate-500">You&apos;re all caught up! Book your next appointment when you need one.</p>
             <Link
               href="/appointments"
-              className="mt-6 inline-flex items-center gap-2 rounded-full bg-linear-to-r from-emerald-600 to-teal-600 px-6 py-3 text-sm font-bold text-white shadow-[0_12px_24px_rgba(16,185,129,0.25)] transition hover:-translate-y-1"
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-linear-to-r from-sky-600 to-sky-500 px-6 py-3 text-sm font-bold text-white shadow-[0_12px_24px_rgba(14,165,233,0.25)] transition hover:-translate-y-1"
             >
               <FaCalendarDays />
               Book appointment
@@ -148,10 +148,10 @@ export default function PatientDashboard() {
               <Link
                 key={appt.id}
                 href={`/appointments/my`}
-                className={`group flex items-center justify-between gap-4 rounded-[1.25rem] border-2 border-transparent px-5 py-4 transition-all hover:border-emerald-200 hover:bg-emerald-50/60 hover:shadow-[0_8px_20px_rgba(16,185,129,0.10)] animate-slide-in-left stagger-${Math.min(i + 1, 5)}`}
+                className={`group flex items-center justify-between gap-4 rounded-[1.25rem] border-2 border-transparent px-5 py-4 transition-all hover:border-sky-200 hover:bg-sky-50/60 hover:shadow-[0_8px_20px_rgba(14,165,233,0.10)] animate-slide-in-left stagger-${Math.min(i + 1, 5)}`}
               >
                 <div className="flex min-w-0 items-center gap-4">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${appt.type === "Online" ? "bg-linear-to-br from-sky-500 to-sky-600" : "bg-linear-to-br from-emerald-500 to-teal-600"}`}>
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${appt.type === "Online" ? "bg-linear-to-br from-sky-500 to-sky-600" : "bg-linear-to-br from-sky-500 to-sky-600"}`}>
                     {appt.type === "Online" ? <FaVideo className="text-sm" /> : <FaHospital className="text-sm" />}
                   </div>
                   <div className="min-w-0">
@@ -163,7 +163,7 @@ export default function PatientDashboard() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
-                  <StatusPill tone={appt.status === "Confirmed" ? "emerald" : appt.status === "In Progress" ? "amber" : "slate"} variant="outline">
+                  <StatusPill tone={appt.status === "Confirmed" ? "sky" : appt.status === "In Progress" ? "amber" : "slate"} variant="outline">
                     {appt.status}
                   </StatusPill>
                   <span className="text-slate-300 group-hover:text-slate-400 transition-colors">→</span>
