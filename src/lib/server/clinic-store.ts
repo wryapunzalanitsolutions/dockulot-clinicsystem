@@ -274,6 +274,7 @@ type NoteJoinRow = {
   diagnosis: string | null;
   prescription: string | null;
   notes: string | null;
+  visible_to_patient: boolean;
   updated_at: string;
   appointments: {
     status: string;
@@ -301,9 +302,11 @@ async function mapNoteRow(row: NoteJoinRow, slugsById: Map<string, string>): Pro
     appointmentId: row.appointment_id,
     doctorId: slugsById.get(row.doctor_id) ?? row.doctor_id,
     patientName: row.appointments?.patients?.profiles?.full_name ?? "Unknown",
+    diagnosis: row.diagnosis ?? "",
     note: row.notes ?? "",
     prescription: row.prescription ?? "",
     status: deriveLegacyNoteStatus(row.appointments?.status ?? ""),
+    visibleToPatient: row.visible_to_patient,
     updatedAt: row.updated_at,
   };
 }
@@ -315,7 +318,7 @@ export async function readConsultationNotes(
   let query = supabase
     .from("consultation_notes")
     .select(`
-      id, appointment_id, doctor_id, chief_complaint, diagnosis, prescription, notes, updated_at,
+      id, appointment_id, doctor_id, chief_complaint, diagnosis, prescription, notes, visible_to_patient, updated_at,
       appointments!inner(
         status,
         patient_id,
@@ -329,6 +332,7 @@ export async function readConsultationNotes(
   }
   if (filter.patientId) {
     query = query.eq("appointments.patient_id", filter.patientId);
+    query = query.eq("visible_to_patient", true);
   }
 
   const { data, error } = await query;
@@ -354,8 +358,10 @@ export async function upsertConsultationNote(
     {
       appointment_id: payload.appointmentId,
       doctor_id: doctorUuid,
+      diagnosis: payload.diagnosis,
       notes: payload.note,
       prescription: payload.prescription,
+      visible_to_patient: payload.visibleToPatient,
     },
     { onConflict: "appointment_id" },
   );

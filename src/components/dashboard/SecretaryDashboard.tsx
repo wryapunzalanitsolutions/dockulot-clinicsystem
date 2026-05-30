@@ -7,6 +7,7 @@ import { useAppointments } from "@/src/components/appointments/useAppointments";
 import { usePatients } from "@/src/components/clinic/useClinicData";
 import { ActionCard, DashboardHero, MetricCard, SectionCard, StatusPill } from "@/src/components/dashboard/dashboard-ui";
 import { useRole } from "@/src/components/layout/RoleProvider";
+import { getAppointmentPrimaryLabel } from "@/src/lib/appointment-context";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -77,7 +78,7 @@ export default function SecretaryDashboard() {
                     <p className="text-sm font-bold text-slate-900 truncate">{appt.patientName}</p>
                     <p className="text-xs text-slate-500">
                       {appt.start} · {appt.type}
-                      {appt.reason ? ` • ${appt.reason}` : ""}
+                      {appt.reason ? ` • ${getAppointmentPrimaryLabel(appt.reason, appt.type)}` : ""}
                     </p>
                   </div>
                 </div>

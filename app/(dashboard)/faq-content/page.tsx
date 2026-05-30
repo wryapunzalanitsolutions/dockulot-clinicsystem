@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import { useRole } from "@/src/components/layout/RoleProvider";
+import { faqCategories } from "@/src/lib/healthcare-content";
 
 type Faq = {
   id: string;
@@ -14,13 +15,14 @@ type Faq = {
   is_published: boolean;
 };
 
-const emptyFaq = { category: "Appointment FAQ", question: "", answer: "", sort_order: "0", is_published: true };
+const emptyFaq = { category: faqCategories[0], question: "", answer: "", sort_order: "0", is_published: true };
 
 export default function FaqContentPage() {
   const { accessToken } = useRole();
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [form, setForm] = useState(emptyFaq);
   const [feedback, setFeedback] = useState("");
+  const [, startTransition] = useTransition();
 
   const headers = useMemo(() => ({
     Authorization: `Bearer ${accessToken}`,
@@ -34,7 +36,9 @@ export default function FaqContentPage() {
   }
 
   useEffect(() => {
-    void load();
+    startTransition(() => {
+      void load();
+    });
   }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function addFaq(e: FormEvent<HTMLFormElement>) {
@@ -70,7 +74,7 @@ export default function FaqContentPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-sky-700">FAQ Management</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">Public FAQ content</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          Add and publish FAQs for appointments, services, online consultations, payments, prescriptions, and patient portal help.
+          Add and publish FAQs for appointments, clinic services, online consultation, payments, prescriptions, patient portal help, vlog/content, and contact inquiries.
         </p>
         <Link href="/faq" className="mt-5 inline-flex rounded-full bg-sky-600 px-5 py-2.5 text-sm font-bold text-white">
           View public FAQ
@@ -80,7 +84,13 @@ export default function FaqContentPage() {
       <form onSubmit={addFaq} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-bold text-slate-950">Add FAQ</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <input className="rounded-xl border border-slate-200 px-3 py-2 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100" placeholder="Category" value={form.category} onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))} required />
+          <select className="rounded-xl border border-slate-200 px-3 py-2 text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100" value={form.category} onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))} required>
+            {faqCategories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
           <input className="rounded-xl border border-slate-200 px-3 py-2 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100" placeholder="Question" value={form.question} onChange={(e) => setForm((s) => ({ ...s, question: e.target.value }))} required />
         </div>
         <textarea className="mt-3 min-h-28 w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100" placeholder="Answer" value={form.answer} onChange={(e) => setForm((s) => ({ ...s, answer: e.target.value }))} required />

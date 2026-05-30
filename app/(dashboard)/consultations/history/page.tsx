@@ -49,6 +49,7 @@ export default function ConsultationHistoryPage() {
       const searchable = [
         note.patientName,
         doctorName,
+        note.diagnosis,
         note.note,
         note.prescription,
         appointment ? formatDisplayDate(appointment.date) : "",
@@ -182,6 +183,16 @@ export default function ConsultationHistoryPage() {
                 </div>
 
                 <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      <FaFileLines />
+                      Diagnosis
+                    </p>
+                    <p className="mt-3 text-sm leading-6 text-slate-700">
+                      {note.diagnosis || "No diagnosis recorded."}
+                    </p>
+                  </section>
+
                   <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                       <FaFileLines />

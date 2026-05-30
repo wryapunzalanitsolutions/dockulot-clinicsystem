@@ -1,0 +1,119 @@
+import Image from "next/image";
+import Link from "next/link";
+import {
+  FaHome,
+  FaInfoCircle,
+  FaMicrophone,
+  FaPhone,
+  FaQuestionCircle,
+  FaQuoteRight,
+  FaSignInAlt,
+  FaStethoscope,
+  FaUserPlus,
+  FaVideo,
+} from "react-icons/fa";
+import MobileNav from "@/src/components/layout/MobileNav";
+
+export default function PublicHeader() {
+  return (
+    <header className="relative md:fixed md:inset-x-0 md:top-0 md:z-50 border-b border-sky-200/50 bg-sky-50/55 backdrop-blur-md">
+      <div className="mx-auto flex h-12 max-w-7xl items-center justify-between gap-3 px-4 sm:h-16 sm:gap-4 sm:px-6">
+        <Link href="/" className="flex h-full items-center gap-3">
+          <Image
+            src="/images/dockulotslogonobg.png"
+            alt="Clinic logo"
+            width={220}
+            height={88}
+            className="h-12 w-auto max-h-full object-contain sm:h-14 sm:w-auto lg:h-[4.5rem]"
+          />
+        </Link>
+        <nav className="hidden items-center gap-4 lg:flex">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900 transition hover:text-sky-700">
+            <FaHome className="text-sky-600" />
+            Home
+          </Link>
+          <Link href="/#about" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900 transition hover:text-sky-700">
+            <FaInfoCircle className="text-sky-600" />
+            About
+          </Link>
+
+          <div className="group relative h-full">
+            <button
+              type="button"
+              className="inline-flex h-16 items-center gap-2 text-sm font-semibold text-slate-900 transition hover:text-sky-700"
+            >
+              <FaStethoscope className="text-sky-600" />
+              Services
+            </button>
+            <div className="invisible absolute right-0 top-full w-48 pt-2 opacity-0 transition duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+              <div className="rounded-lg border border-sky-100 bg-white p-2 shadow-lg">
+                <Link href="/#clinic" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-800 hover:bg-sky-50">
+                  <FaStethoscope className="text-sky-600" />
+                  Clinic
+                </Link>
+                <Link href="/#online" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-800 hover:bg-sky-50">
+                  <FaPhone className="text-sky-600" />
+                  Online
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <Link href="/#blog" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900 transition hover:text-sky-700">
+            <FaQuoteRight className="text-sky-600" />
+            Blog
+          </Link>
+
+          <div className="group relative h-full">
+            <button
+              type="button"
+              className="inline-flex h-16 items-center gap-2 text-sm font-semibold text-slate-900 transition hover:text-sky-700"
+            >
+              <FaVideo className="text-sky-600" />
+              Videos
+            </button>
+            <div className="invisible absolute right-0 top-full w-52 pt-2 opacity-0 transition duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+              <div className="rounded-lg border border-sky-100 bg-white p-2 shadow-lg">
+                <Link href="/#videos" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-800 hover:bg-sky-50">
+                  <FaVideo className="text-sky-600" />
+                  Vlogs
+                </Link>
+                <Link href="/#live" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-800 hover:bg-sky-50">
+                  <FaMicrophone className="text-sky-600" />
+                  Live Schedule
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <Link href="/#faq" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900 transition hover:text-sky-700">
+            <FaQuestionCircle className="text-sky-600" />
+            FAQ
+          </Link>
+        </nav>
+
+        <div className="flex items-center gap-3">
+          <MobileNav />
+          <Link
+            href="/#contact"
+            className="inline-flex items-center gap-2 rounded-full border border-sky-300 bg-white/70 px-4 py-2 text-sm font-semibold text-sky-800 hover:bg-white"
+          >
+            <FaPhone className="text-sky-600" />
+            Contact
+          </Link>
+          <Link href="/login" className="hidden items-center gap-2 text-sm font-semibold text-slate-900 hover:text-sky-700 sm:inline-flex">
+            <FaSignInAlt className="text-sky-600" />
+            Sign In
+          </Link>
+          <Link
+            href="/register"
+            className="ml-2 hidden items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-500 sm:inline-flex"
+          >
+            <FaUserPlus />
+            Sign Up
+          </Link>
+        </div>
+      </div>
+    </header>
+  );
+}

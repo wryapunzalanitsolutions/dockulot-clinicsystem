@@ -44,6 +44,14 @@ import { usePatients } from "@/src/components/clinic/useClinicData";
 import { VitalSignsForm } from "@/src/components/clinic/VitalSignsForm";
 import { useRole } from "@/src/components/layout/RoleProvider";
 import {
+  encodeAppointmentContext,
+  getAppointmentPrimaryLabel,
+  getAppointmentSecondaryReason,
+  getDefaultServiceForType,
+  getServiceOptionsForType,
+  parseAppointmentContext,
+} from "@/src/lib/appointment-context";
+import {
   formatDisplayDate,
   formatRange,
   getAppointmentSummary,
@@ -61,6 +69,7 @@ const DEFAULT_DOCTOR_ID = "doctora-kulot-md";
 type Timeframe = "today" | "upcoming" | "past" | "all";
 type StatusFilter = "all" | AppointmentStatus;
 type TypeFilter = "all" | AppointmentType;
+type AppointmentDraft = AppointmentRecord & { service: string };
 
 export default function AppointmentListPage() {
   const { accessToken, role } = useRole();
@@ -69,7 +78,7 @@ export default function AppointmentListPage() {
   const { appointments, setAppointments, isLoading, error } = useAppointments();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<AppointmentRecord | null>(null);
+  const [draft, setDraft] = useState<AppointmentDraft | null>(null);
   const [isUpdating, startUpdateTransition] = useTransition();
 
   // Filter / search state
@@ -178,22 +187,28 @@ export default function AppointmentListPage() {
   } = useAppointmentAvailability(activeDraftDoctorId, activeDraftDate, activeDraftType);
 
   function beginEdit(appointment: AppointmentRecord) {
+    const parsed = parseAppointmentContext(appointment.reason);
     setEditingId(appointment.id);
     setDraft({
       ...appointment,
+      service: parsed.service || getDefaultServiceForType(appointment.type),
+      reason: parsed.reason,
       doctorId: primaryDoctor?.slug ?? appointment.doctorId ?? DEFAULT_DOCTOR_ID,
     });
     setFeedback(null);
     setConfirmingDeleteId(null);
   }
 
-  function updateDraft<K extends keyof AppointmentRecord>(field: K, value: AppointmentRecord[K]) {
+  function updateDraft<K extends keyof AppointmentDraft>(field: K, value: AppointmentDraft[K]) {
     setDraft((current) => {
       if (!current) return current;
       const next = { ...current, [field]: value };
       if (field === "doctorId" || field === "date" || field === "type") {
         next.start = "";
         next.end = "";
+      }
+      if (field === "type") {
+        next.service = getDefaultServiceForType(value as AppointmentType);
       }
       return next;
     });
@@ -215,7 +230,7 @@ export default function AppointmentListPage() {
         date: draft.date,
         start: draft.start,
         type: draft.type,
-        reason: draft.reason,
+        reason: encodeAppointmentContext(draft.service, draft.reason),
         // Only send the override for Online appointments — server ignores it
         // for Clinic visits, but skipping it here keeps the wire payload tidy.
         meetingLink: draft.type === "Online" ? draft.meetingLink ?? "" : undefined,
@@ -670,7 +685,10 @@ export default function AppointmentListPage() {
 
                             {appointment.reason ? (
                               <p className="mt-2 line-clamp-2 text-xs text-slate-500">
-                                <span className="font-semibold text-slate-600">Reason:</span> {appointment.reason}
+                                <span className="font-semibold text-slate-600">Service:</span> {getAppointmentPrimaryLabel(appointment.reason, appointment.type)}
+                                {getAppointmentSecondaryReason(appointment.reason)
+                                  ? ` • ${getAppointmentSecondaryReason(appointment.reason)}`
+                                  : ""}
                               </p>
                             ) : null}
                           </div>
@@ -823,6 +841,19 @@ export default function AppointmentListPage() {
                                     className={INPUT_CLASS}
                                     placeholder="Consultation reason"
                                   />
+                                </FormField>
+                                <FormField label="Service">
+                                  <select
+                                    value={draft.service}
+                                    onChange={(event) => updateDraft("service", event.target.value)}
+                                    className={`${INPUT_CLASS} bg-white`}
+                                  >
+                                    {getServiceOptionsForType(draft.type).map((service) => (
+                                      <option key={service} value={service}>
+                                        {service}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </FormField>
                               </div>
                             </div>

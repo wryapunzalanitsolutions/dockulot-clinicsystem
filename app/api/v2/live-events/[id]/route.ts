@@ -24,3 +24,16 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/v2/live-events
     return httpError(e);
   }
 }
+
+export async function DELETE(req: Request, ctx: RouteContext<"/api/v2/live-events/[id]">) {
+  try {
+    const actor = await requireActor(req);
+    if (!canManage(actor.profile.role)) throw new HttpError(403, "Forbidden");
+    const { id } = await ctx.params;
+    const { error } = await getSupabaseAdmin().from("live_events").delete().eq("id", id);
+    if (error) throw error;
+    return ok({ ok: true });
+  } catch (e) {
+    return httpError(e);
+  }
+}

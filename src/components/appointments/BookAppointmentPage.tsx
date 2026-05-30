@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Fragment, useMemo, useState, useEffect, useTransition, type ReactNode } from "react";
+import { Fragment, useMemo, useState, useEffect, useTransition, type ChangeEvent, type ReactNode } from "react";
 import {
   FaCcVisa,
   FaCcMastercard,
@@ -31,6 +31,11 @@ import { useDoctors } from "@/src/components/appointments/useDoctors";
 import { useDoctorFees } from "@/src/components/clinic/useDoctorFees";
 import { useRole } from "@/src/components/layout/RoleProvider";
 import {
+  encodeAppointmentContext,
+  getDefaultServiceForType,
+  getServiceOptionsForType,
+} from "@/src/lib/appointment-context";
+import {
   addDays,
   formatDisplayDate,
   formatRange,
@@ -48,6 +53,7 @@ import {
 } from "@/src/lib/consultation-pricing";
 
 type BookingForm = {
+  service: string;
   patientName: string;
   email: string;
   phone: string;
@@ -56,8 +62,15 @@ type BookingForm = {
   start: string;
   type: AppointmentType;
   reason: string;
+  symptoms: string;
   durationMinutes: "60";
   paymentOption: OnlinePaymentOption;
+};
+
+type UploadedConcernFile = {
+  file_name: string;
+  file_type: string;
+  file_url: string;
 };
 
 // Online consultation now routes every payment option through PayMongo:
@@ -73,6 +86,7 @@ const today = getClinicToday();
 const DEFAULT_DOCTOR_ID = "doctora-kulot-md";
 
 const INITIAL_FORM: BookingForm = {
+  service: getDefaultServiceForType("Clinic"),
   patientName: "",
   email: "",
   phone: "",
@@ -81,6 +95,7 @@ const INITIAL_FORM: BookingForm = {
   start: "",
   type: "Clinic",
   reason: "",
+  symptoms: "",
   durationMinutes: "60",
   paymentOption: "paymongo_gcash",
 };
@@ -288,6 +303,15 @@ function paymentOptionLabel(option: OnlinePaymentOption) {
   return ONLINE_PAYMENT_OPTIONS.find((item) => item.value === option)?.label ?? "Online payment";
 }
 
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function BookAppointmentPage() {
   const pathname = usePathname();
   const requiresAuthForReview = pathname === "/";
@@ -308,6 +332,7 @@ export default function BookAppointmentPage() {
   );
   const { doctors } = useDoctors();
   const [formData, setFormData] = useState<BookingForm>(INITIAL_FORM);
+  const [uploadedConcernFiles, setUploadedConcernFiles] = useState<UploadedConcernFile[]>([]);
   const [feedback, setFeedback] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [isSubmitting, startSubmitTransition] = useTransition();
   const [visibleWeekStart, setVisibleWeekStart] = useState(today);
@@ -324,6 +349,7 @@ export default function BookAppointmentPage() {
     error: availabilityError,
   } = useAppointmentAvailability(activeDoctorId, formData.date, formData.type);
   const selectedSlot = slotStatuses.find((slot) => slot.start === formData.start) ?? null;
+  const serviceOptions = useMemo(() => getServiceOptionsForType(formData.type), [formData.type]);
   const estimatedFee = selectedSlot
     ? formData.type === "Online"
       ? calculateOnlineConsultationCharge(selectedSlot.start, selectedSlot.end)
@@ -364,7 +390,14 @@ export default function BookAppointmentPage() {
       if (raw) {
         const parsed = JSON.parse(raw) as { formData?: Partial<BookingForm>; activeStep?: number };
         if (parsed?.formData) {
-          setFormData((cur) => ({ ...cur, ...parsed.formData }));
+          setFormData((cur) => {
+            const nextType = parsed.formData?.type ?? cur.type;
+            return {
+              ...cur,
+              ...parsed.formData,
+              service: parsed.formData?.service ?? getDefaultServiceForType(nextType),
+            };
+          });
         }
         if (parsed?.activeStep) {
           if (requiresAuthForReview && parsed.activeStep === 4 && !accessToken) {
@@ -434,7 +467,7 @@ export default function BookAppointmentPage() {
   const effectivePatientPhone =
     role === "PATIENT" ? formData.phone || patientDefaults.phone : formData.phone;
 
-  const step1Valid = !!formData.type;
+  const step1Valid = !!formData.type && !!formData.service.trim();
   const step2Valid =
     !!effectivePatientName.trim() && !!effectivePatientEmail.trim() && !!effectivePatientPhone.trim();
   const datePicked = !!formData.date && !blockedReason;
@@ -473,9 +506,57 @@ export default function BookAppointmentPage() {
       if (field === "doctorId" || field === "date" || field === "type") {
         nextState.start = "";
       }
+      if (field === "type") {
+        nextState.service = getDefaultServiceForType(value as AppointmentType);
+        if (value !== "Online") {
+          nextState.symptoms = "";
+        }
+      }
       return nextState;
     });
+    if (field === "type" && value !== "Online") {
+      setUploadedConcernFiles([]);
+    }
     setFeedback(null);
+  }
+
+  async function handleConcernFilesSelected(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+
+    if (uploadedConcernFiles.length + files.length > 3) {
+      setFeedback({ message: "You can upload up to 3 concern files or photos.", type: "error" });
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      const nextFiles: UploadedConcernFile[] = [];
+      for (const file of files) {
+        if (file.size > 1024 * 1024) {
+          throw new Error(`${file.name} is too large. Please keep each file under 1 MB.`);
+        }
+        const fileUrl = await readFileAsDataUrl(file);
+        nextFiles.push({
+          file_name: file.name,
+          file_type: file.type || "attachment",
+          file_url: fileUrl,
+        });
+      }
+      setUploadedConcernFiles((current) => [...current, ...nextFiles]);
+      setFeedback(null);
+    } catch (fileError) {
+      setFeedback({
+        message: fileError instanceof Error ? fileError.message : "Unable to attach the selected file.",
+        type: "error",
+      });
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  function removeConcernFile(index: number) {
+    setUploadedConcernFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
   }
 
   async function startOnlinePayment() {
@@ -498,7 +579,7 @@ export default function BookAppointmentPage() {
         doctorId: activeDoctorId,
         date: formData.date,
         start: formData.start,
-        reason: formData.reason,
+        reason: encodeAppointmentContext(formData.service, formData.reason),
         type: "Online",
         reservation_id: reservationId ?? undefined,
         payment_option: formData.paymentOption,
@@ -520,6 +601,15 @@ export default function BookAppointmentPage() {
     if (payload.reservation_id) {
       try {
         localStorage.setItem("bookingReservation", payload.reservation_id);
+        sessionStorage.setItem(
+          "pendingOnlineConsultationDraft",
+          JSON.stringify({
+            reservationId: payload.reservation_id,
+            concern: formData.reason,
+            symptoms: formData.symptoms,
+            files: uploadedConcernFiles,
+          }),
+        );
       } catch {
         // ignore storage errors
       }
@@ -556,7 +646,13 @@ export default function BookAppointmentPage() {
                 : paymentStart.instructions ?? "Bank transfer request created. Wait for clinic staff to verify your payment before the appointment is confirmed.",
               type: "success",
             });
-            setFormData({ ...INITIAL_FORM, doctorId: activeDoctorId, type: "Online" });
+            setFormData({
+              ...INITIAL_FORM,
+              doctorId: activeDoctorId,
+              type: "Online",
+              service: getDefaultServiceForType("Online"),
+            });
+            setUploadedConcernFiles([]);
             setVisibleWeekStart(today);
             setActiveStep(1);
             return;
@@ -584,7 +680,7 @@ export default function BookAppointmentPage() {
         date: formData.date,
         start: formData.start,
         type: formData.type,
-        reason: formData.reason,
+        reason: encodeAppointmentContext(formData.service, formData.reason),
       });
 
       setAppointments(result.appointments);
@@ -593,12 +689,19 @@ export default function BookAppointmentPage() {
         setFeedback({ message: result.message, type: "error" });
         return;
       }
-      setFormData({ ...INITIAL_FORM, type: formData.type, doctorId: activeDoctorId });
+      setFormData({
+        ...INITIAL_FORM,
+        type: formData.type,
+        service: getDefaultServiceForType(formData.type),
+        doctorId: activeDoctorId,
+      });
+      setUploadedConcernFiles([]);
       setVisibleWeekStart(today);
       setActiveStep(1);
       try {
         localStorage.removeItem("bookingDraft");
         localStorage.removeItem("bookingReservation");
+        sessionStorage.removeItem("pendingOnlineConsultationDraft");
       } catch {
         // ignore storage errors
       }
@@ -685,7 +788,7 @@ export default function BookAppointmentPage() {
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-600">Step 1 of 4</p>
                     <h2 className="mt-2 text-2xl font-bold text-slate-900">Choose Your Visit Type</h2>
-                    <p className="mt-2 text-sm text-slate-600">Select whether you&apos;d like an in-person clinic visit or online consultation</p>
+                    <p className="mt-2 text-sm text-slate-600">Select the appointment mode and the service you want to book.</p>
                   </div>
                   <div className="inline-flex w-fit items-center gap-2.5 rounded-full border border-sky-200 bg-[linear-gradient(135deg,#f0f9ff,#e0f2fe)] px-4 py-2.5 text-xs font-semibold text-sky-800 shadow-sm">
                     <span className="h-2.5 w-2.5 rounded-full bg-sky-500 animate-pulse" />
@@ -743,6 +846,41 @@ export default function BookAppointmentPage() {
                       </button>
                     );
                   })}
+                </div>
+
+                <div className="mt-8 rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">Type of Service</p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Choose the main service for this {formData.type === "Online" ? "online consultation" : "clinic visit"}.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-sky-700">
+                      Required
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {serviceOptions.map((service) => {
+                      const selected = formData.service === service;
+                      return (
+                        <button
+                          key={service}
+                          type="button"
+                          onClick={() => updateForm("service", service)}
+                          aria-pressed={selected}
+                          className={`rounded-2xl border px-4 py-3 text-left transition ${
+                            selected
+                              ? "border-sky-500 bg-sky-50 shadow-[0_12px_24px_rgba(14,165,233,0.12)] ring-2 ring-sky-100"
+                              : "border-sky-100 bg-white hover:border-sky-300 hover:bg-sky-50/50"
+                          }`}
+                        >
+                          <p className="text-sm font-bold text-slate-900">{service}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/*
@@ -878,16 +1016,59 @@ export default function BookAppointmentPage() {
                     />
                   </div>
                   <div className="lg:col-span-3 sm:col-span-2">
-                    <label htmlFor="reason" className="mb-3 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">Reason for Visit <span className="font-normal text-slate-500">(Optional)</span></label>
+                    <label htmlFor="reason" className="mb-3 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
+                      {formData.type === "Online" ? "Concern / Chief Complaint" : "Reason for Visit"} <span className="font-normal text-slate-500">(Optional)</span>
+                    </label>
                     <input 
                       id="reason"
                       type="text" 
                       value={formData.reason} 
                       onChange={(e) => updateForm("reason", e.target.value)} 
                       className="w-full rounded-[1.2rem] border border-sky-100 bg-white px-4 py-3.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-sky-400 focus:bg-sky-50/30 focus:ring-4 focus:ring-sky-200" 
-                      placeholder="e.g., Follow-up checkup, Dental cleaning, Consultation" 
+                      placeholder={formData.type === "Online" ? "e.g., headache, cough, medication concern" : "e.g., Follow-up checkup, Dental cleaning, Consultation"} 
                     />
                   </div>
+                  {formData.type === "Online" ? (
+                    <>
+                      <div className="lg:col-span-3 sm:col-span-2">
+                        <label htmlFor="symptoms" className="mb-3 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">Symptoms / Additional Details</label>
+                        <textarea
+                          id="symptoms"
+                          value={formData.symptoms}
+                          onChange={(e) => updateForm("symptoms", e.target.value)}
+                          className="min-h-28 w-full rounded-[1.2rem] border border-sky-100 bg-white px-4 py-3.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-sky-400 focus:bg-sky-50/30 focus:ring-4 focus:ring-sky-200"
+                          placeholder="Share symptoms, duration, medications taken, temperature, blood pressure, or anything the doctor should review before the session."
+                        />
+                      </div>
+                      <div className="lg:col-span-3 sm:col-span-2">
+                        <label htmlFor="concern-files" className="mb-3 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
+                          Upload File / Photo <span className="font-normal text-slate-500">(Optional, up to 3 files, 1 MB each)</span>
+                        </label>
+                        <input
+                          id="concern-files"
+                          type="file"
+                          accept="image/*,.pdf,.doc,.docx"
+                          multiple
+                          onChange={handleConcernFilesSelected}
+                          className="w-full rounded-[1.2rem] border border-dashed border-sky-200 bg-sky-50/40 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-200"
+                        />
+                        {uploadedConcernFiles.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {uploadedConcernFiles.map((file, index) => (
+                              <button
+                                key={`${file.file_name}-${index}`}
+                                type="button"
+                                onClick={() => removeConcernFile(index)}
+                                className="rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
+                              >
+                                {file.file_name} ×
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               </section>
 
@@ -1106,6 +1287,7 @@ export default function BookAppointmentPage() {
                         </p>
                         <div className="space-y-3">
                           <SummaryRow label="Visit Type" value={<VisitTypeValue type={formData.type} />} done />
+                          <SummaryRow label="Service" value={formData.service} done={!!formData.service} />
                           <SummaryRow label="Doctor" value={selectedDoctor?.name ?? "-"} done />
                           <div className="h-px bg-linear-to-r from-sky-200 to-transparent" />
                           <SummaryRow label="Date" value={formatDisplayDate(formData.date)} done={datePicked} />
@@ -1124,7 +1306,12 @@ export default function BookAppointmentPage() {
                           <SummaryRow label="Name" value={effectivePatientName} done={step2Valid} />
                           <SummaryRow label="Email" value={effectivePatientEmail} done={step2Valid} />
                           <SummaryRow label="Phone" value={effectivePatientPhone} done={step2Valid} />
+                          <SummaryRow label="Service" value={formData.service} done={!!formData.service} />
                           {formData.reason ? <SummaryRow label="Reason" value={formData.reason} done /> : null}
+                          {formData.type === "Online" && formData.symptoms ? <SummaryRow label="Symptoms" value={formData.symptoms} done /> : null}
+                          {formData.type === "Online" && uploadedConcernFiles.length > 0 ? (
+                            <SummaryRow label="Attached Files" value={`${uploadedConcernFiles.length} file${uploadedConcernFiles.length === 1 ? "" : "s"} ready`} done />
+                          ) : null}
                         </div>
                       </div>
 
@@ -1139,6 +1326,13 @@ export default function BookAppointmentPage() {
                           <SummaryRow
                             label="Payment Method"
                             value={paymentOptionLabel(formData.paymentOption)}
+                            done
+                          />
+                        ) : null}
+                        {formData.type === "Online" ? (
+                          <SummaryRow
+                            label="Video Platform"
+                            value="Google Meet"
                             done
                           />
                         ) : null}

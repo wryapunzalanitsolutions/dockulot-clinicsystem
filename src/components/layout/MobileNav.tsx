@@ -4,15 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
-import { FaHome, FaInfoCircle, FaStethoscope, FaQuoteRight, FaVideo, FaQuestionCircle } from "react-icons/fa";
+import { FaHome, FaInfoCircle, FaQuestionCircle, FaQuoteRight, FaStethoscope, FaVideo } from "react-icons/fa";
 
 export default function MobileNav() {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -73,16 +68,26 @@ export default function MobileNav() {
               </Link>
             </li>
             <li>
-              <Link href="/#blogs" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-3 text-slate-800 hover:bg-slate-50">
+              <Link href="/#blog" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-3 text-slate-800 hover:bg-slate-50">
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-sky-50 text-sky-600"><FaQuoteRight /></span>
                 Blogs
               </Link>
             </li>
             <li>
-              <Link href="/#videos" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-3 text-slate-800 hover:bg-slate-50">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-sky-50 text-sky-600"><FaVideo /></span>
-                Videos
-              </Link>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2">
+                <div className="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-slate-900">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-sky-50 text-sky-600"><FaVideo /></span>
+                  Videos
+                </div>
+                <div className="ml-12 mt-1 space-y-1 pb-1">
+                  <Link href="/#videos" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-white">
+                    Vlogs
+                  </Link>
+                  <Link href="/#live" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-white">
+                    Live Schedule
+                  </Link>
+                </div>
+              </div>
             </li>
             <li>
               <Link href="/#faq" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-3 text-slate-800 hover:bg-slate-50">
@@ -126,7 +131,7 @@ export default function MobileNav() {
         </svg>
       </button>
 
-      {mounted ? createPortal(mobileMenu, document.body) : null}
+      {open ? createPortal(mobileMenu, document.body) : null}
     </div>
   );
 }

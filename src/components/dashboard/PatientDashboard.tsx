@@ -6,6 +6,7 @@ import { FaCalendarDays, FaChevronRight, FaFileLines, FaHospital, FaVideo } from
 import { useAppointments } from "@/src/components/appointments/useAppointments";
 import { ActionCard, DashboardHero, MetricCard, SectionCard, StatusPill } from "@/src/components/dashboard/dashboard-ui";
 import { useRole } from "@/src/components/layout/RoleProvider";
+import { getAppointmentPrimaryLabel, getAppointmentSecondaryReason } from "@/src/lib/appointment-context";
 import type { AppointmentRecord } from "@/src/lib/appointments";
 
 function isoToday() {
@@ -88,8 +89,8 @@ export default function PatientDashboard() {
                       {next.type === "Online" ? <FaVideo className="text-sm text-sky-700" /> : <FaHospital className="text-sm text-sky-700" />}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{next.type === "Online" ? "Online Consultation" : "Clinic Visit"}</p>
-                      <p className="text-xs text-slate-500">{next.reason || "General consultation"}</p>
+                      <p className="text-sm font-semibold text-slate-900">{getAppointmentPrimaryLabel(next.reason, next.type)}</p>
+                      <p className="text-xs text-slate-500">{getAppointmentSecondaryReason(next.reason) || "No additional note provided."}</p>
                     </div>
                   </div>
                 </div>
@@ -158,7 +159,7 @@ export default function PatientDashboard() {
                     <p className="text-sm font-bold text-slate-900">{formatDate(appt.date)} · {appt.start}</p>
                     <p className="mt-1 text-xs text-slate-500">
                       {appt.type === "Online" ? "Online consultation" : "Clinic visit"}
-                      {appt.reason ? ` • ${appt.reason}` : ""}
+                      {getAppointmentPrimaryLabel(appt.reason, appt.type) ? ` • ${getAppointmentPrimaryLabel(appt.reason, appt.type)}` : ""}
                     </p>
                   </div>
                 </div>

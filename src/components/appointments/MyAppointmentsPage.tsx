@@ -13,6 +13,7 @@ import {
   FaVideo,
 } from "react-icons/fa6";
 import { useAppointments } from "@/src/components/appointments/useAppointments";
+import { getAppointmentPrimaryLabel, getAppointmentSecondaryReason } from "@/src/lib/appointment-context";
 import {
   formatDisplayDate,
   formatRange,
@@ -199,7 +200,10 @@ export default function MyAppointmentsPage({
                 {getDoctorById(nextAppointment.doctorId)?.name ?? "Assigned doctor"} • {nextAppointment.type} • Queue #{nextAppointment.queueNumber}
               </p>
               <p className="mt-2 max-w-2xl text-sm text-slate-500">
-                {nextAppointment.reason || "No consultation reason provided yet."}
+                {getAppointmentPrimaryLabel(nextAppointment.reason, nextAppointment.type)}
+                {getAppointmentSecondaryReason(nextAppointment.reason)
+                  ? ` • ${getAppointmentSecondaryReason(nextAppointment.reason)}`
+                  : ""}
               </p>
             </div>
 
@@ -294,7 +298,10 @@ export default function MyAppointmentsPage({
                         {doctor?.name ?? "Assigned doctor"} • Queue #{appointment.queueNumber}
                       </p>
                       <p className="mt-2 text-sm leading-6 text-slate-500">
-                        {appointment.reason || "No consultation reason provided."}
+                        {getAppointmentPrimaryLabel(appointment.reason, appointment.type)}
+                        {getAppointmentSecondaryReason(appointment.reason)
+                          ? ` • ${getAppointmentSecondaryReason(appointment.reason)}`
+                          : ""}
                       </p>
                     </div>
 

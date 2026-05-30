@@ -5,6 +5,7 @@ import { useState, useMemo } from "react";
 import { useRole } from "@/src/components/layout/RoleProvider";
 import { useAppointments } from "@/src/components/appointments/useAppointments";
 import { usePatients } from "@/src/components/clinic/useClinicData";
+import { getAppointmentPrimaryLabel } from "@/src/lib/appointment-context";
 import type { UserRole } from "@/src/lib/roles";
 import type { AppointmentRecord } from "@/src/lib/appointments";
 import {
@@ -250,7 +251,7 @@ function ActivityDetails({ appointments }: { appointments: AppointmentRecord[] }
                 <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${color}`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-800 truncate">
-                    {appt.patientName} — {appt.reason || "Consultation"}
+                    {appt.patientName} — {getAppointmentPrimaryLabel(appt.reason, appt.type)}
                   </p>
                   <p className="text-xs text-slate-400">
                     {appt.start} · Queue #{appt.queueNumber}

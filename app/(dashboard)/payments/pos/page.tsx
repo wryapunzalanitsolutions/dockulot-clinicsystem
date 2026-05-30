@@ -31,9 +31,24 @@ type PricingItem = {
   is_active: boolean;
 };
 
+type ProductItem = {
+  id: string;
+  sku: string;
+  name: string;
+  brand_name: string | null;
+  generic_name: string | null;
+  dosage: string | null;
+  category: string;
+  selling_price: number;
+  stock_qty: number;
+  unit: string;
+  is_active: boolean;
+};
+
 type Line = {
   tempId: string;
   pricing_id: string | null;
+  product_id: string | null;
   description: string;
   quantity: number;
   unit_price: number;
@@ -64,7 +79,7 @@ type RecentBilling = {
   issued_at: string | null;
 };
 
-const POS_CATEGORIES = ["Consultation", "Lab", "Medicine"] as const;
+const POS_CATEGORIES = ["Consultation", "Lab", "Medicine", "Procedure", "Other"] as const;
 type POSCategory = (typeof POS_CATEGORIES)[number];
 
 function isPOSCategory(category: PricingItem["category"]): category is POSCategory {
@@ -157,6 +172,7 @@ function newLine(partial: Partial<Line> = {}): Line {
   return {
     tempId: crypto.randomUUID(),
     pricing_id: null,
+    product_id: null,
     description: "",
     quantity: 1,
     unit_price: 0,
@@ -167,16 +183,38 @@ function newLine(partial: Partial<Line> = {}): Line {
 function buildLineFromPricing(item: PricingItem): Line {
   return newLine({
     pricing_id: item.id,
+    product_id: null,
     description: item.name,
     quantity: 1,
     unit_price: Number(item.price),
   });
 }
 
+function productDisplayName(item: ProductItem) {
+  return [item.brand_name ?? item.name, item.dosage].filter(Boolean).join(" - ");
+}
+
+function buildLineFromProduct(item: ProductItem): Line {
+  return newLine({
+    pricing_id: null,
+    product_id: item.id,
+    description: productDisplayName(item),
+    quantity: 1,
+    unit_price: Number(item.selling_price),
+  });
+}
+
+function getLineSelectionValue(line: Line) {
+  if (line.pricing_id) return `pricing:${line.pricing_id}`;
+  if (line.product_id) return `product:${line.product_id}`;
+  return "";
+}
+
 export default function POSBillingPage() {
   const { accessToken, role, isLoading: authLoading } = useRole();
   const { appointments } = useAppointments();
   const [pricing, setPricing] = useState<PricingItem[]>([]);
+  const [products, setProducts] = useState<ProductItem[]>([]);
   const [selectedApptId, setSelectedApptId] = useState<string>("");
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [discount, setDiscount] = useState<number>(0);
@@ -216,13 +254,23 @@ export default function POSBillingPage() {
   useEffect(() => {
     if (authLoading || !accessToken) return;
     (async () => {
-      const res = await fetch("/api/v2/pricing", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: "no-store",
-      });
-      if (res.ok) {
-        const payload = (await res.json()) as { pricing: PricingItem[] };
+      const [pricingRes, productsRes] = await Promise.all([
+        fetch("/api/v2/pricing", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: "no-store",
+        }),
+        fetch("/api/v2/inventory/products?active=true", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: "no-store",
+        }),
+      ]);
+      if (pricingRes.ok) {
+        const payload = (await pricingRes.json()) as { pricing: PricingItem[] };
         setPricing(payload.pricing);
+      }
+      if (productsRes.ok) {
+        const payload = (await productsRes.json()) as { products: ProductItem[] };
+        setProducts(payload.products);
       }
     })();
   }, [accessToken, authLoading]);
@@ -322,6 +370,10 @@ export default function POSBillingPage() {
     () => pricing.filter((item) => item.is_active && isPOSCategory(item.category)),
     [pricing],
   );
+  const posProducts = useMemo(
+    () => products.filter((item) => item.is_active && Number(item.stock_qty) > 0),
+    [products],
+  );
 
   const catalogByCategory = useMemo(
     () =>
@@ -333,6 +385,18 @@ export default function POSBillingPage() {
       })),
     [posPricing],
   );
+  const productCatalogByCategory = useMemo(
+    () =>
+      Array.from(new Set(posProducts.map((item) => item.category || "Product")))
+        .sort((left, right) => left.localeCompare(right))
+        .map((category) => ({
+          category,
+          items: posProducts
+            .filter((item) => (item.category || "Product") === category)
+            .sort((a, b) => productDisplayName(a).localeCompare(productDisplayName(b))),
+        })),
+    [posProducts],
+  );
   const filteredCatalog = useMemo(() => {
     const query = catalogQuery.trim().toLowerCase();
     if (!query) return catalogByCategory;
@@ -343,8 +407,19 @@ export default function POSBillingPage() {
       ),
     }));
   }, [catalogByCategory, catalogQuery]);
+  const filteredProductCatalog = useMemo(() => {
+    const query = catalogQuery.trim().toLowerCase();
+    if (!query) return productCatalogByCategory;
+    return productCatalogByCategory.map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        [item.sku, item.category, item.name, item.brand_name ?? "", item.generic_name ?? "", item.dosage ?? ""]
+          .some((value) => value.toLowerCase().includes(query)),
+      ),
+    }));
+  }, [catalogQuery, productCatalogByCategory]);
 
-  const validItems = lines.filter((line) => line.pricing_id && line.quantity > 0 && line.unit_price > 0);
+  const validItems = lines.filter((line) => (line.pricing_id || line.product_id) && line.quantity > 0 && line.unit_price > 0);
   const consultationBaseFee = selectedAppt
     ? calculateConsultationCharge(selectedDoctorFees.clinic, selectedAppt.start, selectedAppt.end)
     : 0;
@@ -408,17 +483,57 @@ export default function POSBillingPage() {
     });
   }
 
+  function addProductItem(item: ProductItem) {
+    if (issuedBillingId) return;
+
+    setLines((current) => {
+      const matchingLine = current.find(
+        (line) =>
+          line.product_id === item.id &&
+          line.description.trim().toLowerCase() === productDisplayName(item).trim().toLowerCase() &&
+          Number(line.unit_price) === Number(item.selling_price),
+      );
+
+      if (matchingLine) {
+        return current.map((line) =>
+          line.tempId === matchingLine.tempId ? { ...line, quantity: line.quantity + 1 } : line,
+        );
+      }
+
+      if (current.length === 1 && !current[0].description.trim() && current[0].unit_price === 0) {
+        return [buildLineFromProduct(item)];
+      }
+
+      return [...current, buildLineFromProduct(item)];
+    });
+  }
+
   function removeLine(tempId: string) {
     setLines((current) => (current.length > 1 ? current.filter((line) => line.tempId !== tempId) : current));
   }
 
-  function applyPricing(tempId: string, pricingId: string) {
-    const item = posPricing.find((entry) => entry.id === pricingId);
-    if (!item) return;
+  function applyCatalogSelection(tempId: string, selectionValue: string) {
+    const [kind, id] = selectionValue.split(":");
+    if (!kind || !id) return;
+    if (kind === "pricing") {
+      const item = posPricing.find((entry) => entry.id === id);
+      if (!item) return;
+      updateLine(tempId, {
+        pricing_id: item.id,
+        product_id: null,
+        description: item.name,
+        unit_price: Number(item.price),
+      });
+      return;
+    }
+
+    const product = posProducts.find((entry) => entry.id === id);
+    if (!product) return;
     updateLine(tempId, {
-      pricing_id: item.id,
-      description: item.name,
-      unit_price: Number(item.price),
+      pricing_id: null,
+      product_id: product.id,
+      description: productDisplayName(product),
+      unit_price: Number(product.selling_price),
     });
   }
 
@@ -482,6 +597,7 @@ export default function POSBillingPage() {
           discount_id_number: isStatutoryDiscount ? discountIdNumber.trim() : null,
           items: validItems.map((line) => ({
             pricing_id: line.pricing_id,
+            product_id: line.product_id,
             description: line.description,
             quantity: line.quantity,
             unit_price: line.unit_price,
@@ -616,8 +732,17 @@ export default function POSBillingPage() {
     if (match) {
       addCatalogItem(match);
       setCatalogQuery("");
+      return;
+    }
+    const productMatch = posProducts.find((item) =>
+      [item.sku, item.name, item.brand_name ?? "", item.generic_name ?? ""]
+        .some((value) => value.toLowerCase().includes(query)),
+    );
+    if (productMatch) {
+      addProductItem(productMatch);
+      setCatalogQuery("");
     } else {
-      setFeedback({ message: `No POS service matches "${catalogQuery.trim()}".`, tone: "error" });
+      setFeedback({ message: `No POS item matches "${catalogQuery.trim()}".`, tone: "error" });
     }
   }
 
@@ -789,13 +914,13 @@ export default function POSBillingPage() {
           <POSStepCard
             step={1}
             title="Build Bill"
-            description="Select the clinic appointment and add lab or medicine items before issuing the bill."
+            description="Select the clinic appointment and add services, medicines, or retail products before issuing the bill."
             state={currentStep === 1 ? "current" : "complete"}
           />
           <POSStepCard
             step={2}
             title="Accept Payment"
-            description="Choose Cash, Transfer, or Card. Enter amount received or the payment reference."
+            description="Choose Cash, QR, Transfer, or Card. Enter amount received or the payment reference."
             state={currentStep === 2 ? "current" : "upcoming"}
           />
           <POSStepCard
@@ -876,9 +1001,9 @@ export default function POSBillingPage() {
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Services</h2>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Catalog</h2>
               <span className="text-xs text-slate-500">
-                {posPricing.length} item{posPricing.length === 1 ? "" : "s"} in catalog
+                {posPricing.length + posProducts.length} item{posPricing.length + posProducts.length === 1 ? "" : "s"} in catalog
               </span>
             </div>
 
@@ -890,7 +1015,7 @@ export default function POSBillingPage() {
                   value={catalogQuery}
                   onChange={(event) => setCatalogQuery(event.target.value)}
                   onKeyDown={handleCatalogKeyDown}
-                  placeholder='Code or name (try "/" to focus, Enter to add first match)'
+                  placeholder='Code, SKU, or name (try "/" to focus, Enter to add first match)'
                   disabled={!canUse || !!issuedBillingId}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-8 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 disabled:bg-slate-50"
                 />
@@ -936,7 +1061,43 @@ export default function POSBillingPage() {
                       ))
                     ) : (
                       <div className="rounded-md border border-dashed border-slate-200 bg-white px-2 py-3 text-center text-[11px] text-slate-400">
-                        No {group.category.toLowerCase()} items yet.
+                        No {group.category.toLowerCase()} services yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {filteredProductCatalog.map((group) => (
+                <div key={`product-${group.category}`} className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-2">
+                  <div className="flex items-center justify-between px-1 pb-1.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">{group.category}</p>
+                    <span className="font-mono text-[10px] text-emerald-700">{group.items.length}</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    {group.items.length > 0 ? (
+                      group.items.slice(0, 8).map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => addProductItem(item)}
+                          disabled={!canUse || !!issuedBillingId}
+                          title={`${item.sku} · ${productDisplayName(item)}`}
+                          className="flex w-full items-center justify-between gap-2 rounded-md border border-emerald-200 bg-white px-2.5 py-1.5 text-left transition hover:border-emerald-400 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
+                        >
+                          <span className="min-w-0 pr-2">
+                            <span className="block truncate text-xs font-semibold text-slate-900">{productDisplayName(item)}</span>
+                            <span className="block font-mono text-[10px] text-slate-500">
+                              {item.sku} · {Number(item.stock_qty).toLocaleString()} {item.unit}
+                            </span>
+                          </span>
+                          <span className="shrink-0 font-mono text-xs font-bold text-emerald-700">{peso(Number(item.selling_price))}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="rounded-md border border-dashed border-emerald-200 bg-white px-2 py-3 text-center text-[11px] text-emerald-700/70">
+                        No {group.category.toLowerCase()} products in stock.
                       </div>
                     )}
                   </div>
@@ -946,7 +1107,7 @@ export default function POSBillingPage() {
 
             <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
               <div className="grid grid-cols-12 gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                <div className="col-span-12 md:col-span-5">Service</div>
+                <div className="col-span-12 md:col-span-5">Item</div>
                 <div className="col-span-3 md:col-span-2 text-center">Qty</div>
                 <div className="col-span-4 md:col-span-2 text-right">Unit</div>
                 <div className="col-span-4 md:col-span-2 text-right">Line</div>
@@ -958,20 +1119,29 @@ export default function POSBillingPage() {
                   <div key={line.tempId} className="grid grid-cols-12 items-center gap-2 px-3 py-2">
                     <div className="col-span-12 md:col-span-5">
                       <select
-                        value={line.pricing_id ?? ""}
+                        value={getLineSelectionValue(line)}
                         onChange={(event) => {
-                          if (event.target.value) applyPricing(line.tempId, event.target.value);
-                          else updateLine(line.tempId, { pricing_id: null });
+                          if (event.target.value) applyCatalogSelection(line.tempId, event.target.value);
+                          else updateLine(line.tempId, { pricing_id: null, product_id: null, description: "", unit_price: 0 });
                         }}
                         disabled={!canUse || !!issuedBillingId}
                         className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200 disabled:bg-slate-50"
                       >
-                        <option value="">— pick service —</option>
-                        {posPricing.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            [{item.category[0]}] {item.name} · {peso(Number(item.price))}
-                          </option>
-                        ))}
+                        <option value="">— pick service or product —</option>
+                        <optgroup label="Services">
+                          {posPricing.map((item) => (
+                            <option key={item.id} value={`pricing:${item.id}`}>
+                              [{item.category[0]}] {item.name} · {peso(Number(item.price))}
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Products">
+                          {posProducts.map((item) => (
+                            <option key={item.id} value={`product:${item.id}`}>
+                              [{item.category}] {productDisplayName(item)} · {peso(Number(item.selling_price))}
+                            </option>
+                          ))}
+                        </optgroup>
                       </select>
                     </div>
 
@@ -1162,7 +1332,7 @@ export default function POSBillingPage() {
                 </ul>
               ) : selectedAppt ? (
                 <p className="py-3 text-center text-xs text-slate-500">
-                  Just the consultation so far — add Lab or Medicine items above.
+                  Just the consultation so far — add services, medicines, or products above.
                 </p>
               ) : (
                 <p className="py-3 text-center text-xs text-slate-400">Pick an appointment to start a bill.</p>

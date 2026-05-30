@@ -8,6 +8,7 @@ export type NoteInput = {
   diagnosis?: string | null;
   prescription?: string | null;
   notes?: string | null;
+  visible_to_patient?: boolean;
 };
 
 export async function upsertNote(
@@ -30,6 +31,7 @@ export async function upsertNote(
         diagnosis: input.diagnosis ?? null,
         prescription: input.prescription ?? null,
         notes: input.notes ?? null,
+        visible_to_patient: input.visible_to_patient ?? false,
       },
       { onConflict: "appointment_id" },
     )
@@ -55,5 +57,8 @@ export async function getNote(appointmentId: string, actor: Actor) {
     .eq("appointment_id", appointmentId)
     .maybeSingle<ConsultationNote>();
   if (error) throw error;
+  if (role === "patient" && data && !data.visible_to_patient) {
+    return null;
+  }
   return data;
 }

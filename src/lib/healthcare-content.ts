@@ -34,15 +34,26 @@ export type FaqItem = {
   answer: string;
 };
 
+export const faqCategories = [
+  "Appointment FAQ",
+  "Clinic Services FAQ",
+  "Online Consultation FAQ",
+  "Payment FAQ",
+  "Prescription FAQ",
+  "Patient Portal FAQ",
+  "Vlog/Content FAQ",
+  "Contact & Inquiry FAQ",
+];
+
 export const publicNav: PublicNavItem[] = [
   { label: "Home", href: "/" },
   { label: "About", href: "/about" },
   { label: "Services", href: "/services" },
   { label: "Online", href: "/online-services" },
   { label: "Book", href: "/booking" },
-  { label: "Blog", href: "/blog" },
-  { label: "Videos", href: "/videos" },
-  { label: "Live", href: "/live" },
+  { label: "Blog", href: "/#blog" },
+  { label: "Videos", href: "/#videos" },
+  { label: "Live", href: "/#live" },
   { label: "FAQ", href: "/faq" },
   { label: "Contact", href: "/contact" },
 ];
@@ -176,7 +187,7 @@ export const liveEvents = [
 export const faqs: FaqItem[] = [
   {
     category: "Appointment FAQ",
-    question: "How do I book an appointment?",
+    question: "How to book an appointment?",
     answer: "Open the booking page, choose clinic visit or online consultation, select a service, date, and time, then submit your patient details.",
   },
   {
@@ -200,19 +211,19 @@ export const faqs: FaqItem[] = [
     answer: "Choose Online Consultation during booking, describe your concern, upload supporting files if needed, and wait for confirmation and meeting details.",
   },
   {
-    category: "Content FAQ",
-    question: "Where can I watch the doctor's videos?",
+    category: "Vlog/Content FAQ",
+    question: "Where can I watch doctor’s videos?",
     answer: "Open the Videos page for embedded YouTube, TikTok, Facebook videos, live replays, and health education content.",
   },
   {
-    category: "Contact FAQ",
+    category: "Contact & Inquiry FAQ",
     question: "How can I send an inquiry?",
     answer: "Use the Contact page for appointment, service, consultation, collaboration, or general questions.",
   },
   {
     category: "Payment FAQ",
-    question: "What services are available for billing?",
-    answer: "The POS supports service billing plus product or medicine sales, with receipt printing and sales reports.",
+    question: "What services are available?",
+    answer: "Visitors can book clinic visits, online consultations, follow-up checkups, wellness consultations, prescription review support, and other listed public services.",
   },
 ];
 

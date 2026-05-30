@@ -1,22 +1,21 @@
-import { featuredContent } from "@/src/lib/healthcare-content";
+import BlogIndex from "@/src/components/blog/BlogIndex";
+import PublicHeader from "@/src/components/layout/PublicHeader";
+import { contentCategories } from "@/src/lib/healthcare-content";
+import { getPublishedContentPosts } from "@/src/lib/services/content-posts";
 
-export default function BlogPage() {
-  const posts = featuredContent.filter((item) => item.type === "Blog" || item.type === "Announcement");
+export default async function BlogPage() {
+  const posts = await getPublishedContentPosts(24);
+
   return (
-    <main className="min-h-screen bg-white px-4 py-12 sm:px-6">
-      <div className="mx-auto max-w-6xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-700">Blog / Health Tips</p>
-        <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Health education content</h1>
-        <div className="mt-10 grid gap-5 md:grid-cols-2">
-          {posts.map((post) => (
-            <article key={post.title} className="rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-sky-700">{post.category}</span>
-              <h2 className="mt-3 text-xl font-bold text-slate-950">{post.title}</h2>
-              <p className="mt-3 leading-7 text-slate-600">{post.description}</p>
-            </article>
-          ))}
+    <main className="min-h-screen bg-slate-50 text-slate-950">
+      <PublicHeader />
+
+      <section className="mx-auto max-w-7xl px-4 pt-20 pb-10 sm:px-6 sm:pt-24 sm:pb-14">
+        <div className="mb-8 border-b border-slate-200 pb-4 text-sm font-semibold text-slate-500">
+          <span className="text-slate-700">Blog</span>
         </div>
-      </div>
+        <BlogIndex posts={posts} categories={contentCategories} mode="page" />
+      </section>
     </main>
   );
 }

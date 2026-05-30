@@ -14,6 +14,7 @@ import {
 } from "@/src/lib/services/notification";
 import { calculateOnlineConsultationCharge } from "@/src/lib/consultation-pricing";
 import { createPayMongoCheckoutSession, mapCheckoutMethods } from "@/src/lib/services/paymongo";
+import { finalizeInventorySaleForBilling } from "@/src/lib/services/billing";
 import { createStripeCheckoutSessionForReservation } from "@/src/lib/services/stripe";
 import { readSystemSettings } from "@/src/lib/server/clinic-store";
 import {
@@ -583,6 +584,8 @@ async function finalizeClinicBillingPayment(payment: Payment): Promise<Appointme
       .eq("id", billing.id);
     if (updateBillingError) throw updateBillingError;
   }
+
+  await finalizeInventorySaleForBilling(billing.id, null);
 
   const appointmentId = payment.appointment_id ?? billing.appointment_id;
   if (!appointmentId) return null;

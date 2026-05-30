@@ -28,6 +28,10 @@ type Product = {
 type Supplier = {
   id: string;
   name: string;
+  contact_person?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
 };
 
 type Movement = {
@@ -72,6 +76,22 @@ const emptyProduct: ProductForm = {
   description: "",
 };
 
+type SupplierForm = {
+  name: string;
+  contact_person: string;
+  phone: string;
+  email: string;
+  address: string;
+};
+
+const emptySupplier: SupplierForm = {
+  name: "",
+  contact_person: "",
+  phone: "",
+  email: "",
+  address: "",
+};
+
 export default function InventoryPage() {
   const { accessToken } = useRole();
   const [products, setProducts] = useState<Product[]>([]);
@@ -79,14 +99,18 @@ export default function InventoryPage() {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [form, setForm] = useState(emptyProduct);
   const [movement, setMovement] = useState({ product_id: "", movement_type: "StockIn", quantity: "1", notes: "" });
+  const [supplierForm, setSupplierForm] = useState(emptySupplier);
   const [feedback, setFeedback] = useState("");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All Categories");
   const [alertsTab, setAlertsTab] = useState<"expiring" | "reorder">("expiring");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [deleteSupplierTarget, setDeleteSupplierTarget] = useState<Supplier | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
   const authHeaders = useMemo(() => ({
     Authorization: `Bearer ${accessToken}`,
@@ -128,6 +152,17 @@ export default function InventoryPage() {
   }, [categoryFilter, products, search]);
   const alertRows = alertsTab === "expiring" ? expiring : lowStock;
   const totalInventoryValue = products.reduce((sum, product) => sum + Number(product.stock_qty) * Number(product.selling_price), 0);
+  const totalInventoryCost = products.reduce((sum, product) => sum + Number(product.stock_qty) * Number(product.cost_price), 0);
+  const outOfStock = products.filter((product) => Number(product.stock_qty) <= 0);
+  const movementBreakdown = useMemo(() => {
+    return ["StockIn", "StockOut", "Sale", "Return", "Adjustment", "Expired"].map((type) => ({
+      type,
+      count: movements.filter((movementRow) => movementRow.movement_type === type).length,
+      quantity: movements
+        .filter((movementRow) => movementRow.movement_type === type)
+        .reduce((sum, movementRow) => sum + Number(movementRow.quantity ?? 0), 0),
+    }));
+  }, [movements]);
 
   async function addProduct(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -229,6 +264,102 @@ export default function InventoryPage() {
     setShowMoveModal(true);
   }
 
+  function openSupplierModal(supplier?: Supplier) {
+    setEditingSupplier(supplier ?? null);
+    setSupplierForm(
+      supplier
+        ? {
+            name: supplier.name ?? "",
+            contact_person: supplier.contact_person ?? "",
+            phone: supplier.phone ?? "",
+            email: supplier.email ?? "",
+            address: supplier.address ?? "",
+          }
+        : emptySupplier,
+    );
+    setShowSupplierModal(true);
+  }
+
+  async function saveSupplier(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!accessToken) return;
+    const payload = {
+      name: supplierForm.name,
+      contact_person: supplierForm.contact_person || null,
+      phone: supplierForm.phone || null,
+      email: supplierForm.email || null,
+      address: supplierForm.address || null,
+    };
+    const res = await fetch(
+      editingSupplier ? `/api/v2/inventory/suppliers/${editingSupplier.id}` : "/api/v2/inventory/suppliers",
+      {
+        method: editingSupplier ? "PATCH" : "POST",
+        headers: authHeaders,
+        body: JSON.stringify(payload),
+      },
+    );
+    if (!res.ok) {
+      setFeedback((await res.json()).message ?? "Unable to save supplier");
+      return;
+    }
+    setSupplierForm(emptySupplier);
+    setEditingSupplier(null);
+    setShowSupplierModal(false);
+    setFeedback(editingSupplier ? "Supplier updated." : "Supplier added.");
+    await load();
+  }
+
+  async function removeSupplier(supplier: Supplier) {
+    if (!accessToken) return;
+    const res = await fetch(`/api/v2/inventory/suppliers/${supplier.id}`, {
+      method: "DELETE",
+      headers: authHeaders,
+    });
+    if (!res.ok) {
+      setFeedback((await res.json()).message ?? "Unable to remove supplier");
+      return;
+    }
+    setDeleteSupplierTarget(null);
+    setFeedback("Supplier removed.");
+    await load();
+  }
+
+  function exportInventoryCsv() {
+    const rows = [
+      ["SKU", "Brand", "Generic", "Dosage", "Category", "Supplier", "Unit", "Stock", "Reorder Level", "Cost Price", "Selling Price", "Expiry Date"],
+      ...filteredProducts.map((product) => [
+        product.sku,
+        product.brand_name ?? product.name ?? "",
+        product.generic_name ?? "",
+        product.dosage ?? "",
+        product.category,
+        product.suppliers?.name ?? "",
+        product.unit,
+        String(product.stock_qty),
+        String(product.reorder_level),
+        String(product.cost_price),
+        String(product.selling_price),
+        product.expiry_date ?? "",
+      ]),
+    ];
+    downloadCsv("inventory-products-report.csv", rows);
+  }
+
+  function exportMovementsCsv() {
+    const rows = [
+      ["Date", "Type", "SKU", "Product", "Quantity", "Notes"],
+      ...movements.map((movementRow) => [
+        new Date(movementRow.created_at).toLocaleString("en-PH"),
+        movementRow.movement_type,
+        movementRow.inventory_products?.sku ?? "",
+        movementRow.inventory_products?.brand_name ?? movementRow.inventory_products?.name ?? "Product",
+        String(movementRow.quantity),
+        movementRow.notes ?? "",
+      ]),
+    ];
+    downloadCsv("inventory-movement-report.csv", rows);
+  }
+
   return (
     <div className="space-y-6 pb-8">
       <section className="rounded-[2rem] border border-sky-200 bg-linear-to-br from-sky-50/80 via-blue-50 to-cyan-50 p-6 shadow-sm">
@@ -253,6 +384,9 @@ export default function InventoryPage() {
             <p className="mt-1 text-sm text-slate-600">Search medicines, filter by category, and manage products with compact icon actions.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => openSupplierModal()} className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100">
+              Add Supplier
+            </button>
             <button type="button" onClick={() => openMovementModal()} className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-100">
               Stock Movement
             </button>
@@ -448,15 +582,116 @@ export default function InventoryPage() {
 
       <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-xl font-black tracking-tight text-slate-950">Inventory Reports</h2>
-        <p className="mt-1 text-sm text-slate-500">Recent stock movement report and activity summary.</p>
-        <ul className="mt-4 space-y-2 text-sm text-slate-700">
-          {movements.slice(0, 3).map((movementRow) => (
-            <li key={movementRow.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <strong>{movementRow.movement_type}</strong> {movementRow.quantity} - {movementRow.inventory_products?.brand_name ?? movementRow.inventory_products?.name ?? "Product"}
-            </li>
-          ))}
-          {movements.length === 0 ? <li className="text-slate-400">No recent transactions yet.</li> : null}
-        </ul>
+        <p className="mt-1 text-sm text-slate-500">Product valuation, movement summary, and export-ready inventory reports.</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ReportMetric title="Inventory Cost" value={formatMoney(totalInventoryCost)} subtitle="Estimated based on current cost price" />
+          <ReportMetric title="Retail Value" value={formatMoney(totalInventoryValue)} subtitle="Current stock x selling price" />
+          <ReportMetric title="Out of Stock" value={outOfStock.length} subtitle="Products with zero stock remaining" />
+          <ReportMetric title="Supplier Count" value={suppliers.length} subtitle="Active supplier records in the system" />
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button type="button" onClick={exportInventoryCsv} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+            Export Product Report
+          </button>
+          <button type="button" onClick={exportMovementsCsv} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+            Export Movement Report
+          </button>
+        </div>
+        <div className="mt-5 grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+          <div className="rounded-2xl border border-slate-200">
+            <div className="border-b border-slate-100 px-4 py-3">
+              <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">Movement Breakdown</h3>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {movementBreakdown.map((row) => (
+                <div key={row.type} className="flex items-center justify-between px-4 py-3 text-sm">
+                  <div>
+                    <p className="font-semibold text-slate-900">{row.type}</p>
+                    <p className="text-xs text-slate-500">{row.count} transaction{row.count === 1 ? "" : "s"}</p>
+                  </div>
+                  <span className="font-mono text-slate-700">{row.quantity.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200">
+            <div className="border-b border-slate-100 px-4 py-3">
+              <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">Recent Movement Log</h3>
+            </div>
+            <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+              {movements.length > 0 ? (
+                movements.slice(0, 12).map((movementRow) => (
+                  <div key={movementRow.id} className="px-4 py-3 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-semibold text-slate-900">
+                        {movementRow.inventory_products?.brand_name ?? movementRow.inventory_products?.name ?? "Product"}
+                      </p>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
+                        {movementRow.movement_type}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-slate-600">
+                      Qty {Number(movementRow.quantity).toLocaleString()} · {new Date(movementRow.created_at).toLocaleString("en-PH")}
+                    </p>
+                    {movementRow.notes ? <p className="mt-1 text-xs text-slate-500">{movementRow.notes}</p> : null}
+                  </div>
+                ))
+              ) : (
+                <div className="px-4 py-8 text-sm text-slate-400">No recent transactions yet.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <div>
+            <h2 className="text-xl font-black tracking-tight text-slate-950">Suppliers</h2>
+            <p className="mt-1 text-sm text-slate-500">Store supplier information for medicines and other inventory items.</p>
+          </div>
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+            {suppliers.length} supplier{suppliers.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] text-left">
+            <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+              <tr>
+                <th className="px-5 py-3">Name</th>
+                <th className="px-5 py-3">Contact Person</th>
+                <th className="px-5 py-3">Phone</th>
+                <th className="px-5 py-3">Email</th>
+                <th className="px-5 py-3">Address</th>
+                <th className="px-5 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {suppliers.map((supplier) => (
+                <tr key={supplier.id} className="border-b border-slate-100 text-sm text-slate-700">
+                  <td className="px-5 py-3 font-semibold text-slate-950">{supplier.name}</td>
+                  <td className="px-5 py-3 text-slate-600">{supplier.contact_person ?? "-"}</td>
+                  <td className="px-5 py-3 text-slate-600">{supplier.phone ?? "-"}</td>
+                  <td className="px-5 py-3 text-slate-600">{supplier.email ?? "-"}</td>
+                  <td className="px-5 py-3 text-slate-600">{supplier.address ?? "-"}</td>
+                  <td className="px-5 py-3">
+                    <div className="flex justify-end gap-2">
+                      <IconButton label={`Edit ${supplier.name}`} tone="sky" icon={<FaPenToSquare className="h-3.5 w-3.5" />} onClick={() => openSupplierModal(supplier)} />
+                      <IconButton label={`Delete ${supplier.name}`} tone="rose" icon={<FaTrashCan className="h-3.5 w-3.5" />} onClick={() => setDeleteSupplierTarget(supplier)} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {suppliers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-14 text-center text-sm text-slate-400">
+                    No suppliers yet.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {showAddModal ? (
@@ -543,6 +778,33 @@ export default function InventoryPage() {
         </ProductModal>
       ) : null}
 
+      {showSupplierModal ? (
+        <ProductModal
+          title={editingSupplier ? "Edit supplier" : "New supplier"}
+          onClose={() => {
+            setShowSupplierModal(false);
+            setEditingSupplier(null);
+          }}
+          onSubmit={saveSupplier}
+          submitLabel={editingSupplier ? "Save supplier" : "Add supplier"}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input label="Supplier name" value={supplierForm.name} onChange={(v) => setSupplierForm((state) => ({ ...state, name: v }))} />
+            <Input label="Contact person" value={supplierForm.contact_person} onChange={(v) => setSupplierForm((state) => ({ ...state, contact_person: v }))} required={false} />
+            <Input label="Phone" value={supplierForm.phone} onChange={(v) => setSupplierForm((state) => ({ ...state, phone: v }))} required={false} />
+            <Input label="Email" value={supplierForm.email} onChange={(v) => setSupplierForm((state) => ({ ...state, email: v }))} type="email" required={false} />
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 sm:col-span-2">
+              Address
+              <textarea
+                className="min-h-24 rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                value={supplierForm.address}
+                onChange={(event) => setSupplierForm((state) => ({ ...state, address: event.target.value }))}
+              />
+            </label>
+          </div>
+        </ProductModal>
+      ) : null}
+
       {deleteTarget ? (
         <ConfirmationModal
           title="Delete product?"
@@ -551,6 +813,17 @@ export default function InventoryPage() {
           tone="rose"
           onCancel={() => setDeleteTarget(null)}
           onConfirm={() => removeProduct(deleteTarget)}
+        />
+      ) : null}
+
+      {deleteSupplierTarget ? (
+        <ConfirmationModal
+          title="Delete supplier?"
+          description={`This will remove ${deleteSupplierTarget.name} from the supplier list and clear it from linked products.`}
+          confirmLabel="Delete"
+          tone="rose"
+          onCancel={() => setDeleteSupplierTarget(null)}
+          onConfirm={() => removeSupplier(deleteSupplierTarget)}
         />
       ) : null}
     </div>
@@ -571,6 +844,16 @@ function StatCard({ title, value, icon, tone, subtitle }: { title: string; value
       <p className="mt-3 text-sm font-semibold text-slate-500">{title}</p>
       <p className="mt-1 text-3xl font-black text-slate-950">{value}</p>
       {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
+    </div>
+  );
+}
+
+function ReportMetric({ title, value, subtitle }: { title: string; value: string | number; subtitle: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+      <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
     </div>
   );
 }
@@ -664,11 +947,26 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
-function Input({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function Input({ label, value, onChange, type = "text", required = true }: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean }) {
   return (
     <label className="grid gap-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
       {label}
-      <input required className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-sky-400 focus:ring-4 focus:ring-sky-100" type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+      <input required={required} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-sky-400 focus:ring-4 focus:ring-sky-100" type={type} value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
   );
 }

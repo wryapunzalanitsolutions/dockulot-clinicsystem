@@ -1,60 +1,52 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  FaArrowUpRightFromSquare,
+  FaCalendarDays,
   FaCircleCheck,
   FaCircleXmark,
   FaCloudArrowUp,
-  FaImage,
+  FaFolderOpen,
+  FaNewspaper,
   FaPlus,
-  FaQuoteLeft,
   FaTrash,
   FaUserDoctor,
-  FaWandMagicSparkles,
 } from "react-icons/fa6";
 import { useRole } from "@/src/components/layout/RoleProvider";
-import type {
-  LandingContent,
-  LandingHowToStep,
-  LandingNavItem,
-  LandingService,
-  LandingServiceBullet,
-  LandingTestimonial,
-} from "@/src/lib/db/types";
+import type { LandingContent, LandingService } from "@/src/lib/db/types";
+import { clinicServices, contentCategories, faqCategories } from "@/src/lib/healthcare-content";
 
-type Tab =
-  | "hero"
-  | "navigation"
-  | "doctor"
-  | "services"
-  | "howTo"
-  | "testimonials"
-  | "cta"
-  | "booking"
-  | "contact"
-  | "footer";
-
-const TABS: Array<{ id: Tab; label: string }> = [
-  { id: "hero", label: "Hero" },
-  { id: "navigation", label: "Navigation" },
-  { id: "doctor", label: "Doctor" },
-  { id: "services", label: "Services" },
-  { id: "howTo", label: "How to Book" },
-  { id: "testimonials", label: "Testimonials" },
-  { id: "cta", label: "Closing CTA" },
-  { id: "booking", label: "Booking" },
-  { id: "contact", label: "Contact" },
-  { id: "footer", label: "Footer" },
-];
-
+type Tab = "home" | "about" | "services" | "blog" | "videos" | "faq";
 type Feedback = { kind: "ok" | "err"; msg: string } | null;
+type Faq = {
+  id: string;
+  category: string;
+  question: string;
+  answer: string;
+  sort_order: number;
+  is_published: boolean;
+};
 
-// Default fallbacks (mirror /public/images/*) — used when the DB row hasn't
-// had an image uploaded yet. Keep these in sync with the bundled assets so
-// the landing page never renders a broken <Image>.
 const DEFAULT_HERO = "/images/chiarabg.png";
 const DEFAULT_DOCTOR = "/images/doctora.png";
+const EMPTY_FAQ_FORM = {
+  category: faqCategories[0],
+  question: "",
+  answer: "",
+  sort_order: "0",
+  is_published: true,
+};
+const TABS: Array<{ id: Tab; label: string; detail: string }> = [
+  { id: "home", label: "Home", detail: "Hero section on the landing page" },
+  { id: "about", label: "About", detail: "Doctor introduction section" },
+  { id: "services", label: "Services", detail: "Clinic and online booking section" },
+  { id: "blog", label: "Blog", detail: "Landing blog texts only" },
+  { id: "videos", label: "Videos", detail: "Vlogs and live schedule texts only" },
+  { id: "faq", label: "FAQ", detail: "Landing-page FAQs" },
+];
 
 export default function ContentsManagerPage() {
   const { accessToken, role, isLoading } = useRole();
@@ -63,7 +55,9 @@ export default function ContentsManagerPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("hero");
+  const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [faqForm, setFaqForm] = useState(EMPTY_FAQ_FORM);
 
   const canEdit = role === "SUPER_ADMIN" || role === "DOCTOR";
 
@@ -75,10 +69,16 @@ export default function ContentsManagerPage() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const payload = (await res.json()) as { content: LandingContent };
         if (!active) return;
-        setContent(payload.content);
-        setOriginal(payload.content);
-      } catch (e) {
-        if (active) setFeedback({ kind: "err", msg: e instanceof Error ? e.message : "Failed to load content" });
+        const normalized = normalizeLandingContent(payload.content);
+        setContent(normalized);
+        setOriginal(normalized);
+      } catch (error) {
+        if (active) {
+          setFeedback({
+            kind: "err",
+            msg: error instanceof Error ? error.message : "Failed to load website content",
+          });
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -88,142 +88,79 @@ export default function ContentsManagerPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!accessToken) return;
+    let active = true;
+    (async () => {
+      try {
+        const payload = await fetchFaqs(accessToken);
+        if (!active) return;
+        setFaqs(payload);
+      } catch (error) {
+        if (active) {
+          setFeedback({
+            kind: "err",
+            msg: error instanceof Error ? error.message : "Failed to load FAQs",
+          });
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [accessToken]);
+
   const dirty = useMemo(() => {
     if (!content || !original) return false;
     return JSON.stringify(content) !== JSON.stringify(original);
   }, [content, original]);
 
   function update<K extends keyof LandingContent>(key: K, value: LandingContent[K]) {
-    setContent((c) => (c ? { ...c, [key]: value } : c));
+    setContent((current) => (current ? { ...current, [key]: value } : current));
     setFeedback(null);
   }
 
-  function updateTestimonial(idx: number, patch: Partial<LandingTestimonial>) {
-    setContent((c) => {
-      if (!c) return c;
-      const next = c.testimonials.slice();
-      next[idx] = { ...next[idx], ...patch };
-      return { ...c, testimonials: next };
-    });
-    setFeedback(null);
-  }
-
-  function addTestimonial() {
-    setContent((c) =>
-      c ? { ...c, testimonials: [...c.testimonials, { name: "", title: "", quote: "" }] } : c,
-    );
-  }
-
-  function removeTestimonial(idx: number) {
-    setContent((c) =>
-      c ? { ...c, testimonials: c.testimonials.filter((_, i) => i !== idx) } : c,
-    );
-  }
-
-  // Generic JSONB-array helpers — used by nav, services, how-to, footer.
   function patchArray<K extends keyof LandingContent>(
     key: K,
     fn: (current: LandingContent[K]) => LandingContent[K],
   ) {
-    setContent((c) => (c ? { ...c, [key]: fn(c[key]) } : c));
+    setContent((current) => (current ? { ...current, [key]: fn(current[key]) } : current));
     setFeedback(null);
   }
 
-  function addNavItem() {
-    patchArray("nav_items", (cur) => [...(cur as LandingNavItem[]), { label: "", href: "#" }]);
-  }
-  function removeNavItem(idx: number) {
-    patchArray("nav_items", (cur) => (cur as LandingNavItem[]).filter((_, i) => i !== idx));
-  }
-  function updateNavItem(idx: number, p: Partial<LandingNavItem>) {
-    patchArray("nav_items", (cur) => {
-      const next = (cur as LandingNavItem[]).slice();
-      next[idx] = { ...next[idx], ...p };
-      return next;
-    });
-  }
-
   function addService() {
-    patchArray("services", (cur) => [
-      ...(cur as LandingService[]),
+    patchArray("services", (current) => [
+      ...(current as LandingService[]),
       { kind: "clinic", title: "", description: "", bullets: [] },
     ]);
   }
-  function removeService(idx: number) {
-    patchArray("services", (cur) => (cur as LandingService[]).filter((_, i) => i !== idx));
-  }
-  function updateService(idx: number, p: Partial<LandingService>) {
-    patchArray("services", (cur) => {
-      const next = (cur as LandingService[]).slice();
-      next[idx] = { ...next[idx], ...p };
-      return next;
-    });
-  }
-  function addBullet(serviceIdx: number) {
-    patchArray("services", (cur) => {
-      const next = (cur as LandingService[]).slice();
-      next[serviceIdx] = {
-        ...next[serviceIdx],
-        bullets: [...next[serviceIdx].bullets, { title: "", body: "" }],
-      };
-      return next;
-    });
-  }
-  function removeBullet(serviceIdx: number, bulletIdx: number) {
-    patchArray("services", (cur) => {
-      const next = (cur as LandingService[]).slice();
-      next[serviceIdx] = {
-        ...next[serviceIdx],
-        bullets: next[serviceIdx].bullets.filter((_, i) => i !== bulletIdx),
-      };
-      return next;
-    });
-  }
-  function updateBullet(
-    serviceIdx: number,
-    bulletIdx: number,
-    p: Partial<LandingServiceBullet>,
-  ) {
-    patchArray("services", (cur) => {
-      const next = (cur as LandingService[]).slice();
-      const bullets = next[serviceIdx].bullets.slice();
-      bullets[bulletIdx] = { ...bullets[bulletIdx], ...p };
-      next[serviceIdx] = { ...next[serviceIdx], bullets };
+
+  function updateService(index: number, patch: Partial<LandingService>) {
+    patchArray("services", (current) => {
+      const next = (current as LandingService[]).slice();
+      next[index] = { ...next[index], ...patch };
       return next;
     });
   }
 
-  function addStep() {
-    patchArray("how_to_steps", (cur) => {
-      const arr = cur as LandingHowToStep[];
-      return [...arr, { step: arr.length + 1, title: "", description: "" }];
-    });
+  function removeService(index: number) {
+    patchArray("services", (current) => (current as LandingService[]).filter((_, itemIndex) => itemIndex !== index));
   }
-  function removeStep(idx: number) {
-    patchArray("how_to_steps", (cur) =>
-      (cur as LandingHowToStep[]).filter((_, i) => i !== idx).map((s, i) => ({ ...s, step: i + 1 })),
-    );
-  }
-  function updateStep(idx: number, p: Partial<LandingHowToStep>) {
-    patchArray("how_to_steps", (cur) => {
-      const next = (cur as LandingHowToStep[]).slice();
-      next[idx] = { ...next[idx], ...p };
+
+  function updateBlogCategory(index: number, value: string) {
+    patchArray("blog_categories", (current) => {
+      const next = Array.isArray(current) ? [...current] : [];
+      next[index] = value;
       return next;
     });
   }
 
-  function addFooterItem(key: "footer_services" | "footer_hours") {
-    patchArray(key, (cur) => [...(cur as string[]), ""]);
+  function addBlogCategory() {
+    patchArray("blog_categories", (current) => [...((current as string[]) || []), ""]);
   }
-  function removeFooterItem(key: "footer_services" | "footer_hours", idx: number) {
-    patchArray(key, (cur) => (cur as string[]).filter((_, i) => i !== idx));
-  }
-  function updateFooterItem(key: "footer_services" | "footer_hours", idx: number, value: string) {
-    patchArray(key, (cur) => {
-      const next = (cur as string[]).slice();
-      next[idx] = value;
-      return next;
-    });
+
+  function removeBlogCategory(index: number) {
+    patchArray("blog_categories", (current) => ((current as string[]) || []).filter((_, itemIndex) => itemIndex !== index));
   }
 
   async function handleSave() {
@@ -231,8 +168,6 @@ export default function ContentsManagerPage() {
     setSaving(true);
     setFeedback(null);
     try {
-      // Send only writable columns. Sent as Partial<LandingContent>; the
-      // server whitelists again before persisting.
       const body: Partial<LandingContent> = {
         hero_eyebrow: content.hero_eyebrow,
         hero_title_line1: content.hero_title_line1,
@@ -253,33 +188,25 @@ export default function ContentsManagerPage() {
         feature_2_body: content.feature_2_body,
         feature_3_title: content.feature_3_title,
         feature_3_body: content.feature_3_body,
-        cta_title: content.cta_title,
-        cta_subtitle: content.cta_subtitle,
-        cta_button_label: content.cta_button_label,
-        testimonials: content.testimonials,
-        nav_items: content.nav_items,
         services_eyebrow: content.services_eyebrow,
         services_title: content.services_title,
         services_subtitle: content.services_subtitle,
         services: content.services,
-        how_to_eyebrow: content.how_to_eyebrow,
-        how_to_title: content.how_to_title,
-        how_to_steps: content.how_to_steps,
-        testimonials_eyebrow: content.testimonials_eyebrow,
-        testimonials_title: content.testimonials_title,
-        testimonials_subtitle: content.testimonials_subtitle,
         booking_title: content.booking_title,
         booking_subtitle: content.booking_subtitle,
-        contact_eyebrow: content.contact_eyebrow,
-        contact_title: content.contact_title,
-        contact_subtitle: content.contact_subtitle,
-        contact_info_title: content.contact_info_title,
-        contact_hours_label: content.contact_hours_label,
-        footer_brand_blurb: content.footer_brand_blurb,
-        footer_services: content.footer_services,
-        footer_hours: content.footer_hours,
-        footer_contact_text: content.footer_contact_text,
-        footer_copyright: content.footer_copyright,
+        blog_eyebrow: content.blog_eyebrow,
+        blog_title: content.blog_title,
+        blog_subtitle: content.blog_subtitle,
+        blog_categories_title: content.blog_categories_title,
+        blog_recent_posts_title: content.blog_recent_posts_title,
+        blog_categories: content.blog_categories,
+        videos_eyebrow: content.videos_eyebrow,
+        videos_title: content.videos_title,
+        videos_subtitle: content.videos_subtitle,
+        live_eyebrow: content.live_eyebrow,
+        live_title: content.live_title,
+        live_subtitle: content.live_subtitle,
+        live_cta_label: content.live_cta_label,
       };
       const res = await fetch("/api/v2/landing-content", {
         method: "PATCH",
@@ -290,12 +217,12 @@ export default function ContentsManagerPage() {
         body: JSON.stringify(body),
       });
       const payload = (await res.json().catch(() => ({}))) as { content?: LandingContent; message?: string };
-      if (!res.ok || !payload.content) throw new Error(payload.message ?? "Failed to save");
+      if (!res.ok || !payload.content) throw new Error(payload.message ?? "Failed to save website content");
       setContent(payload.content);
       setOriginal(payload.content);
-      setFeedback({ kind: "ok", msg: "Landing page updated. Refresh the public site to see the changes." });
-    } catch (e) {
-      setFeedback({ kind: "err", msg: e instanceof Error ? e.message : "Failed to save" });
+      setFeedback({ kind: "ok", msg: "Website content updated." });
+    } catch (error) {
+      setFeedback({ kind: "err", msg: error instanceof Error ? error.message : "Failed to save website content" });
     } finally {
       setSaving(false);
     }
@@ -306,6 +233,69 @@ export default function ContentsManagerPage() {
     setFeedback(null);
   }
 
+  async function handleAddFaq() {
+    if (!accessToken) return;
+    try {
+      const res = await fetch("/api/v2/faqs", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          category: faqForm.category,
+          question: faqForm.question,
+          answer: faqForm.answer,
+          sort_order: Number(faqForm.sort_order || 0),
+          is_published: faqForm.is_published,
+        }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as { message?: string };
+      if (!res.ok) throw new Error(payload.message ?? "Unable to save FAQ");
+      setFaqForm(EMPTY_FAQ_FORM);
+      setFaqs(await fetchFaqs(accessToken));
+      setFeedback({ kind: "ok", msg: "FAQ saved." });
+    } catch (error) {
+      setFeedback({ kind: "err", msg: error instanceof Error ? error.message : "Unable to save FAQ" });
+    }
+  }
+
+  async function handleUpdateFaq(id: string, patch: Partial<Faq>, successMessage: string) {
+    if (!accessToken) return;
+    try {
+      const res = await fetch(`/api/v2/faqs/${id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(patch),
+      });
+      const payload = (await res.json().catch(() => ({}))) as { message?: string };
+      if (!res.ok) throw new Error(payload.message ?? "Unable to update FAQ");
+      setFaqs(await fetchFaqs(accessToken));
+      setFeedback({ kind: "ok", msg: successMessage });
+    } catch (error) {
+      setFeedback({ kind: "err", msg: error instanceof Error ? error.message : "Unable to update FAQ" });
+    }
+  }
+
+  async function handleDeleteFaq(id: string) {
+    if (!accessToken) return;
+    try {
+      const res = await fetch(`/api/v2/faqs/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const payload = (await res.json().catch(() => ({}))) as { message?: string };
+      if (!res.ok) throw new Error(payload.message ?? "Unable to delete FAQ");
+      setFaqs(await fetchFaqs(accessToken));
+      setFeedback({ kind: "ok", msg: "FAQ removed." });
+    } catch (error) {
+      setFeedback({ kind: "err", msg: error instanceof Error ? error.message : "Unable to delete FAQ" });
+    }
+  }
+
   if (isLoading || loading) {
     return <div className="h-40 animate-pulse rounded-3xl border border-sky-100 bg-white shadow-sm" />;
   }
@@ -313,7 +303,7 @@ export default function ContentsManagerPage() {
   if (!canEdit) {
     return (
       <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-sm text-red-800">
-        You don&apos;t have permission to manage landing-page content.
+        You don&apos;t have permission to manage website content.
       </div>
     );
   }
@@ -321,36 +311,36 @@ export default function ContentsManagerPage() {
   if (!content) {
     return (
       <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
-        Content row not found. Run the latest migration and reload.
+        Website content wasn&apos;t found. Run the latest migration and reload.
       </div>
     );
   }
 
+  const blogCategories = content.blog_categories?.length ? content.blog_categories : contentCategories;
+  const faqGroups = groupFaqsByCategory(faqs);
+
   return (
     <div className="space-y-6 pb-8">
-      {/* Header toolbar */}
-      <div className="rounded-3xl border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f0f9ff_100%)] p-5 shadow-[0_18px_45px_rgba(14,165,233,0.06)] sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">
-              <FaWandMagicSparkles className="h-3 w-3" aria-hidden="true" /> Contents Manager
-            </p>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-[1.75rem]">
-              Edit your landing page
-            </h1>
-            <p className="mt-1.5 text-sm text-slate-600">
-              Update text, swap the hero background and doctor photo, and curate testimonials. Changes go live the
-              moment you save.
-            </p>
+      <div className="overflow-hidden rounded-[2rem] border border-sky-100 bg-[radial-gradient(circle_at_top_left,_rgba(125,211,252,0.32),_transparent_36%),linear-gradient(135deg,#ffffff_0%,#f4faff_52%,#eaf5ff_100%)] p-6 shadow-[0_28px_70px_-48px_rgba(14,116,194,0.45)]">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-sky-700">Website Content</p>
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">
+            Edit only the landing-page sections
+          </h1>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base sm:leading-8">
+            This editor now follows the landing page navigation only: Home, About, Services, Blog, Videos, and FAQ.
+            Actual blogs, vlogs, and live schedule entries are still created in the Content Creator workspace.
+          </p>
+          <div className="mt-6">
+            <Link
+              href="/"
+              target="_blank"
+              className="inline-flex items-center gap-2 rounded-full bg-sky-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-400"
+            >
+              Preview landing page
+              <FaArrowUpRightFromSquare className="h-3 w-3" aria-hidden="true" />
+            </Link>
           </div>
-          <a
-            href="/"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 self-start rounded-full border border-sky-200 bg-white px-4 py-2 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
-          >
-            Preview public landing →
-          </a>
         </div>
       </div>
 
@@ -371,384 +361,474 @@ export default function ContentsManagerPage() {
         </div>
       ) : null}
 
-      {/* Tab pill — wraps to a second row on narrow screens; keeps focus
-          state semantic so keyboard nav works. */}
-      <div className="flex flex-wrap gap-1.5 rounded-2xl border border-sky-100 bg-white p-1.5">
-        {TABS.map((t) => {
-          const active = activeTab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setActiveTab(t.id)}
-              aria-pressed={active}
-              className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition sm:text-sm ${
-                active
-                  ? "bg-sky-600 text-white shadow-sm"
-                    : "text-slate-700 hover:bg-sky-50 hover:text-sky-700"
-              }`}
-            >
-              {t.label}
-            </button>
-          );
-        })}
+      <div className="rounded-[1.75rem] border border-sky-100 bg-white p-2 shadow-sm">
+        <div className="grid gap-2 md:grid-cols-3 xl:grid-cols-6">
+          {TABS.map((tab) => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`rounded-[1.35rem] px-4 py-4 text-left transition ${
+                  active
+                    ? "bg-[linear-gradient(135deg,#0ea5e9_0%,#0284c7_100%)] text-white shadow-[0_16px_35px_-20px_rgba(2,132,199,0.7)]"
+                    : "bg-slate-50 text-slate-800 hover:bg-sky-50"
+                }`}
+              >
+                <p className="text-sm font-black tracking-tight">{tab.label}</p>
+                <p className={`mt-1 text-xs leading-5 ${active ? "text-sky-50" : "text-slate-500"}`}>{tab.detail}</p>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {activeTab === "hero" ? (
-        <Section title="Hero (above the fold)">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div className="space-y-3">
-              <Field label="Eyebrow text (optional)" value={content.hero_eyebrow} onChange={(v) => update("hero_eyebrow", v)} placeholder="e.g., Welcome to Doctora Kulot Clinic" />
-              <Field label="Title — Line 1" value={content.hero_title_line1} onChange={(v) => update("hero_title_line1", v)} />
-              <Field label="Title — Line 2 (highlighted)" value={content.hero_title_line2} onChange={(v) => update("hero_title_line2", v)} />
-              <Textarea label="Subtitle" rows={3} value={content.hero_subtitle} onChange={(v) => update("hero_subtitle", v)} />
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Primary CTA label" value={content.hero_cta_primary} onChange={(v) => update("hero_cta_primary", v)} />
-                <Field label="Secondary CTA label" value={content.hero_cta_secondary} onChange={(v) => update("hero_cta_secondary", v)} />
+      {activeTab === "home" ? (
+        <EditorSection title="Home / Hero" note="This is the Home section from the landing page navigation.">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="space-y-4">
+              <Field label="Eyebrow" value={content.hero_eyebrow ?? ""} onChange={(value) => update("hero_eyebrow", value)} />
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Title line 1" value={content.hero_title_line1 ?? ""} onChange={(value) => update("hero_title_line1", value)} />
+                <Field label="Title line 2" value={content.hero_title_line2 ?? ""} onChange={(value) => update("hero_title_line2", value)} />
               </div>
+              <Textarea label="Subtitle" rows={4} value={content.hero_subtitle ?? ""} onChange={(value) => update("hero_subtitle", value)} />
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Primary CTA label" value={content.hero_cta_primary ?? ""} onChange={(value) => update("hero_cta_primary", value)} />
+                <Field label="Secondary CTA label" value={content.hero_cta_secondary ?? ""} onChange={(value) => update("hero_cta_secondary", value)} />
+              </div>
+              <ImageUploader
+                kind="hero-bg"
+                label="Hero background image"
+                hint="This is the full landing-page Home background."
+                currentUrl={content.hero_background_url}
+                defaultUrl={DEFAULT_HERO}
+                accessToken={accessToken}
+                onChange={(url) => update("hero_background_url", url)}
+                onError={(msg) => setFeedback({ kind: "err", msg })}
+              />
             </div>
-            <ImageUploader
-              kind="hero-bg"
-              label="Background image"
-              hint="Wide landscape recommended (e.g., 1920×1080). Falls back to bundled default if cleared."
-              currentUrl={content.hero_background_url}
-              defaultUrl={DEFAULT_HERO}
-              accessToken={accessToken}
-              onChange={(url) => update("hero_background_url", url)}
-              onError={(msg) => setFeedback({ kind: "err", msg })}
-            />
-          </div>
-        </Section>
-      ) : null}
 
-      {activeTab === "doctor" ? (
-        <Section title="Doctor / About section">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="space-y-3">
-              <Field label="Eyebrow" value={content.about_eyebrow} onChange={(v) => update("about_eyebrow", v)} />
-              <Field label="Section title" value={content.about_title} onChange={(v) => update("about_title", v)} />
-              <Textarea label="Section subtitle" rows={2} value={content.about_subtitle} onChange={(v) => update("about_subtitle", v)} />
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Doctor name" value={content.doctor_name} onChange={(v) => update("doctor_name", v)} />
-                <Field label="Doctor title" value={content.doctor_title} onChange={(v) => update("doctor_title", v)} />
-              </div>
-
-              <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-3 space-y-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">Three Highlights</p>
-                <FeatureRow
-                  index={1}
-                  title={content.feature_1_title}
-                  body={content.feature_1_body}
-                  onTitle={(v) => update("feature_1_title", v)}
-                  onBody={(v) => update("feature_1_body", v)}
-                />
-                <FeatureRow
-                  index={2}
-                  title={content.feature_2_title}
-                  body={content.feature_2_body}
-                  onTitle={(v) => update("feature_2_title", v)}
-                  onBody={(v) => update("feature_2_body", v)}
-                />
-                <FeatureRow
-                  index={3}
-                  title={content.feature_3_title}
-                  body={content.feature_3_body}
-                  onTitle={(v) => update("feature_3_title", v)}
-                  onBody={(v) => update("feature_3_body", v)}
-                />
-              </div>
-            </div>
-            <ImageUploader
-              kind="doctor-photo"
-              label="Doctor photo"
-              hint="Portrait orientation works best. PNG with transparency renders cleanest on the gradient card."
-              currentUrl={content.doctor_photo_url}
-              defaultUrl={DEFAULT_DOCTOR}
-              accessToken={accessToken}
-              onChange={(url) => update("doctor_photo_url", url)}
-              onError={(msg) => setFeedback({ kind: "err", msg })}
-              aspect="portrait"
-            />
-          </div>
-        </Section>
-      ) : null}
-
-      {activeTab === "cta" ? (
-        <Section title="Closing call-to-action banner">
-          <div className="grid gap-3">
-            <Field label="Title" value={content.cta_title} onChange={(v) => update("cta_title", v)} />
-            <Textarea label="Subtitle" rows={2} value={content.cta_subtitle} onChange={(v) => update("cta_subtitle", v)} />
-            <Field label="Button label" value={content.cta_button_label} onChange={(v) => update("cta_button_label", v)} />
-          </div>
-        </Section>
-      ) : null}
-
-      {activeTab === "navigation" ? (
-        <Section
-          title="Top-bar navigation"
-          action={
-            <button
-              type="button"
-              onClick={addNavItem}
-              className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
-            >
-              <FaPlus className="h-3 w-3" aria-hidden="true" /> Add link
-            </button>
-          }
-        >
-          <p className="mb-3 text-xs text-slate-500">
-            Each entry shows up in the public top bar. Use <code className="rounded bg-slate-100 px-1">#section-id</code> for in-page anchors (e.g., <code className="rounded bg-slate-100 px-1">#services</code>) or a path like <code className="rounded bg-slate-100 px-1">/login</code>.
-          </p>
-          {content.nav_items.length === 0 ? (
-            <EmptyHint label="No nav links yet." />
-          ) : (
-            <div className="space-y-2">
-                {content.nav_items.map((n, idx) => (
-                <div key={idx} className="rounded-xl border border-sky-100 bg-sky-50/40 p-3">
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <Field label="Label" value={n.label} onChange={(v) => updateNavItem(idx, { label: v })} placeholder="Home" />
-                      <Field label="Href" value={n.href} onChange={(v) => updateNavItem(idx, { href: v })} placeholder="#home" />
+            <PreviewCard title="Home Preview">
+              <div className="overflow-hidden rounded-[1.6rem] border border-slate-200 bg-slate-950">
+                <div className="relative min-h-[320px]">
+                  <Image src={content.hero_background_url || DEFAULT_HERO} alt="Hero preview" fill unoptimized className="object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-slate-950/35 to-sky-900/20" />
+                  <div className="relative flex min-h-[320px] flex-col justify-end px-5 py-6 text-white">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-sky-200">{content.hero_eyebrow}</p>
+                    <h3 className="mt-3 text-3xl font-black leading-tight">
+                      {content.hero_title_line1}
+                      <br />
+                      {content.hero_title_line2}
+                    </h3>
+                    <p className="mt-3 text-sm leading-6 text-slate-200">{content.hero_subtitle}</p>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-sky-500 px-4 py-2 text-xs font-bold text-white">{content.hero_cta_primary}</span>
+                      <span className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-bold text-white">{content.hero_cta_secondary}</span>
                     </div>
-                    <RemoveButton onClick={() => removeNavItem(idx)} title="Remove link" />
                   </div>
                 </div>
-              ))}
+              </div>
+            </PreviewCard>
+          </div>
+        </EditorSection>
+      ) : null}
+
+      {activeTab === "about" ? (
+        <EditorSection title="About" note="This is the About section from the landing page navigation.">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="space-y-4">
+              <Field label="Eyebrow" value={content.about_eyebrow ?? ""} onChange={(value) => update("about_eyebrow", value)} />
+              <Field label="Section title" value={content.about_title ?? ""} onChange={(value) => update("about_title", value)} />
+              <Textarea label="Section description" rows={4} value={content.about_subtitle ?? ""} onChange={(value) => update("about_subtitle", value)} />
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Doctor name" value={content.doctor_name ?? ""} onChange={(value) => update("doctor_name", value)} />
+                <Field label="Doctor title" value={content.doctor_title ?? ""} onChange={(value) => update("doctor_title", value)} />
+              </div>
+              <div className="max-w-[320px]">
+                <ImageUploader
+                  kind="doctor-photo"
+                  label="Doctor photo"
+                  hint="This appears in the landing-page About section."
+                  currentUrl={content.doctor_photo_url}
+                  defaultUrl={DEFAULT_DOCTOR}
+                  accessToken={accessToken}
+                  onChange={(url) => update("doctor_photo_url", url)}
+                  onError={(msg) => setFeedback({ kind: "err", msg })}
+                  aspect="portrait"
+                />
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <FeatureRow index={1} title={content.feature_1_title ?? ""} body={content.feature_1_body ?? ""} onTitle={(value) => update("feature_1_title", value)} onBody={(value) => update("feature_1_body", value)} />
+                <FeatureRow index={2} title={content.feature_2_title ?? ""} body={content.feature_2_body ?? ""} onTitle={(value) => update("feature_2_title", value)} onBody={(value) => update("feature_2_body", value)} />
+                <FeatureRow index={3} title={content.feature_3_title ?? ""} body={content.feature_3_body ?? ""} onTitle={(value) => update("feature_3_title", value)} onBody={(value) => update("feature_3_body", value)} />
+              </div>
             </div>
-          )}
-        </Section>
+
+            <PreviewCard title="About Preview">
+              <div className="rounded-[1.6rem] border border-sky-100 bg-white p-4 shadow-sm">
+                <div className="grid gap-4">
+                  <div className="overflow-hidden rounded-[1.3rem] border border-sky-100 bg-sky-50 p-3">
+                    <div className="relative aspect-[4/5] overflow-hidden rounded-[1rem] bg-white">
+                      <Image src={content.doctor_photo_url || DEFAULT_DOCTOR} alt="Doctor preview" fill unoptimized className="object-contain" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-sky-700">{content.about_eyebrow}</p>
+                    <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{content.about_title}</h3>
+                    <p className="mt-2 text-sm font-semibold text-sky-800">{content.doctor_name} {content.doctor_title ? `, ${content.doctor_title}` : ""}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{content.about_subtitle}</p>
+                  </div>
+                </div>
+              </div>
+            </PreviewCard>
+          </div>
+        </EditorSection>
       ) : null}
 
       {activeTab === "services" ? (
-        <Section title="Services & Pricing">
-          <div className="grid gap-3 mb-5">
-            <Field label="Eyebrow" value={content.services_eyebrow} onChange={(v) => update("services_eyebrow", v)} />
-            <Field label="Section title" value={content.services_title} onChange={(v) => update("services_title", v)} />
-            <Textarea label="Section subtitle" rows={2} value={content.services_subtitle} onChange={(v) => update("services_subtitle", v)} />
-          </div>
-
-            <div className="flex items-center justify-between mb-3 border-t border-sky-100 pt-4">
-            <h3 className="text-sm font-bold text-slate-900">Service cards</h3>
+        <EditorSection
+          title="Services"
+          note="This edits only the landing-page services section: eyebrow, title, subtitle, and the service cards. You can also add more service cards here."
+          action={
             <button
               type="button"
               onClick={addService}
-              className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
+              className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-bold text-sky-800 transition hover:bg-sky-100"
             >
-              <FaPlus className="h-3 w-3" aria-hidden="true" /> Add service
+              <FaPlus className="h-3 w-3" aria-hidden="true" />
+              Add service card
             </button>
-          </div>
-          {content.services.length === 0 ? (
-            <EmptyHint label="No service cards yet." />
-          ) : (
+          }
+        >
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_500px]">
             <div className="space-y-3">
-                {content.services.map((s, idx) => (
-                <div key={idx} className="rounded-xl border border-sky-100 bg-sky-50/40 p-3 space-y-3">
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 grid gap-2 sm:grid-cols-[12rem_minmax(0,1fr)]">
-                      <KindSelect value={s.kind} onChange={(v) => updateService(idx, { kind: v })} />
-                      <Field label="Title" value={s.title} onChange={(v) => updateService(idx, { title: v })} />
+              <div className="grid gap-3 md:grid-cols-3">
+                <Field label="Services eyebrow" value={content.services_eyebrow ?? ""} onChange={(value) => update("services_eyebrow", value)} />
+                <Field label="Services title" value={content.services_title ?? ""} onChange={(value) => update("services_title", value)} />
+                <Field label="Services subtitle" value={content.services_subtitle ?? ""} onChange={(value) => update("services_subtitle", value)} />
+              </div>
+
+              {content.services.map((service, index) => (
+                <div key={`${service.title}-${index}`} className="rounded-[1.2rem] border border-sky-100 bg-slate-50/70 p-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="grid flex-1 gap-2.5 md:grid-cols-[118px_minmax(0,1fr)]">
+                      <KindSelect value={service.kind} onChange={(value) => updateService(index, { kind: value })} />
+                      <div className="grid gap-2.5">
+                        <Field label="Card title" value={service.title} onChange={(value) => updateService(index, { title: value })} />
+                        <Textarea label="Card description" rows={2} value={service.description} onChange={(value) => updateService(index, { description: value })} />
+                      </div>
                     </div>
-                    <RemoveButton onClick={() => removeService(idx)} title="Remove service" />
+                    <RemoveButton onClick={() => removeService(index)} title="Remove service card" compact />
                   </div>
-                  <Textarea label="Short description" rows={2} value={s.description} onChange={(v) => updateService(idx, { description: v })} />
-                      <div className="rounded-lg border border-sky-100 bg-white p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Bullet points</p>
-                      <button
-                        type="button"
-                        onClick={() => addBullet(idx)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-50"
-                      >
-                        <FaPlus className="h-2.5 w-2.5" aria-hidden="true" /> Add bullet
-                      </button>
+                </div>
+              ))}
+            </div>
+
+            <PreviewCard title="Services Preview">
+              <div className="rounded-[1.7rem] border border-sky-100 bg-sky-50/40 p-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-sky-700">{content.services_eyebrow || "Services"}</p>
+                <h3 className="mt-3 text-3xl font-black tracking-tight text-slate-950">{content.services_title || "Clinic and online services"}</h3>
+                <p className="mt-4 text-sm leading-7 text-slate-600">{content.services_subtitle || "Review available services before booking."}</p>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {content.services.map((service, index) => (
+                    <div key={`${service.title}-${index}`} className="rounded-[1.5rem] border border-sky-100 bg-white p-5 shadow-sm">
+                      <div className="inline-flex rounded-full bg-sky-100 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-sky-700">
+                        {service.kind || "Service"}
+                      </div>
+                      <h4 className="mt-4 text-xl font-black tracking-tight text-slate-950">{service.title || "Service title"}</h4>
+                      <p className="mt-3 text-sm leading-7 text-slate-600">{service.description || "Service description appears here."}</p>
                     </div>
-                    {s.bullets.length === 0 ? (
-                      <p className="text-xs text-slate-500">No bullets yet.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {s.bullets.map((b, bi) => (
-                          <div key={bi} className="flex items-start gap-2 rounded-lg border border-sky-100 bg-sky-50/40 p-2">
-                            <div className="flex-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                              <Field label="Title" value={b.title} onChange={(v) => updateBullet(idx, bi, { title: v })} />
-                              <Field label="Body" value={b.body} onChange={(v) => updateBullet(idx, bi, { body: v })} />
+                  ))}
+                </div>
+              </div>
+            </PreviewCard>
+          </div>
+        </EditorSection>
+      ) : null}
+
+      {activeTab === "blog" ? (
+        <EditorSection
+          title="Blog"
+          note="Only the landing blog texts and labels are editable here. The actual blog posts stay in the Blog Builder inside Content Creator."
+          action={
+            <Link
+              href="/creator-content"
+              className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-700"
+            >
+              Open Blog Builder
+              <FaArrowUpRightFromSquare className="h-3 w-3" aria-hidden="true" />
+            </Link>
+          }
+        >
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="space-y-4">
+              <Field label="Eyebrow" value={content.blog_eyebrow ?? "Blogs"} onChange={(value) => update("blog_eyebrow", value)} />
+              <Field label="Title" value={content.blog_title ?? "Fresh health tips from the clinic"} onChange={(value) => update("blog_title", value)} />
+              <Textarea label="Subtitle" rows={4} value={content.blog_subtitle ?? ""} onChange={(value) => update("blog_subtitle", value)} />
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Categories heading" value={content.blog_categories_title ?? "Categories"} onChange={(value) => update("blog_categories_title", value)} />
+                <Field label="Recent posts heading" value={content.blog_recent_posts_title ?? "Recent Posts"} onChange={(value) => update("blog_recent_posts_title", value)} />
+              </div>
+              <StringListEditor
+                label="Categories"
+                items={blogCategories}
+                onAdd={addBlogCategory}
+                onRemove={removeBlogCategory}
+                onChange={updateBlogCategory}
+              />
+            </div>
+
+            <PreviewCard title="Blog Preview">
+              <div className="rounded-[1.6rem] border border-sky-100 bg-white p-5 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-sky-700">{content.blog_eyebrow ?? "Blogs"}</p>
+                <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{content.blog_title ?? "Fresh health tips from the clinic"}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">{content.blog_subtitle}</p>
+                <div className="mt-5 grid gap-4">
+                  <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+                    <div className="grid gap-4 lg:grid-cols-[140px_minmax(0,1fr)] lg:items-center">
+                      <div className="h-24 rounded-[1rem] bg-sky-100" />
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-700">Health Tips</p>
+                        <h4 className="mt-2 text-xl font-black tracking-tight text-slate-950">Preview blog title from Content Creator</h4>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-[1.3rem] border border-sky-100 bg-sky-50 p-4">
+                      <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-700">{content.blog_categories_title ?? "Categories"}</p>
+                      <ul className="mt-4 space-y-2">
+                        {blogCategories.map((category) => (
+                          <li key={category} className="border-b border-sky-100 pb-2 text-sm font-semibold text-slate-700 last:border-b-0 last:pb-0">
+                            {category}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="rounded-[1.3rem] border border-slate-200 bg-white p-4 shadow-sm">
+                      <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-700">{content.blog_recent_posts_title ?? "Recent Posts"}</p>
+                      <div className="mt-4 space-y-3">
+                        {[1, 2].map((item) => (
+                          <div key={item} className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded-xl bg-slate-100" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-slate-900">Recent blog preview</p>
+                              <p className="text-xs text-slate-500">May 28, 2026</p>
                             </div>
-                            <RemoveButton onClick={() => removeBullet(idx, bi)} title="Remove bullet" />
                           </div>
                         ))}
                       </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <p className="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
-            <strong>Note:</strong> hourly rates shown on each card come from the <a href="/pricing" className="underline">Pricing</a> module — they update automatically when you change consultation fees there.
-          </p>
-        </Section>
-      ) : null}
-
-      {activeTab === "howTo" ? (
-        <Section
-          title="How to Book section"
-          action={
-            <button
-              type="button"
-              onClick={addStep}
-              className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
-            >
-              <FaPlus className="h-3 w-3" aria-hidden="true" /> Add step
-            </button>
-          }
-        >
-          <div className="grid gap-3 mb-4">
-            <Field label="Eyebrow" value={content.how_to_eyebrow} onChange={(v) => update("how_to_eyebrow", v)} />
-            <Field label="Section title" value={content.how_to_title} onChange={(v) => update("how_to_title", v)} />
-          </div>
-          {content.how_to_steps.length === 0 ? (
-            <EmptyHint label="No steps yet." />
-          ) : (
-            <div className="space-y-2">
-              {content.how_to_steps.map((s, idx) => (
-                <div key={idx} className="rounded-xl border border-sky-100 bg-sky-50/40 p-3">
-                  <div className="flex items-start gap-2">
-                    <span className="mt-7 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-600 text-sm font-black text-white">
-                      {idx + 1}
-                    </span>
-                    <div className="flex-1 space-y-2">
-                      <Field label="Step title" value={s.title} onChange={(v) => updateStep(idx, { title: v })} />
-                      <Textarea label="Description" rows={2} value={s.description} onChange={(v) => updateStep(idx, { description: v })} />
                     </div>
-                    <RemoveButton onClick={() => removeStep(idx)} title="Remove step" />
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </Section>
+              </div>
+            </PreviewCard>
+          </div>
+        </EditorSection>
       ) : null}
 
-      {activeTab === "testimonials" ? (
-        <Section
-          title="Testimonials"
+      {activeTab === "videos" ? (
+        <EditorSection
+          title="Videos"
+          note="Only the landing texts for vlogs and live schedule are editable here. The actual videos and live events stay in Content Creator."
           action={
-            <button
-              type="button"
-              onClick={addTestimonial}
-              className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
+            <Link
+              href="/creator-content"
+              className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-700"
             >
-              <FaPlus className="h-3 w-3" aria-hidden="true" /> Add testimonial
-            </button>
+              Open Content Creator
+              <FaArrowUpRightFromSquare className="h-3 w-3" aria-hidden="true" />
+            </Link>
           }
         >
-          <div className="grid gap-3 mb-5">
-            <Field label="Eyebrow" value={content.testimonials_eyebrow} onChange={(v) => update("testimonials_eyebrow", v)} />
-            <Field label="Section title" value={content.testimonials_title} onChange={(v) => update("testimonials_title", v)} />
-            <Textarea label="Section subtitle" rows={2} value={content.testimonials_subtitle} onChange={(v) => update("testimonials_subtitle", v)} />
-          </div>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="space-y-4">
+              <Field label="Videos eyebrow" value={content.videos_eyebrow ?? "Videos"} onChange={(value) => update("videos_eyebrow", value)} />
+              <Field label="Videos title" value={content.videos_title ?? ""} onChange={(value) => update("videos_title", value)} />
+              <Textarea label="Videos subtitle" rows={4} value={content.videos_subtitle ?? ""} onChange={(value) => update("videos_subtitle", value)} />
+              <div className="rounded-[1.35rem] border border-sky-100 bg-sky-50/60 p-4">
+                <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+                  <FaCalendarDays className="h-4 w-4" aria-hidden="true" />
+                </div>
+                <p className="mt-4 text-sm font-black tracking-tight text-slate-950">Live schedule copy</p>
+                <div className="mt-4 space-y-4">
+                  <Field label="Live eyebrow" value={content.live_eyebrow ?? "Live Schedule"} onChange={(value) => update("live_eyebrow", value)} />
+                  <Field label="Live title" value={content.live_title ?? ""} onChange={(value) => update("live_title", value)} />
+                  <Textarea label="Live subtitle" rows={4} value={content.live_subtitle ?? ""} onChange={(value) => update("live_subtitle", value)} />
+                  <Field label="Live CTA label" value={content.live_cta_label ?? "Open live schedule page"} onChange={(value) => update("live_cta_label", value)} />
+                </div>
+              </div>
+            </div>
 
-          <div className="border-t border-sky-100 pt-4">
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Patient quotes</p>
-            {content.testimonials.length === 0 ? (
-              <EmptyHint label="No testimonials yet." />
-            ) : (
-              <div className="space-y-3">
-                {content.testimonials.map((t, idx) => (
-                  <div key={idx} className="rounded-xl border border-sky-100 bg-sky-50/40 p-3">
-                    <div className="flex items-start gap-2">
-                      <FaQuoteLeft className="mt-1 h-4 w-4 shrink-0 text-sky-500" aria-hidden="true" />
-                      <div className="flex-1 space-y-2.5">
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <Field
-                            label="Name"
-                            value={t.name}
-                            onChange={(v) => updateTestimonial(idx, { name: v })}
-                            placeholder="e.g., Maria S."
-                          />
-                          <Field
-                            label="Role / context"
-                            value={t.title}
-                            onChange={(v) => updateTestimonial(idx, { title: v })}
-                            placeholder="e.g., Clinic Patient"
-                          />
-                        </div>
-                        <Textarea
-                          label="Quote"
-                          rows={2}
-                          value={t.quote}
-                          onChange={(v) => updateTestimonial(idx, { quote: v })}
-                          placeholder="Their kind words…"
-                        />
+            <PreviewCard title="Videos Preview">
+              <div className="space-y-4">
+                <div className="rounded-[1.6rem] border border-sky-100 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-sky-700">{content.videos_eyebrow ?? "Videos"}</p>
+                  <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{content.videos_title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{content.videos_subtitle}</p>
+                  <div className="mt-5 rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
+                    <div className="h-32 rounded-t-[1.5rem] bg-sky-100" />
+                    <div className="p-4">
+                      <div className="flex flex-wrap gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                        <span>Video</span>
+                        <span>Health Tips</span>
                       </div>
-                      <RemoveButton onClick={() => removeTestimonial(idx)} title="Remove testimonial" />
+                      <h4 className="mt-3 text-xl font-black tracking-tight text-slate-950">Preview vlog title from Content Creator</h4>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[1.6rem] border border-sky-100 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-sky-700">{content.live_eyebrow ?? "Live Schedule"}</p>
+                  <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{content.live_title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{content.live_subtitle}</p>
+                  <div className="mt-5 inline-flex rounded-full border border-sky-200 px-4 py-2 text-sm font-bold text-sky-800">
+                    {content.live_cta_label ?? "Open live schedule page"}
+                  </div>
+                </div>
+              </div>
+            </PreviewCard>
+          </div>
+        </EditorSection>
+      ) : null}
+
+      {activeTab === "faq" ? (
+        <EditorSection title="FAQ" note="These FAQs appear on the landing page and the public FAQ page.">
+          <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
+            <div className="rounded-[1.6rem] border border-sky-100 bg-sky-50/60 p-5">
+              <p className="text-sm font-black tracking-tight text-slate-950">Add a new FAQ</p>
+              <div className="mt-4 space-y-4">
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Category</span>
+                  <select
+                    value={faqForm.category}
+                    onChange={(event) => setFaqForm((current) => ({ ...current, category: event.target.value }))}
+                    className="mt-1.5 w-full rounded-xl border border-sky-100 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  >
+                    {faqCategories.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </label>
+                <Field label="Question" value={faqForm.question} onChange={(value) => setFaqForm((current) => ({ ...current, question: value }))} />
+                <Textarea label="Answer" rows={4} value={faqForm.answer} onChange={(value) => setFaqForm((current) => ({ ...current, answer: value }))} />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field label="Sort order" value={faqForm.sort_order} onChange={(value) => setFaqForm((current) => ({ ...current, sort_order: value }))} />
+                  <label className="block">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Visibility</span>
+                    <select
+                      value={faqForm.is_published ? "published" : "hidden"}
+                      onChange={(event) => setFaqForm((current) => ({ ...current, is_published: event.target.value === "published" }))}
+                      className="mt-1.5 w-full rounded-xl border border-sky-100 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                    >
+                      <option value="published">Published</option>
+                      <option value="hidden">Hidden</option>
+                    </select>
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleAddFaq()}
+                  className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-sky-700"
+                >
+                  <FaPlus className="h-3 w-3" aria-hidden="true" />
+                  Save FAQ
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-[1.6rem] border border-sky-100 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap gap-2">
+                {faqGroups.map((group) => (
+                  <span key={group.category} className="rounded-full border border-sky-100 bg-sky-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-sky-800">
+                    {group.category}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-5 grid gap-4 xl:grid-cols-2">
+                {faqGroups.map((group) => (
+                  <div key={group.category} className="rounded-[1.4rem] border border-sky-100 bg-slate-50/70 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-700">FAQ Category</p>
+                        <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950">{group.category}</h3>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-slate-600">
+                        {group.items.length}
+                      </span>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {group.items.map((faq) => (
+                        <details key={faq.id} className="rounded-[1.15rem] border border-slate-200 bg-white p-4">
+                          <summary className="cursor-pointer list-none">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-bold text-slate-950">{faq.question}</p>
+                                <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                                  {faq.is_published ? "Published" : "Hidden"}
+                                </p>
+                              </div>
+                            </div>
+                          </summary>
+                          <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
+                            <Field
+                              label="Question"
+                              value={faq.question}
+                              onChange={(value) => setFaqs((current) => current.map((item) => (item.id === faq.id ? { ...item, question: value } : item)))}
+                            />
+                            <Textarea
+                              label="Answer"
+                              rows={4}
+                              value={faq.answer}
+                              onChange={(value) => setFaqs((current) => current.map((item) => (item.id === faq.id ? { ...item, answer: value } : item)))}
+                            />
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const currentFaq = faqs.find((item) => item.id === faq.id);
+                                  if (!currentFaq) return;
+                                  void handleUpdateFaq(faq.id, { question: currentFaq.question, answer: currentFaq.answer }, "FAQ updated.");
+                                }}
+                                className="rounded-full border border-sky-200 bg-sky-50 px-3.5 py-1.5 text-xs font-bold text-sky-700 transition hover:bg-sky-100"
+                              >
+                                Save changes
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void handleUpdateFaq(faq.id, { is_published: !faq.is_published }, faq.is_published ? "FAQ hidden." : "FAQ published.");
+                                }}
+                                className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                              >
+                                {faq.is_published ? "Hide" : "Publish"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void handleDeleteFaq(faq.id);
+                                }}
+                                className="rounded-full border border-red-200 bg-white px-3.5 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-50"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </details>
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
-            )}
+            </div>
           </div>
-        </Section>
+        </EditorSection>
       ) : null}
 
-      {activeTab === "booking" ? (
-        <Section title="Booking section header">
-          <p className="mb-3 text-xs text-slate-500">
-            These are the title and subtitle that appear above the embedded booking widget on the public landing page.
-          </p>
-          <div className="grid gap-3">
-            <Field label="Title" value={content.booking_title} onChange={(v) => update("booking_title", v)} />
-            <Textarea label="Subtitle" rows={2} value={content.booking_subtitle} onChange={(v) => update("booking_subtitle", v)} />
-          </div>
-        </Section>
-      ) : null}
-
-      {activeTab === "contact" ? (
-        <Section title="Contact section">
-          <div className="grid gap-3">
-            <Field label="Eyebrow" value={content.contact_eyebrow} onChange={(v) => update("contact_eyebrow", v)} />
-            <Field label="Title" value={content.contact_title} onChange={(v) => update("contact_title", v)} />
-            <Textarea label="Subtitle" rows={2} value={content.contact_subtitle} onChange={(v) => update("contact_subtitle", v)} />
-            <Field label="Contact info card title" value={content.contact_info_title} onChange={(v) => update("contact_info_title", v)} />
-            <Field label="Office hours line" value={content.contact_hours_label} onChange={(v) => update("contact_hours_label", v)} />
-          </div>
-          <p className="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
-            <strong>Note:</strong> phone and email come from <a href="/settings" className="underline">Settings → Clinic info</a> so they stay consistent across the site.
-          </p>
-        </Section>
-      ) : null}
-
-      {activeTab === "footer" ? (
-        <Section title="Footer">
-          <div className="space-y-5">
-            <Textarea label="Brand blurb" rows={2} value={content.footer_brand_blurb} onChange={(v) => update("footer_brand_blurb", v)} />
-
-            <FooterStringList
-              label="Services list"
-              items={content.footer_services}
-              onAdd={() => addFooterItem("footer_services")}
-              onRemove={(i) => removeFooterItem("footer_services", i)}
-              onChange={(i, v) => updateFooterItem("footer_services", i, v)}
-              placeholder="e.g., Clinic Visits"
-            />
-            <FooterStringList
-              label="Office hours list"
-              items={content.footer_hours}
-              onAdd={() => addFooterItem("footer_hours")}
-              onRemove={(i) => removeFooterItem("footer_hours", i)}
-              onChange={(i, v) => updateFooterItem("footer_hours", i, v)}
-              placeholder="e.g., Sat: By Appointment"
-            />
-
-            <Textarea label="Contact paragraph" rows={2} value={content.footer_contact_text} onChange={(v) => update("footer_contact_text", v)} />
-            <Field label="Copyright line" value={content.footer_copyright} onChange={(v) => update("footer_copyright", v)} />
-          </div>
-        </Section>
-      ) : null}
-
-      {/* Sticky save bar */}
       <div className="sticky bottom-4 z-30 mt-2 flex flex-col items-stretch gap-3 rounded-2xl border border-sky-100 bg-white/95 p-3 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <p className={`text-xs font-semibold ${dirty ? "text-amber-700" : "text-slate-500"}`}>
-          {dirty ? "Unsaved changes" : "All changes saved"}
+          {dirty ? "Unsaved landing-page changes" : "Landing-page content is up to date"}
         </p>
         <div className="flex flex-wrap gap-2 sm:justify-end">
           <button
@@ -765,7 +845,7 @@ export default function ContentsManagerPage() {
             disabled={!dirty || saving}
             className="rounded-full bg-sky-600 px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {saving ? "Saving…" : "Save changes"}
+            {saving ? "Saving..." : "Save website content"}
           </button>
         </div>
       </div>
@@ -773,23 +853,71 @@ export default function ContentsManagerPage() {
   );
 }
 
-function Section({
+async function fetchFaqs(accessToken: string) {
+  const res = await fetch("/api/v2/faqs", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`FAQ HTTP ${res.status}`);
+  const payload = (await res.json()) as { faqs?: Faq[] };
+  return payload.faqs ?? [];
+}
+
+function groupFaqsByCategory(faqs: Faq[]) {
+  const grouped = new Map<string, Faq[]>();
+  for (const faq of [...faqs].sort((a, b) => a.sort_order - b.sort_order)) {
+    const items = grouped.get(faq.category) ?? [];
+    items.push(faq);
+    grouped.set(faq.category, items);
+  }
+  return Array.from(grouped.entries()).map(([category, items]) => ({ category, items }));
+}
+
+function normalizeLandingContent(content: LandingContent): LandingContent {
+  if (content.services.length) return content;
+
+  return {
+    ...content,
+    services: clinicServices.map((service, index) => ({
+      kind: index === 1 ? "online" : index === clinicServices.length - 1 ? "wellness" : "clinic",
+      title: service.title,
+      description: service.description,
+      bullets: [],
+    })),
+  };
+}
+
+function EditorSection({
   title,
+  note,
   action,
   children,
 }: {
   title: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
+  note: string;
+  action?: ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-bold text-slate-900">{title}</h2>
+    <section className="rounded-[2rem] border border-sky-100 bg-white p-5 shadow-[0_16px_45px_-38px_rgba(15,23,42,0.35)] sm:p-6">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4 border-b border-sky-100 pb-4">
+        <div>
+          <h2 className="text-xl font-black tracking-tight text-slate-950">{title}</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">{note}</p>
+        </div>
         {action}
       </div>
       {children}
     </section>
+  );
+}
+
+function PreviewCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <aside className="rounded-[1.7rem] border border-sky-100 bg-[linear-gradient(180deg,#f8fcff_0%,#edf7ff_100%)] p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-sky-700">{title}</p>
+      <div className="mt-3">{children}</div>
+    </aside>
   );
 }
 
@@ -801,18 +929,18 @@ function Field({
 }: {
   label: string;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (value: string) => void;
   placeholder?: string;
 }) {
   return (
     <label className="block">
       <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">{label}</span>
-        <input
+      <input
         type="text"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="mt-1.5 w-full rounded-lg border border-sky-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+        className="mt-1 w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
       />
     </label>
   );
@@ -823,23 +951,20 @@ function Textarea({
   value,
   onChange,
   rows = 3,
-  placeholder,
 }: {
   label: string;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (value: string) => void;
   rows?: number;
-  placeholder?: string;
 }) {
   return (
     <label className="block">
       <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">{label}</span>
       <textarea
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         rows={rows}
-        placeholder={placeholder}
-        className="mt-1.5 w-full rounded-lg border border-sky-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+        className="mt-1 w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
       />
     </label>
   );
@@ -855,15 +980,15 @@ function FeatureRow({
   index: number;
   title: string;
   body: string;
-  onTitle: (v: string) => void;
-  onBody: (v: string) => void;
+  onTitle: (value: string) => void;
+  onBody: (value: string) => void;
 }) {
   return (
-    <div className="rounded-lg bg-white p-3 shadow-sm">
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Highlight #{index}</p>
-      <div className="space-y-2">
+    <div className="rounded-[1.2rem] border border-sky-100 bg-sky-50/70 p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-700">Highlight {index}</p>
+      <div className="mt-3 space-y-3">
         <Field label="Title" value={title} onChange={onTitle} />
-        <Textarea label="Body" rows={2} value={body} onChange={onBody} />
+        <Textarea label="Body" rows={3} value={body} onChange={onBody} />
       </div>
     </div>
   );
@@ -892,8 +1017,6 @@ function ImageUploader({
 }) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const previewUrl = currentUrl ?? defaultUrl;
-  const usingDefault = !currentUrl;
 
   async function handleFile(file: File) {
     if (!accessToken) {
@@ -913,8 +1036,8 @@ function ImageUploader({
       const payload = (await res.json().catch(() => ({}))) as { url?: string; message?: string };
       if (!res.ok || !payload.url) throw new Error(payload.message ?? "Upload failed");
       onChange(payload.url);
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Upload failed");
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "Upload failed");
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -922,46 +1045,30 @@ function ImageUploader({
   }
 
   return (
-    <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
-            {kind === "doctor-photo" ? <FaUserDoctor className="h-3 w-3" aria-hidden="true" /> : <FaImage className="h-3 w-3" aria-hidden="true" />}
-            {label}
-          </p>
-          <p className="mt-1 text-xs text-slate-600">{hint}</p>
-        </div>
-        {usingDefault ? (
-          <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">
-            Default
-          </span>
-        ) : null}
+    <div className="rounded-[1.4rem] border border-sky-100 bg-sky-50/60 p-4">
+      <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+        {kind === "doctor-photo" ? <FaUserDoctor className="h-3 w-3" aria-hidden="true" /> : <FaNewspaper className="h-3 w-3" aria-hidden="true" />}
+        {label}
+      </p>
+      <p className="mt-1 text-xs leading-5 text-slate-600">{hint}</p>
+      <div className={`relative mt-4 overflow-hidden rounded-[1.25rem] border border-sky-100 bg-white ${aspect === "portrait" ? "aspect-[3/4]" : "aspect-[16/9]"}`}>
+        <Image src={currentUrl || defaultUrl} alt={label} fill unoptimized className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
       </div>
-
-      <div
-        className={`mt-3 overflow-hidden rounded-lg border border-sky-100 bg-white ${
-          aspect === "portrait" ? "aspect-[3/4]" : "aspect-[16/9]"
-        } relative`}
-      >
-        <Image src={previewUrl} alt={label} fill className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="inline-flex items-center gap-1.5 rounded-full bg-sky-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-full bg-sky-600 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <FaCloudArrowUp className="h-3 w-3" aria-hidden="true" />
-          {uploading ? "Uploading…" : currentUrl ? "Replace image" : "Upload image"}
+          {uploading ? "Uploading..." : currentUrl ? "Replace image" : "Upload image"}
         </button>
         {currentUrl ? (
           <button
             type="button"
             onClick={() => onChange(null)}
-            disabled={uploading}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             Use default
           </button>
@@ -971,9 +1078,9 @@ function ImageUploader({
           type="file"
           accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
           className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void handleFile(f);
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void handleFile(file);
           }}
         />
       </div>
@@ -981,97 +1088,90 @@ function ImageUploader({
   );
 }
 
-// Compact empty-state hint reused by every "list" tab when the array is
-// empty. Keeps the visual language consistent.
-function EmptyHint({ label }: { label: string }) {
-  return (
-    <div className="rounded-xl border border-dashed border-slate-200 px-6 py-8 text-center text-sm text-slate-500">
-      {label}
-    </div>
-  );
-}
-
-// Trash-icon button — used to remove an item from any list editor.
-function RemoveButton({ onClick, title }: { onClick: () => void; title: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-full border border-red-200 bg-white p-2 text-red-600 transition hover:border-red-300 hover:bg-red-50"
-      title={title}
-    >
-      <FaTrash className="h-3 w-3" aria-hidden="true" />
-    </button>
-  );
-}
-
-// `kind` drives icon + color on the public site. We expose the two known
-// values plus a free-text "Other" so future services don't need a code
-// change. Defaults to clinic.
-function KindSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function KindSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <label className="block">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Kind</span>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Type</span>
       <select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 w-full rounded-lg border border-sky-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1.5 w-full rounded-xl border border-sky-100 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
       >
-        <option value="clinic">Clinic visit (emerald)</option>
-        <option value="online">Online consultation (sky)</option>
-        <option value="other">Other (neutral)</option>
+        <option value="clinic">Clinic</option>
+        <option value="online">Online</option>
+        <option value="wellness">Wellness</option>
+        <option value="doctor">Doctor</option>
+        <option value="other">Other</option>
       </select>
     </label>
   );
 }
 
-// Simple add/edit/remove editor for a flat list of strings. Used by the
-// footer's Services and Hours columns.
-function FooterStringList({
+function StringListEditor({
   label,
   items,
   onAdd,
   onRemove,
   onChange,
-  placeholder,
 }: {
   label: string;
   items: string[];
   onAdd: () => void;
-  onRemove: (idx: number) => void;
-  onChange: (idx: number, value: string) => void;
-  placeholder?: string;
+  onRemove: (index: number) => void;
+  onChange: (index: number, value: string) => void;
 }) {
   return (
-    <div className="rounded-xl border border-sky-100 bg-sky-50/30 p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">{label}</p>
+    <div className="rounded-[1.35rem] border border-sky-100 bg-sky-50/60 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+          <FaFolderOpen className="h-3 w-3 text-sky-700" aria-hidden="true" />
+          {label}
+        </p>
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-50"
+          className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-bold text-sky-700 transition hover:bg-sky-50"
         >
-          <FaPlus className="h-2.5 w-2.5" aria-hidden="true" /> Add
+          <FaPlus className="h-2.5 w-2.5" aria-hidden="true" />
+          Add
         </button>
       </div>
-      {items.length === 0 ? (
-        <p className="text-xs text-slate-500">No items yet.</p>
-      ) : (
-        <div className="space-y-2">
-          {items.map((v, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={v}
-                onChange={(e) => onChange(i, e.target.value)}
-                placeholder={placeholder}
-                className="flex-1 rounded-lg border border-sky-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-              />
-              <RemoveButton onClick={() => onRemove(i)} title="Remove" />
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="space-y-2">
+        {items.map((value, index) => (
+          <div key={`${value}-${index}`} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={value}
+              onChange={(event) => onChange(index, event.target.value)}
+              className="flex-1 rounded-xl border border-sky-100 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+            />
+            <RemoveButton onClick={() => onRemove(index)} title="Remove category" />
+          </div>
+        ))}
+      </div>
     </div>
+  );
+}
+
+function RemoveButton({
+  onClick,
+  title,
+  compact = false,
+}: {
+  onClick: () => void;
+  title: string;
+  compact?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border border-red-200 bg-white text-red-600 transition hover:border-red-300 hover:bg-red-50 ${
+        compact ? "p-1.5" : "p-2"
+      }`}
+      title={title}
+    >
+      <FaTrash className={compact ? "h-2.5 w-2.5" : "h-3 w-3"} aria-hidden="true" />
+    </button>
   );
 }

@@ -1,5 +1,10 @@
 import { HttpError, httpError, ok, requireActor } from "@/src/lib/http";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
+import {
+  deriveExcerptFromBlocks,
+  parseBlocks,
+  serializeBlocks,
+} from "@/src/lib/content-post-blocks";
 
 function canManage(role: string) {
   return role === "super_admin" || role === "admin" || role === "doctor";
@@ -28,6 +33,12 @@ export async function POST(req: Request) {
     if (!body.title || !body.slug || !body.content_type || !body.category) {
       throw new HttpError(400, "title, slug, content_type, category required");
     }
+    let bodyText = body.body ?? null;
+    if (Array.isArray(body.blocks)) {
+      bodyText = serializeBlocks(body.blocks) ?? body.body ?? null;
+      const parsedBlocks = parseBlocks(bodyText);
+      if (!body.excerpt && parsedBlocks?.length) body.excerpt = deriveExcerptFromBlocks(parsedBlocks);
+    }
     const { data, error } = await getSupabaseAdmin()
       .from("content_posts")
       .insert({
@@ -37,7 +48,7 @@ export async function POST(req: Request) {
         content_type: body.content_type,
         category: body.category,
         excerpt: body.excerpt ?? null,
-        body: body.body ?? null,
+        body: bodyText ?? null,
         embed_url: body.embed_url ?? null,
         thumbnail_url: body.thumbnail_url ?? null,
         is_featured: body.is_featured ?? false,

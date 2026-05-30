@@ -269,6 +269,13 @@ export default function ReportsPage() {
 
           <div className="flex flex-col gap-3 xl:items-end">
             <div className="flex flex-wrap gap-2">
+              <PresetButton
+                label="Today"
+                onClick={() => {
+                  setFrom(todayIso);
+                  setTo(todayIso);
+                }}
+              />
               <PresetButton label="Last 7 days" onClick={() => applyPreset(setFrom, setTo, 6)} />
               <PresetButton label="Last 30 days" onClick={() => applyPreset(setFrom, setTo, 29)} />
               <PresetButton
@@ -342,6 +349,27 @@ export default function ReportsPage() {
           hint={peakHour ? `${peakHour.count} bookings in the busiest slot` : "No activity in this range"}
           accent="amber"
         />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Panel
+          title="Daily Sales Report"
+          subtitle="Use the Today preset for the cashier's day-end collection snapshot."
+          className="animate-fade-in-up stagger-2"
+        >
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+            Sales totals, payment methods, and visit-linked revenue refresh from the same paid POS and online transaction records used by receipts and billing history.
+          </div>
+        </Panel>
+        <Panel
+          title="Monthly Sales Report"
+          subtitle="Use the This month preset for the running monthly clinic and online sales summary."
+          className="animate-fade-in-up stagger-3"
+        >
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+            Export the selected range to Excel when you need a formal monthly sales report for management or bookkeeping.
+          </div>
+        </Panel>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">

@@ -21,6 +21,7 @@ export type LandingContentInput = Partial<
     | "testimonials"
     | "nav_items"
     | "services"
+    | "blog_categories"
     | "how_to_steps"
     | "footer_services"
     | "footer_hours"
@@ -29,6 +30,7 @@ export type LandingContentInput = Partial<
   testimonials?: LandingTestimonial[];
   nav_items?: LandingNavItem[];
   services?: LandingService[];
+  blog_categories?: string[];
   how_to_steps?: LandingHowToStep[];
   footer_services?: string[];
   footer_hours?: string[];
@@ -110,6 +112,18 @@ export async function updateLandingContent(
     "services_eyebrow",
     "services_title",
     "services_subtitle",
+    "blog_eyebrow",
+    "blog_title",
+    "blog_subtitle",
+    "blog_categories_title",
+    "blog_recent_posts_title",
+    "videos_eyebrow",
+    "videos_title",
+    "videos_subtitle",
+    "live_eyebrow",
+    "live_title",
+    "live_subtitle",
+    "live_cta_label",
     "how_to_eyebrow",
     "how_to_title",
     "testimonials_eyebrow",
@@ -176,6 +190,11 @@ export async function updateLandingContent(
             .filter((b) => b.title || b.body)
         : [],
     }));
+  }
+
+  if (input.blog_categories !== undefined) {
+    if (!Array.isArray(input.blog_categories)) throw new HttpError(400, "blog_categories must be an array");
+    patch.blog_categories = input.blog_categories.map((value) => String(value ?? "").trim()).filter(Boolean);
   }
 
   if (input.how_to_steps !== undefined) {

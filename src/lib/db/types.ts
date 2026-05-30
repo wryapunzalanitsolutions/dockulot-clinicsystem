@@ -141,6 +141,7 @@ export type BillingItem = {
   id: string;
   billing_id: string;
   pricing_id: string | null;
+  product_id: string | null;
   description: string;
   quantity: number;
   unit_price: number;
@@ -155,6 +156,7 @@ export type ConsultationNote = {
   diagnosis: string | null;
   prescription: string | null;
   notes: string | null;
+  visible_to_patient: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -221,6 +223,19 @@ export type LandingContent = {
   services_title: string;
   services_subtitle: string;
   services: LandingService[];
+  blog_eyebrow: string;
+  blog_title: string;
+  blog_subtitle: string;
+  blog_categories_title: string;
+  blog_recent_posts_title: string;
+  blog_categories: string[];
+  videos_eyebrow: string;
+  videos_title: string;
+  videos_subtitle: string;
+  live_eyebrow: string;
+  live_title: string;
+  live_subtitle: string;
+  live_cta_label: string;
   how_to_eyebrow: string;
   how_to_title: string;
   how_to_steps: LandingHowToStep[];

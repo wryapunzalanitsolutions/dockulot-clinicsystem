@@ -48,8 +48,10 @@ export type PatientVisitRecord = {
   } | null;
   consultation: {
     updatedAt: string;
+    diagnosis: string;
     note: string;
     prescription: string;
+    visibleToPatient: boolean;
   } | null;
 };
 
@@ -60,9 +62,11 @@ export type ConsultationNote = {
   appointmentId: string;
   doctorId: string;
   patientName: string;
+  diagnosis: string;
   note: string;
   prescription: string;
   status: ConsultationProgress;
+  visibleToPatient: boolean;
   updatedAt: string;
 };
 

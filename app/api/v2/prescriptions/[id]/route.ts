@@ -21,6 +21,62 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/v2/prescriptio
     }
     if ("released_to_patient" in body) patch.released_to_patient = Boolean(body.released_to_patient);
     const supabase = getSupabaseAdmin();
+    const { data: current, error: currentError } = await supabase
+      .from("prescriptions")
+      .select("id, patient_id, doctor_id, appointment_id, diagnosis_id")
+      .eq("id", id)
+      .single<{
+        id: string;
+        patient_id: string;
+        doctor_id: string;
+        appointment_id: string | null;
+        diagnosis_id: string | null;
+      }>();
+    if (currentError) throw currentError;
+
+    let diagnosisId = current.diagnosis_id;
+    const diagnosisText = typeof body.diagnosis_text === "string" ? body.diagnosis_text.trim() : undefined;
+    const treatmentPlan = typeof body.treatment_plan === "string" ? body.treatment_plan.trim() : undefined;
+    const nextFollowUpDate =
+      "follow_up_date" in body ? (body.follow_up_date || null) : undefined;
+    const nextVisibleToPatient =
+      "released_to_patient" in body ? Boolean(body.released_to_patient) : undefined;
+
+    const shouldTouchDiagnosis =
+      diagnosisText !== undefined
+      || treatmentPlan !== undefined
+      || nextFollowUpDate !== undefined
+      || (nextVisibleToPatient !== undefined && Boolean(current.diagnosis_id));
+
+    if (shouldTouchDiagnosis) {
+      const diagnosisPatch = {
+        appointment_id: current.appointment_id,
+        patient_id: current.patient_id,
+        doctor_id: current.doctor_id,
+        diagnosis_text: diagnosisText || "Diagnosis recorded in prescription module",
+        treatment_plan: treatmentPlan ?? null,
+        follow_up_date: nextFollowUpDate ?? null,
+        visible_to_patient: nextVisibleToPatient ?? true,
+      };
+
+      if (current.diagnosis_id) {
+        const { error: diagnosisError } = await supabase
+          .from("diagnoses")
+          .update(diagnosisPatch)
+          .eq("id", current.diagnosis_id);
+        if (diagnosisError) throw diagnosisError;
+      } else {
+        const { data: diagnosis, error: diagnosisError } = await supabase
+          .from("diagnoses")
+          .insert(diagnosisPatch)
+          .select("id")
+          .single<{ id: string }>();
+        if (diagnosisError) throw diagnosisError;
+        diagnosisId = diagnosis.id;
+        patch.diagnosis_id = diagnosis.id;
+      }
+    }
+
     const { data, error } = await supabase.from("prescriptions").update(patch).eq("id", id).select().single();
     if (error) throw error;
     if (Array.isArray(body.items)) {

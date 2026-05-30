@@ -13,6 +13,49 @@ type FinalizeState =
   | { kind: "success"; appointmentId: string | null }
   | { kind: "error"; message: string };
 
+async function applyPendingOnlineConsultationDraft(
+  accessToken: string,
+  appointmentId: string,
+  reservationId: string,
+) {
+  if (typeof window === "undefined") return;
+
+  const raw = sessionStorage.getItem("pendingOnlineConsultationDraft");
+  if (!raw) return;
+
+  let draft: {
+    reservationId?: string;
+    concern?: string;
+    symptoms?: string;
+    files?: Array<{ file_name: string; file_type: string; file_url: string }>;
+  };
+  try {
+    draft = JSON.parse(raw) as typeof draft;
+  } catch {
+    return;
+  }
+  if (draft.reservationId && draft.reservationId !== reservationId) return;
+
+  const res = await fetch("/api/v2/online-consultations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      appointment_id: appointmentId,
+      concern: draft.concern ?? "",
+      symptoms: draft.symptoms ?? "",
+      files: draft.files ?? [],
+    }),
+  });
+
+  if (!res.ok) return;
+
+  sessionStorage.removeItem("pendingOnlineConsultationDraft");
+  localStorage.removeItem("bookingReservation");
+}
+
 /**
  * /appointments is the booking flow for patients, secretaries, and admins.
  * Doctors don't book — they manage — so we redirect them to /appointments/my
@@ -63,10 +106,14 @@ export default function AppointmentsPage() {
           return;
         }
 
+        const appointmentId = payload.data?.appointment?.id ?? null;
+        if (appointmentId) {
+          await applyPendingOnlineConsultationDraft(accessToken, appointmentId, reservationId);
+        }
+
         // Tidy up local storage and the URL so a refresh doesn't re-trigger.
         try {
           localStorage.removeItem("bookingDraft");
-          localStorage.removeItem("bookingReservation");
         } catch {
           // ignore
         }
@@ -76,7 +123,7 @@ export default function AppointmentsPage() {
 
         setFinalize({
           kind: "success",
-          appointmentId: payload.data?.appointment?.id ?? null,
+          appointmentId,
         });
       } catch (e) {
         if (cancelled) return;

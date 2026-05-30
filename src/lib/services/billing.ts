@@ -19,6 +19,7 @@ import { createPayMongoCheckoutSession, mapCheckoutMethods } from "@/src/lib/ser
 
 export type BillingItemInput = {
   pricing_id?: string | null;
+  product_id?: string | null;
   description: string;
   quantity: number;
   unit_price: number;
@@ -27,7 +28,7 @@ export type BillingItemInput = {
 const ALLOWED_BILLING_STATUSES = new Set<BillingStatus>(["Draft", "Issued", "Paid", "Void"]);
 const ALLOWED_DISCOUNT_KINDS = new Set<DiscountKind>(["None", "Manual", "SeniorCitizen", "PWD"]);
 
-const POS_ALLOWED_CATEGORIES = new Set(["Consultation", "Lab", "Medicine"]);
+const POS_ALLOWED_CATEGORIES = new Set(["Consultation", "Lab", "Medicine", "Procedure", "Other"]);
 const POS_ALLOWED_METHODS = new Set<PaymentMethod>(["Cash", "QR", "Card", "BankTransfer"]);
 
 export type PosCheckoutOption = "paymongo_qr" | "paymongo_card" | "paymongo_bank";
@@ -54,6 +55,113 @@ function posPaymongoMethodGroup(option: PosCheckoutOption): "gcash" | "card" | "
   if (option === "paymongo_card") return "card";
   if (option === "paymongo_bank") return "bank";
   return "gcash";
+}
+
+export async function finalizeInventorySaleForBilling(billingId: string, actorId: string | null) {
+  const supabase = getSupabaseAdmin();
+  const { data: saleItems, error: saleItemsError } = await supabase
+    .from("billing_items")
+    .select("id, product_id, quantity")
+    .eq("billing_id", billingId)
+    .not("product_id", "is", null);
+  if (saleItemsError) throw saleItemsError;
+
+  for (const item of saleItems ?? []) {
+    if (!item.product_id) continue;
+
+    const { data: existingMovement, error: existingMovementError } = await supabase
+      .from("inventory_movements")
+      .select("id")
+      .eq("reference_table", "billing_items")
+      .eq("reference_id", item.id as string)
+      .eq("movement_type", "Sale")
+      .maybeSingle<{ id: string }>();
+    if (existingMovementError) throw existingMovementError;
+    if (existingMovement) continue;
+
+    const { data: product, error: productError } = await supabase
+      .from("inventory_products")
+      .select("stock_qty")
+      .eq("id", item.product_id)
+      .single<{ stock_qty: number }>();
+    if (productError) throw productError;
+
+    const quantity = Number(item.quantity ?? 0);
+    const currentStock = Number(product.stock_qty ?? 0);
+    const nextStock = currentStock - quantity;
+    if (nextStock < 0) {
+      throw new HttpError(400, "One or more products no longer have enough stock for this POS sale.");
+    }
+
+    const { error: movementError } = await supabase.from("inventory_movements").insert({
+      product_id: item.product_id,
+      movement_type: "Sale",
+      quantity,
+      reference_table: "billing_items",
+      reference_id: item.id as string,
+      notes: `POS billing ${billingId.slice(0, 8).toUpperCase()}`,
+      created_by: actorId,
+    });
+    if (movementError) throw movementError;
+
+    const { error: updateStockError } = await supabase
+      .from("inventory_products")
+      .update({ stock_qty: nextStock })
+      .eq("id", item.product_id);
+    if (updateStockError) throw updateStockError;
+  }
+}
+
+async function restockInventoryFromBilling(billingId: string, actorId: string | null) {
+  const supabase = getSupabaseAdmin();
+  const { data: saleMovements, error: saleMovementsError } = await supabase
+    .from("inventory_movements")
+    .select("id, product_id, quantity")
+    .eq("movement_type", "Sale")
+    .eq("reference_table", "billing_items")
+    .like("notes", `POS billing ${billingId.slice(0, 8).toUpperCase()}%`);
+  if (saleMovementsError) throw saleMovementsError;
+
+  for (const movement of saleMovements ?? []) {
+    if (!movement.product_id) continue;
+
+    const { data: existingReturn, error: existingReturnError } = await supabase
+      .from("inventory_movements")
+      .select("id")
+      .eq("movement_type", "Return")
+      .eq("reference_table", "inventory_movements")
+      .eq("reference_id", movement.id as string)
+      .maybeSingle<{ id: string }>();
+    if (existingReturnError) throw existingReturnError;
+    if (existingReturn) continue;
+
+    const { data: product, error: productError } = await supabase
+      .from("inventory_products")
+      .select("stock_qty")
+      .eq("id", movement.product_id)
+      .single<{ stock_qty: number }>();
+    if (productError) throw productError;
+
+    const quantity = Number(movement.quantity ?? 0);
+    const nextStock = Number(product.stock_qty ?? 0) + quantity;
+
+    const { error: movementError } = await supabase.from("inventory_movements").insert({
+      product_id: movement.product_id,
+      movement_type: "Return",
+      quantity,
+      reference_table: "inventory_movements",
+      reference_id: movement.id as string,
+      notes: `POS billing ${billingId.slice(0, 8).toUpperCase()} voided`,
+      created_by: actorId,
+    });
+    if (movementError) throw movementError;
+
+    const { error: updateStockError } = await supabase
+      .from("inventory_products")
+      .update({ stock_qty: nextStock })
+      .eq("id", movement.product_id);
+    if (updateStockError) throw updateStockError;
+  }
 }
 
 export async function issueBilling(input: {
@@ -85,8 +193,9 @@ export async function issueBilling(input: {
   }
 
   const pricingIds = [...new Set(input.items.map((item) => item.pricing_id).filter((value): value is string => !!value))];
-  if (pricingIds.length !== input.items.length) {
-    throw new HttpError(400, "POS billing requires catalog services only.");
+  const productIds = [...new Set(input.items.map((item) => item.product_id).filter((value): value is string => !!value))];
+  if (input.items.some((item) => Number(Boolean(item.pricing_id)) + Number(Boolean(item.product_id)) !== 1)) {
+    throw new HttpError(400, "Each POS line must use either one pricing item or one inventory product.");
   }
 
   const { data: pricingRows, error: pricingError } = await supabase
@@ -95,32 +204,72 @@ export async function issueBilling(input: {
     .in("id", pricingIds);
   if (pricingError) throw pricingError;
 
+  const { data: productRows, error: productError } = await supabase
+    .from("inventory_products")
+    .select("id, name, brand_name, dosage, category, selling_price, stock_qty, is_active")
+    .in("id", productIds);
+  if (productError) throw productError;
+
   const pricingById = new Map(
     (pricingRows ?? []).map((row) => [
       row.id as string,
       row as { id: string; name: string; category: string; price: number; is_active: boolean },
     ]),
   );
+  const productById = new Map(
+    (productRows ?? []).map((row) => [
+      row.id as string,
+      row as {
+        id: string;
+        name: string;
+        brand_name: string | null;
+        dosage: string | null;
+        category: string;
+        selling_price: number;
+        stock_qty: number;
+        is_active: boolean;
+      },
+    ]),
+  );
 
   const normalizedItems = input.items.map((item) => {
-    if (!item.pricing_id) throw new HttpError(400, "Each POS line must use a clinic pricing item.");
     if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
       throw new HttpError(400, "Quantity must be greater than zero.");
     }
 
-    const pricingItem = pricingById.get(item.pricing_id);
-    if (!pricingItem || !pricingItem.is_active) {
-      throw new HttpError(400, "One or more POS services are unavailable.");
+    if (item.pricing_id) {
+      const pricingItem = pricingById.get(item.pricing_id);
+      if (!pricingItem || !pricingItem.is_active) {
+        throw new HttpError(400, "One or more POS services are unavailable.");
+      }
+      if (!POS_ALLOWED_CATEGORIES.has(pricingItem.category)) {
+        throw new HttpError(400, "POS only allows active clinic services and inventory products.");
+      }
+
+      return {
+        pricing_id: pricingItem.id,
+        product_id: null,
+        description: pricingItem.name,
+        quantity: item.quantity,
+        unit_price: Number(pricingItem.price),
+      };
     }
-    if (!POS_ALLOWED_CATEGORIES.has(pricingItem.category)) {
-      throw new HttpError(400, "POS only allows Consultation, Lab, and Medicine services.");
+
+    if (!item.product_id) throw new HttpError(400, "Each POS line must use a clinic pricing item or inventory product.");
+    const product = productById.get(item.product_id);
+    if (!product || !product.is_active) {
+      throw new HttpError(400, "One or more POS products are unavailable.");
+    }
+    if (Number(product.stock_qty ?? 0) < Number(item.quantity)) {
+      throw new HttpError(400, `Not enough stock for ${product.brand_name ?? product.name}.`);
     }
 
     return {
-      pricing_id: pricingItem.id,
-      description: pricingItem.name,
+      pricing_id: null,
+      product_id: product.id,
+      description: [product.brand_name ?? product.name, product.dosage].filter(Boolean).join(" - "),
       quantity: item.quantity,
-      unit_price: Number(pricingItem.price),
+      unit_price: Number(product.selling_price),
     };
   });
   const doctor = await getDoctor(appt.doctor_id);
@@ -129,6 +278,7 @@ export async function issueBilling(input: {
   );
   const consultationLine = {
     pricing_id: null,
+    product_id: null,
     description: `Clinic consultation (${formatDurationLabel(appt.start_time, appt.end_time)} @ PHP ${consultationHourlyRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/hr)`,
     quantity: 1,
     unit_price: calculateConsultationCharge(
@@ -193,6 +343,7 @@ export async function issueBilling(input: {
       allItems.map((i) => ({
         billing_id: billing.id,
         pricing_id: i.pricing_id ?? null,
+        product_id: i.product_id ?? null,
         description: i.description,
         quantity: i.quantity,
         unit_price: i.unit_price,
@@ -221,7 +372,7 @@ export async function recordBillingPayment(
   if (!isStaff(actor.profile.role) && actor.profile.role !== "doctor")
     throw new HttpError(403, "Only clinic staff or doctors can record POS payments");
   if (!POS_ALLOWED_METHODS.has(method))
-    throw new HttpError(400, "POS only accepts Cash, Transfer, or Card payments");
+    throw new HttpError(400, "POS only accepts Cash, QR, Transfer, or Card payments");
 
   const supabase = getSupabaseAdmin();
   const { data: billing, error } = await supabase
@@ -286,6 +437,8 @@ export async function recordBillingPayment(
       .eq("id", appt.id);
     if (apptUpdateError) throw apptUpdateError;
   }
+
+  await finalizeInventorySaleForBilling(billing.id, actor.id);
 
   return { billing: updated, payment };
 }
@@ -485,6 +638,7 @@ export async function updateBilling(
 
     return {
       pricing_id: "pricing_id" in item ? item.pricing_id ?? null : null,
+      product_id: "product_id" in item ? item.product_id ?? null : null,
       description,
       quantity,
       unit_price: unitPrice,
@@ -522,6 +676,7 @@ export async function updateBilling(
       nextItems.map((item) => ({
         billing_id: id,
         pricing_id: item.pricing_id,
+        product_id: item.product_id,
         description: item.description,
         quantity: item.quantity,
         unit_price: item.unit_price,
@@ -589,11 +744,13 @@ export async function voidBilling(
         provider: "manual",
         provider_ref: `void:${id}`,
         tendered_amount: null,
-      })
-      .select()
-      .single<Payment>();
+    })
+    .select()
+    .single<Payment>();
     if (refundErr) throw refundErr;
     refundPayment = refunded;
+
+    await restockInventoryFromBilling(billing.id, actor.id);
   }
 
   const { data: updated, error: updErr } = await supabase

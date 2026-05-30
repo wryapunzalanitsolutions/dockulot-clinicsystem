@@ -7,6 +7,7 @@ import { useAppointments } from "@/src/components/appointments/useAppointments";
 import { useConsultationNotes } from "@/src/components/clinic/useClinicData";
 import { ActionCard, DashboardHero, MetricCard, SectionCard, StatusPill } from "@/src/components/dashboard/dashboard-ui";
 import { useRole } from "@/src/components/layout/RoleProvider";
+import { getAppointmentPrimaryLabel, getAppointmentSecondaryReason } from "@/src/lib/appointment-context";
 import type { AppointmentRecord } from "@/src/lib/appointments";
 
 function isoToday() {
@@ -102,7 +103,12 @@ export default function DoctorDashboard() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{nextInQueue.start} · {nextInQueue.type}</p>
-                      <p className="text-xs text-slate-500">{nextInQueue.reason || "General consultation"}</p>
+                      <p className="text-xs text-slate-500">
+                        {getAppointmentPrimaryLabel(nextInQueue.reason, nextInQueue.type)}
+                        {getAppointmentSecondaryReason(nextInQueue.reason)
+                          ? ` • ${getAppointmentSecondaryReason(nextInQueue.reason)}`
+                          : ""}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -176,7 +182,7 @@ export default function DoctorDashboard() {
                     <p className="text-sm font-bold text-slate-900 truncate">{appt.patientName}</p>
                     <p className="mt-1 text-xs text-slate-500">
                       {appt.start} · {appt.type}
-                      {appt.reason ? ` • ${appt.reason}` : ""}
+                      {appt.reason ? ` • ${getAppointmentPrimaryLabel(appt.reason, appt.type)}` : ""}
                     </p>
                   </div>
                 </div>

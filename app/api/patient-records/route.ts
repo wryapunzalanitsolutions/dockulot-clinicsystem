@@ -61,8 +61,10 @@ type VisitRow = {
   }[] | null;
   consultation_notes: {
     updated_at: string;
+    diagnosis: string | null;
     notes: string | null;
     prescription: string | null;
+    visible_to_patient: boolean;
   }[] | null;
 };
 
@@ -111,11 +113,13 @@ function mapVisit(row: VisitRow): PatientVisitRecord {
           notes: vitals.notes,
         }
       : null,
-    consultation: consultation
+        consultation: consultation
       ? {
           updatedAt: consultation.updated_at,
+          diagnosis: consultation.diagnosis ?? "",
           note: consultation.notes ?? "",
           prescription: consultation.prescription ?? "",
+          visibleToPatient: consultation.visible_to_patient,
         }
       : null,
   };
@@ -150,7 +154,7 @@ export async function GET(request: Request) {
         updated_at,
         patients!inner(profiles!inner(full_name)),
         vital_signs(updated_at, bp_systolic, bp_diastolic, temperature_c, pulse_rate, oxygen_saturation, respiratory_rate, weight_kg, height_cm, notes),
-        consultation_notes(updated_at, notes, prescription)
+        consultation_notes(updated_at, diagnosis, notes, prescription, visible_to_patient)
       `)
       .neq("status", "PendingPayment")
       .order("appointment_date", { ascending: false })

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useMemo, useState, useTransition } from "react";
+import { type ReactNode, useEffect, useMemo, useState, useTransition } from "react";
 import {
   FaArrowUpRightFromSquare,
   FaCalendarDay,
@@ -18,6 +18,7 @@ import { useAppointments } from "@/src/components/appointments/useAppointments";
 import { useConsultationNotes, usePatients } from "@/src/components/clinic/useClinicData";
 import { VitalSignsForm } from "@/src/components/clinic/VitalSignsForm";
 import { useRole } from "@/src/components/layout/RoleProvider";
+import { getAppointmentPrimaryLabel, getAppointmentSecondaryReason } from "@/src/lib/appointment-context";
 import {
   formatDisplayDate,
   formatRange,
@@ -27,9 +28,22 @@ import {
 import type { ConsultationProgress, PatientRecordItem } from "@/src/lib/clinic";
 
 type DraftState = {
+  diagnosis: string;
   note: string;
   prescription: string;
   status: ConsultationProgress;
+  visibleToPatient: boolean;
+};
+
+type OnlineConsultationRecord = {
+  id: string;
+  appointment_id: string;
+  concern: string | null;
+  symptoms: string | null;
+  file_urls: Array<{ file_name?: string; file_type?: string; file_url?: string } | string>;
+  platform: string | null;
+  meeting_link: string | null;
+  status: string;
 };
 
 export default function OnlineConsultationPage() {
@@ -37,12 +51,15 @@ export default function OnlineConsultationPage() {
   const { appointments, setAppointments } = useAppointments();
   const { data: notes, setData: setNotes, isLoading, error } = useConsultationNotes();
   const { data: patients, setData: setPatients } = usePatients();
+  const [onlineConsultations, setOnlineConsultations] = useState<OnlineConsultationRecord[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [activeAppointmentId, setActiveAppointmentId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>({
+    diagnosis: "",
     note: "",
     prescription: "",
     status: "Ready",
+    visibleToPatient: false,
   });
   const [familyHistoryDraft, setFamilyHistoryDraft] = useState("");
   const [isSaving, startTransition] = useTransition();
@@ -77,7 +94,28 @@ export default function OnlineConsultationPage() {
   const activePatientRecord = activeAppointment
     ? findPatientRecord(patients, activeAppointment)
     : null;
+  const activeOnlineConsultation = activeAppointment
+    ? onlineConsultations.find((item) => item.appointment_id === activeAppointment.id) ?? null
+    : null;
   const familyHistoryDirty = familyHistoryDraft !== (activePatientRecord?.familyHistory ?? "");
+
+  useEffect(() => {
+    if (!accessToken || role === "PATIENT") return;
+    let active = true;
+    (async () => {
+      const res = await fetch("/api/v2/online-consultations", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const payload = (await res.json()) as { consultations: OnlineConsultationRecord[] };
+      if (active) setOnlineConsultations(payload.consultations ?? []);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [accessToken, role]);
 
   const onlineReady = appointments.filter(
     (appointment) => appointment.type === "Online" && appointment.status === "Confirmed",
@@ -103,9 +141,11 @@ export default function OnlineConsultationPage() {
           : "Ready");
     setActiveAppointmentId(appointment.id);
     setDraft({
+      diagnosis: existing?.diagnosis ?? "",
       note: existing?.note ?? "",
       prescription: existing?.prescription ?? "",
       status: inferredStatus,
+      visibleToPatient: existing?.visibleToPatient ?? false,
     });
     setFamilyHistoryDraft(patientRecord?.familyHistory ?? "");
     setFeedback(null);
@@ -134,9 +174,11 @@ export default function OnlineConsultationPage() {
           appointmentId: appointment.id,
           doctorId: appointment.doctorId,
           patientName: appointment.patientName,
+          diagnosis: draft.diagnosis,
           note: draft.note,
           prescription: draft.prescription,
           status: draft.status,
+          visibleToPatient: draft.visibleToPatient,
         }),
       });
 
@@ -328,7 +370,10 @@ export default function OnlineConsultationPage() {
 
                     {appointment.reason ? (
                       <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                        {appointment.reason}
+                        {getAppointmentPrimaryLabel(appointment.reason, appointment.type)}
+                        {getAppointmentSecondaryReason(appointment.reason)
+                          ? ` • ${getAppointmentSecondaryReason(appointment.reason)}`
+                          : ""}
                       </p>
                     ) : null}
 
@@ -432,6 +477,59 @@ export default function OnlineConsultationPage() {
                 />
               </div>
 
+              {activeAppointment.type === "Online" ? (
+                <div className="rounded-[1.5rem] border border-sky-100 bg-sky-50/50 p-4">
+                  <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <FaFileWaveform className="h-4 w-4 text-sky-600" aria-hidden="true" />
+                    Online consultation intake
+                  </p>
+                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                    <div className="rounded-2xl border border-sky-100 bg-white px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Concern</p>
+                      <p className="mt-2 text-sm text-slate-700">
+                        {activeOnlineConsultation?.concern || activeAppointment.reason || "No concern submitted."}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-sky-100 bg-white px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Symptoms</p>
+                      <p className="mt-2 text-sm text-slate-700">
+                        {activeOnlineConsultation?.symptoms || "No additional symptoms submitted."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 rounded-2xl border border-sky-100 bg-white px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Attached files / photos</p>
+                      <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
+                        {activeOnlineConsultation?.file_urls?.length ?? 0} file{(activeOnlineConsultation?.file_urls?.length ?? 0) === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    {activeOnlineConsultation?.file_urls?.length ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {activeOnlineConsultation.file_urls.map((file, index) => {
+                          const normalized = typeof file === "string"
+                            ? { file_name: `Attachment ${index + 1}`, file_url: file, file_type: "attachment" }
+                            : file;
+                          return (
+                            <a
+                              key={`${normalized.file_url ?? "file"}-${index}`}
+                              href={normalized.file_url ?? "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-100"
+                            >
+                              {normalized.file_name ?? `Attachment ${index + 1}`}
+                            </a>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm text-slate-500">No files were attached for this online consultation.</p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
               {canManage ? (
                 <div className="grid gap-5">
                   <div className="rounded-[1.5rem] border border-sky-100 bg-slate-50/70 p-4">
@@ -491,6 +589,18 @@ export default function OnlineConsultationPage() {
 
                     <div className="rounded-[1.5rem] border border-sky-100 bg-white p-4">
                       <label className="block text-sm font-medium text-slate-700">
+                        Diagnosis
+                        <textarea
+                          value={draft.diagnosis}
+                          onChange={(event) =>
+                            setDraft((current) => ({ ...current, diagnosis: event.target.value }))
+                          }
+                          className="mt-2 min-h-24 w-full rounded-2xl border border-sky-100 px-3 py-2.5 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                          placeholder="Clinical diagnosis, impression, or assessment"
+                        />
+                      </label>
+
+                      <label className="block text-sm font-medium text-slate-700">
                         Consultation Notes
                         <textarea
                           value={draft.note}
@@ -515,6 +625,21 @@ export default function OnlineConsultationPage() {
                           className="mt-2 min-h-28 w-full rounded-2xl border border-sky-100 px-3 py-2.5 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
                           placeholder="Medication, tests, referrals, or follow-up plan"
                         />
+                      </label>
+
+                      <label className="mt-4 flex items-center gap-3 rounded-2xl border border-sky-100 bg-sky-50/50 px-4 py-3 text-sm font-medium text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={draft.visibleToPatient}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              visibleToPatient: event.target.checked,
+                            }))
+                          }
+                          className="h-4 w-4 rounded border-sky-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        Visible in patient portal
                       </label>
 
                       <div className="mt-5 flex flex-wrap gap-2">
@@ -677,7 +802,10 @@ function PatientConsultationLobby({
 
                     {appointment.reason ? (
                       <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                        {appointment.reason}
+                        {getAppointmentPrimaryLabel(appointment.reason, appointment.type)}
+                        {getAppointmentSecondaryReason(appointment.reason)
+                          ? ` • ${getAppointmentSecondaryReason(appointment.reason)}`
+                          : ""}
                       </p>
                     ) : null}
 
@@ -755,10 +883,15 @@ function PatientConsultationLobby({
 
               {activeNote ? (
                 <div className="rounded-[1.5rem] border border-sky-100 bg-white p-4">
+                  <p className="text-sm font-semibold text-slate-900">Diagnosis</p>
+                  <p className="mt-2 text-sm text-slate-600">{activeNote.diagnosis || "No diagnosis recorded."}</p>
                   <p className="text-sm font-semibold text-slate-900">Consultation Notes</p>
                   <p className="mt-2 text-sm text-slate-600">{activeNote.note}</p>
                   <p className="mt-4 text-sm font-semibold text-slate-900">Prescription / Plan</p>
                   <p className="mt-2 text-sm text-slate-600">{activeNote.prescription || "No prescription recorded."}</p>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                    {activeNote.visibleToPatient ? "Visible in patient portal" : "Hidden from patient portal"}
+                  </p>
                   <p className="mt-3 text-xs text-slate-500">
                     Updated {new Date(activeNote.updatedAt).toLocaleString("en-US")}
                   </p>
