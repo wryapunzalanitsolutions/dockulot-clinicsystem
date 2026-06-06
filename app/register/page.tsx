@@ -228,7 +228,6 @@ export default function RegisterPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId: data.user.id,
           fullName: formData.fullName,
           email: normalizedEmail,
           phone: formData.phone,
@@ -248,7 +247,7 @@ export default function RegisterPage() {
 
       router.push(
         `/login?message=${encodeURIComponent(
-          "Account created. Check your email for the confirmation link before signing in.",
+          "Account created in pending state. Check your email to verify and finish registration.",
         )}`,
       );
     });

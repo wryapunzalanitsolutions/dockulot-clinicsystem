@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, type EmailOtpType } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 import { enqueueNotification } from "@/src/lib/services/notification";
 
 export async function GET(request: Request) {
@@ -76,11 +77,68 @@ export async function GET(request: Request) {
 
   if (verifiedUserId) {
     try {
+      const admin = getSupabaseAdmin();
+      const { data: authUser, error: authUserError } = await admin.auth.admin.getUserById(verifiedUserId);
+      if (authUserError) throw authUserError;
+
+      const userMetadata =
+        authUser.user?.user_metadata && typeof authUser.user.user_metadata === "object"
+          ? authUser.user.user_metadata
+          : {};
+      const fullName = typeof userMetadata.full_name === "string" && userMetadata.full_name.trim()
+        ? userMetadata.full_name.trim()
+        : authUser.user?.email?.split("@")[0] ?? "Patient";
+      const phone = typeof userMetadata.phone === "string" ? userMetadata.phone.trim() : "";
+      const dob = typeof userMetadata.dob === "string" ? userMetadata.dob : null;
+      const gender = typeof userMetadata.gender === "string" ? userMetadata.gender : null;
+      const address = typeof userMetadata.address === "string" ? userMetadata.address : null;
+      const email = authUser.user?.email?.trim().toLowerCase();
+
+      if (!email) {
+        throw new Error("Verified user is missing an email address.");
+      }
+
+      const { error: updateAuthError } = await admin.auth.admin.updateUserById(verifiedUserId, {
+        app_metadata: {
+          ...(authUser.user?.app_metadata && typeof authUser.user.app_metadata === "object"
+            ? authUser.user.app_metadata
+            : {}),
+          role: "patient",
+        },
+        user_metadata: {
+          ...userMetadata,
+          full_name: fullName,
+          phone,
+          dob,
+          gender,
+          address,
+        },
+      });
+      if (updateAuthError) throw updateAuthError;
+
+      const { error: upsertProfileError } = await admin.from("profiles").upsert({
+        id: verifiedUserId,
+        email,
+        full_name: fullName,
+        phone: phone || null,
+        role: "patient",
+        is_active: true,
+      });
+      if (upsertProfileError) throw upsertProfileError;
+
+      const { error: upsertPatientError } = await admin.from("patients").upsert({
+        id: verifiedUserId,
+        dob,
+        gender,
+        address,
+      });
+      if (upsertPatientError) throw upsertPatientError;
+
       await enqueueNotification({
         user_id: verifiedUserId,
         template: "welcome",
         channels: ["email", "sms"],
-        payload: {},
+        payload: { full_name: fullName },
       });
     } catch (notificationError) {
       console.error("[auth-confirm] failed to queue welcome notification", notificationError);

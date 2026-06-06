@@ -55,44 +55,69 @@ function profileToEditForm(user: Profile): EditUserForm {
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 
-// Permission catalog mirrors the clinic's documented role spec one-to-one.
+// Permission catalog mirrors the clinic's current access model one-to-one.
 // Keys are stable; labels are what the admin sees in the toggle UI.
 const ROLE_PERMISSION_CATALOG: Record<RoleKey, PermissionItem[]> = {
   doctor: [
-    { key: "view_manage_appointments", label: "View & manage appointments" },
-    { key: "set_schedule_unavailable", label: "Set schedule & unavailable dates" },
-    { key: "add_consultation_notes", label: "Add consultation notes" },
-    { key: "start_online_consultation", label: "Start online consultation" },
-    { key: "full_admin_access", label: "Full admin access" },
-    { key: "handle_pos_billing", label: "Handle POS billing" },
+    { key: "appointments.manage", label: "Appointments" },
+    { key: "patients.manage", label: "Patient records" },
+    { key: "consultations.manage", label: "Consultations" },
+    { key: "schedules.manage", label: "Schedules" },
+    { key: "payments.pos", label: "Billing / POS" },
+    { key: "inventory.manage", label: "Inventory" },
+    { key: "inquiries.manage", label: "Inquiries" },
+    { key: "faq.manage", label: "FAQ content" },
+    { key: "landing.manage", label: "Website content" },
+    { key: "reports.read", label: "Reports" },
+    { key: "security.read", label: "Security" },
+    { key: "users.manage", label: "Users" },
   ],
   secretary: [
-    { key: "manage_appointments_crud", label: "Manage appointments (CRUD)" },
-    { key: "add_walkin_patients", label: "Add walk-in patients" },
-    { key: "handle_pos_billing", label: "Handle POS billing" },
-    { key: "manage_patients", label: "Manage patients" },
+    { key: "appointments.manage", label: "Appointments" },
+    { key: "patients.manage", label: "Patient records" },
+    { key: "walkins.manage", label: "Walk-in patients" },
+    { key: "queue.manage", label: "Queue list" },
+    { key: "billing.manage", label: "Billing" },
+    { key: "payments.pos", label: "POS" },
+    { key: "inventory.manage", label: "Inventory" },
+    { key: "inquiries.manage", label: "Inquiries" },
+    { key: "faq.manage", label: "FAQ content" },
+    { key: "landing.manage", label: "Website content" },
   ],
   patient: [
     { key: "register_login", label: "Register / login" },
     { key: "book_appointment", label: "Book appointment" },
-    { key: "choose_clinic", label: "Choose clinic consultation" },
-    { key: "choose_online_consultation", label: "Choose online consultation" },
-    { key: "pay_online", label: "Pay online (online consult only)" },
+    { key: "portal.read", label: "Patient portal" },
+    { key: "prescriptions.read", label: "Prescriptions" },
+    { key: "consultations.read", label: "Consultation notes" },
+    { key: "billing.read", label: "Billing history" },
+    { key: "files.read", label: "Medical files" },
+    { key: "inquiries.create", label: "Follow-up inquiries" },
   ],
   super_admin: [
-    { key: "full_control", label: "Full control" },
-    { key: "manage_roles_permissions", label: "Manage roles & permissions" },
-    { key: "system_configuration", label: "System configuration" },
+    { key: "appointments.manage", label: "Appointments" },
+    { key: "patients.manage", label: "Patient records" },
+    { key: "consultations.manage", label: "Consultations" },
+    { key: "schedules.manage", label: "Schedules" },
+    { key: "payments.pos", label: "Billing / POS" },
+    { key: "inventory.manage", label: "Inventory" },
+    { key: "inquiries.manage", label: "Inquiries" },
+    { key: "faq.manage", label: "FAQ content" },
+    { key: "landing.manage", label: "Website content" },
+    { key: "reports.read", label: "Reports" },
+    { key: "security.read", label: "Security" },
+    { key: "users.manage", label: "Users" },
+    { key: "settings.manage", label: "System settings" },
   ],
 };
 
 const ROLE_DESCRIPTIONS: Record<RoleKey, string> = {
   doctor:
-    "Clinical staff. Manages own schedule, runs consultations, and has full admin access alongside the cashier flow.",
+    "Clinical lead. Manages appointments, consultations, prescriptions, schedules, and clinic operations.",
   secretary:
-    "Front-desk staff. Handles bookings, walk-in registration, patient records, and POS billing.",
+    "Front-desk staff. Handles bookings, walk-in registration, queueing, billing, inventory, inquiries, and website content.",
   patient:
-    "End user. Registers, books visits (clinic or online), and pays online for virtual consultations.",
+    "Patient account. Books visits, checks portal records, follows up, and manages personal care details.",
   super_admin:
     "System owner. Full control over the platform, role assignment, and system configuration.",
 };
