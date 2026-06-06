@@ -1,7 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import type { IconType } from "react-icons";
+import {
+  FaArrowPointer,
+  FaBoxesStacked,
+  FaCalendarCheck,
+  FaCalendarDay,
+  FaCalendarXmark,
+  FaChartLine,
+  FaEye,
+  FaFileExcel,
+  FaFileInvoiceDollar,
+  FaFilePdf,
+  FaHospitalUser,
+  FaMoneyBillTrendUp,
+  FaPlay,
+  FaStethoscope,
+  FaUsers,
+} from "react-icons/fa6";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -19,38 +37,56 @@ import {
 } from "recharts";
 import { useRole } from "@/src/components/layout/RoleProvider";
 
-type RevenueReport = { online: number; clinic: number; total: number };
-type NoShowReport = {
-  doctor_id: string;
-  doctor_name: string;
-  total: number;
-  no_shows: number;
-  completed: number;
-  rate: number;
+type RevenueReport = { total: number };
+type VolumeReport = { total_patients: number };
+type AppointmentStatusSummary = { total: number; completed: number; cancelled: number };
+type SalesSnapshot = { daily: number; monthly: number; pos_daily: number; pos_monthly: number };
+type PosSummary = { invoices: number; paid_invoices: number; paid_total: number; average_ticket: number; items_sold: number };
+type InventorySummary = { products: number; low_stock: number; expiring_soon: number; stock_value: number; stock_cost: number };
+type ContentReportItem = {
+  id: string;
+  title: string;
+  views: number;
+  appointment_clicks: number;
 };
-type PeakHourReport = { start_time: string; count: number };
-type VolumeReport = { appointments: number; unique_patients: number; total_patients: number };
-type PaymentMethodBreakdown = { method: string; transactions: number; amount: number };
-type PaymentStatusBreakdown = { status: string; transactions: number; amount: number };
 type DailyTrendPoint = { date: string; revenue: number; appointments: number; patients: number };
-type AppointmentTypeBreakdown = { type: string; count: number };
+type WebsiteTrafficPoint = { date: string; pageviews: number; visitors: number };
+type RequestedServiceReport = { service: string; count: number };
+type KpiItem = {
+  label: string;
+  value: string;
+  hint: string;
+  accent: (typeof KPI_ACCENTS)[number];
+  icon: IconType;
+};
 
 type ReportsPayload = {
   revenue: RevenueReport;
-  no_show: NoShowReport[];
-  peak_hours: PeakHourReport[];
   volume: VolumeReport;
-  payment_methods: PaymentMethodBreakdown[];
-  payment_statuses: PaymentStatusBreakdown[];
+  appointment_summary: AppointmentStatusSummary;
+  sales_summary: SalesSnapshot;
+  pos_summary: PosSummary;
+  inventory_summary: InventorySummary;
   daily_trends: DailyTrendPoint[];
-  appointment_types: AppointmentTypeBreakdown[];
+  top_blogs: ContentReportItem[];
+  top_videos: ContentReportItem[];
+  content_clicks_total: number;
+  visitor_traffic: WebsiteTrafficPoint[];
+  requested_services: RequestedServiceReport[];
 };
 
-const PAYMENT_COLORS = ["#0284c7", "#14b8a6", "#2dd4bf", "#99f6e4", "#ccfbf1"];
-const TYPE_COLORS: Record<string, string> = {
-  Clinic: "#0284c7",
-  Online: "#2563eb",
-};
+const KPI_ACCENTS = [
+  "from-sky-100 via-white to-blue-50 border-sky-200",
+  "from-cyan-100 via-white to-sky-50 border-cyan-200",
+  "from-blue-100 via-white to-slate-50 border-blue-200",
+  "from-indigo-100 via-white to-sky-50 border-indigo-200",
+  "from-sky-50 via-white to-cyan-100 border-sky-200",
+  "from-blue-50 via-white to-indigo-100 border-blue-200",
+  "from-cyan-50 via-white to-blue-100 border-cyan-200",
+  "from-slate-50 via-white to-sky-100 border-slate-200",
+] as const;
+
+const BAR_COLORS = ["#0369a1", "#0284c7", "#0ea5e9", "#38bdf8", "#2563eb", "#0891b2"];
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("en-PH", {
@@ -69,19 +105,8 @@ function formatMoneyCompact(n: number) {
   }).format(n);
 }
 
-function formatPercent(n: number) {
-  return `${(n * 100).toFixed(1)}%`;
-}
-
 function formatDateLabel(value: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value));
-}
-
-function formatHourLabel(value: string) {
-  const [hours, minutes] = value.split(":").map(Number);
-  const d = new Date();
-  d.setHours(hours, minutes, 0, 0);
-  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(d);
 }
 
 function numberFromChartValue(value: unknown) {
@@ -99,25 +124,43 @@ function xmlEscape(value: string) {
     .replaceAll("'", "&apos;");
 }
 
-function cell(value: string | number) {
+function cell(value: string | number, styleId?: string) {
   const isNumber = typeof value === "number";
   const type = isNumber ? "Number" : "String";
-  return `<Cell><Data ss:Type="${type}">${isNumber ? value : xmlEscape(value)}</Data></Cell>`;
+  const style = styleId ? ` ss:StyleID="${styleId}"` : "";
+  return `<Cell${style}><Data ss:Type="${type}">${isNumber ? value : xmlEscape(value)}</Data></Cell>`;
+}
+
+function isHeaderRow(row: Array<string | number>) {
+  if (!row.length) return false;
+  const normalized = row.map(String);
+  return (
+    normalized.includes("Metric")
+    || normalized.includes("Date")
+    || normalized.includes("Service")
+    || normalized.includes("Title")
+    || normalized.includes("Most Requested Services")
+    || normalized.includes("Most Viewed Blogs")
+    || normalized.includes("Most Viewed Videos")
+  );
 }
 
 function worksheet(name: string, rows: Array<Array<string | number>>) {
-  const body = rows.map((row) => `<Row>${row.map(cell).join("")}</Row>`).join("");
-  return `<Worksheet ss:Name="${xmlEscape(name)}"><Table>${body}</Table></Worksheet>`;
+  const body = rows
+    .map((row, rowIndex) => {
+      const styleId = rowIndex === 0 && row.length === 1 ? "Title" : isHeaderRow(row) ? "Header" : row.length ? "Body" : undefined;
+      return `<Row>${row.map((value) => cell(value, styleId)).join("")}</Row>`;
+    })
+    .join("");
+  return `<Worksheet ss:Name="${xmlEscape(name)}"><Table>
+<Column ss:AutoFitWidth="1" ss:Width="190"/>
+<Column ss:AutoFitWidth="1" ss:Width="130"/>
+<Column ss:AutoFitWidth="1" ss:Width="120"/>
+<Column ss:AutoFitWidth="1" ss:Width="120"/>
+${body}</Table></Worksheet>`;
 }
 
 function buildWorkbook(data: ReportsPayload, from: string, to: string) {
-  const topPeak = data.peak_hours.reduce<PeakHourReport | null>(
-    (best, current) => (!best || current.count > best.count ? current : best),
-    null,
-  );
-  const totalNoShows = data.no_show.reduce((sum, row) => sum + row.no_shows, 0);
-  const totalNoShowBase = data.no_show.reduce((sum, row) => sum + row.total, 0);
-
   return `<?xml version="1.0"?>
 <?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
@@ -125,39 +168,67 @@ function buildWorkbook(data: ReportsPayload, from: string, to: string) {
  xmlns:x="urn:schemas-microsoft-com:office:excel"
  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
  xmlns:html="http://www.w3.org/TR/REC-html40">
-${worksheet("Summary", [
-  ["Clinic Reports Dashboard"],
+<Styles>
+  <Style ss:ID="Title">
+    <Font ss:Bold="1" ss:Size="14" ss:Color="#075985"/>
+    <Interior ss:Color="#E0F2FE" ss:Pattern="Solid"/>
+    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#7DD3FC"/></Borders>
+  </Style>
+  <Style ss:ID="Header">
+    <Font ss:Bold="1" ss:Color="#FFFFFF"/>
+    <Interior ss:Color="#0284C7" ss:Pattern="Solid"/>
+    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0369A1"/></Borders>
+  </Style>
+  <Style ss:ID="Body">
+    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0F2FE"/></Borders>
+  </Style>
+</Styles>
+${worksheet("Clinic Summary", [
+  ["Reports and Analytics"],
   ["Date From", from],
   ["Date To", to],
   [],
   ["Metric", "Value"],
-  ["Total Patients", data.volume.total_patients],
-  ["Patients Served", data.volume.unique_patients],
-  ["Appointments", data.volume.appointments],
-  ["Revenue Total", data.revenue.total],
-  ["Clinic Revenue", data.revenue.clinic],
-  ["Online Revenue", data.revenue.online],
-  ["No-show Rate", totalNoShowBase ? Number((totalNoShows / totalNoShowBase).toFixed(4)) : 0],
-  ["Peak Hour", topPeak ? `${topPeak.start_time} (${topPeak.count})` : "No data"],
+  ["Total Appointments", data.appointment_summary.total],
+  ["Completed Appointments", data.appointment_summary.completed],
+  ["Cancelled Appointments", data.appointment_summary.cancelled],
+  ["Patient Count", data.volume.total_patients],
+  ["Daily Sales", data.sales_summary.daily],
+  ["Monthly Sales", data.sales_summary.monthly],
+  ["POS Collections", data.pos_summary.paid_total],
+  ["POS Invoices", data.pos_summary.invoices],
+  ["Inventory Products", data.inventory_summary.products],
+  ["Low Stock Alert", data.inventory_summary.low_stock],
+  ["Expiring Soon", data.inventory_summary.expiring_soon],
 ])}
-${worksheet("Daily Trends", [
+${worksheet("Sales Trend", [
   ["Date", "Revenue", "Appointments", "Patients"],
   ...data.daily_trends.map((row) => [row.date, row.revenue, row.appointments, row.patients]),
 ])}
-${worksheet("Payments", [
-  ["Method", "Transactions", "Amount"],
-  ...data.payment_methods.map((row) => [row.method, row.transactions, row.amount]),
+${worksheet("Inventory Summary", [
+  ["Metric", "Value"],
+  ["Products Tracked", data.inventory_summary.products],
+  ["Low Stock Alert", data.inventory_summary.low_stock],
+  ["Expiring Soon", data.inventory_summary.expiring_soon],
+  ["Stock Value", data.inventory_summary.stock_value],
+  ["Stock Cost", data.inventory_summary.stock_cost],
+])}
+${worksheet("Content Summary", [
+  ["Metric", "Value"],
+  ["Appointment Clicks From Content", data.content_clicks_total],
   [],
-  ["Status", "Transactions", "Amount"],
-  ...data.payment_statuses.map((row) => [row.status, row.transactions, row.amount]),
+  ["Most Requested Services", "Count"],
+  ...data.requested_services.map((row) => [row.service, row.count]),
+  [],
+  ["Most Viewed Blogs", "Views"],
+  ...data.top_blogs.map((row) => [row.title, row.views]),
+  [],
+  ["Most Viewed Videos", "Views"],
+  ...data.top_videos.map((row) => [row.title, row.views]),
 ])}
-${worksheet("No Show", [
-  ["Doctor", "No Shows", "Completed", "Total", "Rate"],
-  ...data.no_show.map((row) => [row.doctor_name, row.no_shows, row.completed, row.total, Number(row.rate.toFixed(4))]),
-])}
-${worksheet("Peak Hours", [
-  ["Start Time", "Appointments"],
-  ...data.peak_hours.map((row) => [row.start_time, row.count]),
+${worksheet("Website Traffic", [
+  ["Date", "Visitors", "Pageviews"],
+  ...data.visitor_traffic.map((row) => [row.date, row.visitors, row.pageviews]),
 ])}
 </Workbook>`;
 }
@@ -168,7 +239,182 @@ function downloadWorkbook(data: ReportsPayload, from: string, to: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `clinic-reports-${from}-to-${to}.xls`;
+  link.download = `reports-analytics-${from}-to-${to}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function formatMoneyPdf(value: number) {
+  return new Intl.NumberFormat("en-PH", {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function normalizePdfText(value: string | number) {
+  return String(value)
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function escapePdfText(value: string | number) {
+  return normalizePdfText(value)
+    .replaceAll("\\", "\\\\")
+    .replaceAll("(", "\\(")
+    .replaceAll(")", "\\)");
+}
+
+function fitPdfCell(value: string | number, width: number) {
+  const text = normalizePdfText(value);
+  if (text.length <= width) return text.padEnd(width, " ");
+  return `${text.slice(0, Math.max(width - 1, 0))}.`;
+}
+
+function pdfTableRow(values: Array<string | number>, widths: number[]) {
+  return values.map((value, index) => fitPdfCell(value, widths[index] ?? 16)).join(" | ");
+}
+
+function pdfRule(widths: number[]) {
+  return widths.map((width) => "-".repeat(width)).join("-+-");
+}
+
+function appendPdfTable(
+  lines: string[],
+  title: string,
+  headers: string[],
+  rows: Array<Array<string | number>>,
+  widths: number[],
+) {
+  lines.push("", title, pdfRule(widths), pdfTableRow(headers, widths), pdfRule(widths));
+  if (!rows.length) {
+    lines.push(pdfTableRow(["No data", "", "", ""].slice(0, headers.length), widths));
+    return;
+  }
+
+  for (const row of rows) {
+    lines.push(pdfTableRow(row, widths));
+  }
+  lines.push(pdfRule(widths));
+}
+
+function buildPdfLines(data: ReportsPayload, from: string, to: string) {
+  const lines: string[] = [
+    "Reports & Analytics",
+    `Report window: ${from} to ${to}`,
+  ];
+
+  appendPdfTable(lines, "Clinic Reports", ["Metric", "Value"], [
+    ["Total appointments", data.appointment_summary.total],
+    ["Completed appointments", data.appointment_summary.completed],
+    ["Cancelled appointments", data.appointment_summary.cancelled],
+    ["Patient count", data.volume.total_patients],
+    ["Daily sales", `PHP ${formatMoneyPdf(data.sales_summary.daily)}`],
+    ["Monthly sales", `PHP ${formatMoneyPdf(data.sales_summary.monthly)}`],
+    ["POS collections", `PHP ${formatMoneyPdf(data.pos_summary.paid_total)}`],
+    ["POS paid invoices", data.pos_summary.paid_invoices],
+    ["Inventory products", data.inventory_summary.products],
+    ["Low stock alert", data.inventory_summary.low_stock],
+    ["Expiring soon", data.inventory_summary.expiring_soon],
+    ["Stock value", `PHP ${formatMoneyPdf(data.inventory_summary.stock_value)}`],
+  ], [34, 28]);
+
+  appendPdfTable(lines, "Sales Trend", ["Date", "Revenue", "Appts", "Patients"], data.daily_trends.slice(0, 22).map((row) => [
+    row.date,
+    `PHP ${formatMoneyPdf(row.revenue)}`,
+    row.appointments,
+    row.patients,
+  ]), [14, 20, 10, 10]);
+
+  appendPdfTable(lines, "Content Reports", ["Metric", "Value"], [
+    ["Appointment clicks from content", data.content_clicks_total],
+    ["Website traffic days", data.visitor_traffic.length],
+  ], [34, 28]);
+
+  appendPdfTable(lines, "Website Visitor Traffic", ["Date", "Visitors", "Pageviews"], data.visitor_traffic.slice(0, 18).map((row) => [
+    row.date,
+    row.visitors,
+    row.pageviews,
+  ]), [16, 14, 14]);
+
+  appendPdfTable(lines, "Most Viewed Blogs", ["Title", "Views", "Clicks"], data.top_blogs.map((row) => [
+    row.title,
+    row.views,
+    row.appointment_clicks,
+  ]), [46, 10, 10]);
+
+  appendPdfTable(lines, "Most Viewed Videos", ["Title", "Views", "Clicks"], data.top_videos.map((row) => [
+    row.title,
+    row.views,
+    row.appointment_clicks,
+  ]), [46, 10, 10]);
+
+  appendPdfTable(lines, "Most Requested Services", ["Service", "Requests"], data.requested_services.map((row) => [
+    row.service,
+    row.count,
+  ]), [46, 12]);
+
+  return lines;
+}
+
+function buildPdfBytes(data: ReportsPayload, from: string, to: string) {
+  const lines = buildPdfLines(data, from, to);
+  const linesPerPage = 48;
+  const pages: string[][] = [];
+
+  for (let index = 0; index < lines.length; index += linesPerPage) {
+    pages.push(lines.slice(index, index + linesPerPage));
+  }
+
+  const objects: string[] = [];
+  const pageIds: number[] = [];
+  const contentIds: number[] = [];
+
+  objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+  objects[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>";
+
+  for (const pageLines of pages) {
+    const pageId = objects.length;
+    const contentId = pageId + 1;
+    pageIds.push(pageId);
+    contentIds.push(contentId);
+
+    const contentLines = pageLines
+      .map((line, index) => `${index === 0 ? "48 744 Td" : "0 -15 Td"} (${escapePdfText(line)}) Tj`)
+      .join("\n");
+    const content = `BT\n/F1 9 Tf\n${contentLines}\nET`;
+
+    objects[pageId] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentId} 0 R >>`;
+    objects[contentId] = `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
+  }
+
+  objects[2] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  for (let index = 1; index < objects.length; index += 1) {
+    offsets[index] = pdf.length;
+    pdf += `${index} 0 obj\n${objects[index]}\nendobj\n`;
+  }
+
+  const xrefStart = pdf.length;
+  pdf += `xref\n0 ${objects.length}\n0000000000 65535 f \n`;
+  for (let index = 1; index < objects.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+
+  return new TextEncoder().encode(pdf);
+}
+
+function downloadPdf(data: ReportsPayload, from: string, to: string) {
+  const pdfBytes = buildPdfBytes(data, from, to);
+  const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `reports-analytics-${from}-to-${to}.pdf`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -225,392 +471,574 @@ export default function ReportsPage() {
     };
   }, [accessToken, authLoading, from, to]);
 
-  const totalNoShows = data?.no_show.reduce((sum, row) => sum + row.no_shows, 0) ?? 0;
-  const totalNoShowBase = data?.no_show.reduce((sum, row) => sum + row.total, 0) ?? 0;
-  const noShowRate = totalNoShowBase ? totalNoShows / totalNoShowBase : 0;
-  const peakHour = data?.peak_hours.reduce<PeakHourReport | null>(
-    (best, current) => (!best || current.count > best.count ? current : best),
-    null,
+  const clinicKpis = useMemo<KpiItem[]>(
+    () => [
+      {
+        label: "Total Appointments",
+        value: loading ? "..." : String(data?.appointment_summary.total ?? 0),
+        hint: "All appointments in selected range",
+        accent: KPI_ACCENTS[0],
+        icon: FaCalendarDay,
+      },
+      {
+        label: "Completed Appointments",
+        value: loading ? "..." : String(data?.appointment_summary.completed ?? 0),
+        hint: "Finished consultations and visits",
+        accent: KPI_ACCENTS[1],
+        icon: FaCalendarCheck,
+      },
+      {
+        label: "Cancelled Appointments",
+        value: loading ? "..." : String(data?.appointment_summary.cancelled ?? 0),
+        hint: "Cancelled records in selected range",
+        accent: KPI_ACCENTS[2],
+        icon: FaCalendarXmark,
+      },
+      {
+        label: "Patient Count",
+        value: loading ? "..." : String(data?.volume.total_patients ?? 0),
+        hint: "Registered patients in the system",
+        accent: KPI_ACCENTS[3],
+        icon: FaHospitalUser,
+      },
+      {
+        label: "Daily Sales",
+        value: loading ? "..." : formatMoney(data?.sales_summary.daily ?? 0),
+        hint: "Today across clinic, online, and POS",
+        accent: KPI_ACCENTS[4],
+        icon: FaFileInvoiceDollar,
+      },
+      {
+        label: "Monthly Sales",
+        value: loading ? "..." : formatMoney(data?.sales_summary.monthly ?? 0),
+        hint: "Current month total sales",
+        accent: KPI_ACCENTS[5],
+        icon: FaMoneyBillTrendUp,
+      },
+      {
+        label: "POS Reports",
+        value: loading ? "..." : formatMoney(data?.pos_summary.paid_total ?? 0),
+        hint: `${data?.pos_summary.paid_invoices ?? 0} paid invoices`,
+        accent: KPI_ACCENTS[6],
+        icon: FaChartLine,
+      },
+      {
+        label: "Inventory Reports",
+        value: loading ? "..." : String(data?.inventory_summary.products ?? 0),
+        hint: `${data?.inventory_summary.low_stock ?? 0} low stock items`,
+        accent: KPI_ACCENTS[7],
+        icon: FaBoxesStacked,
+      },
+    ],
+    [data, loading],
   );
-  const paymentTotal = data?.payment_methods.reduce((sum, row) => sum + row.amount, 0) ?? 0;
-  const paidTransactions = data?.payment_statuses.find((row) => row.status === "Paid")?.transactions ?? 0;
-  const totalTransactions = data?.payment_statuses.reduce((sum, row) => sum + row.transactions, 0) ?? 0;
-  const collectionRate = totalTransactions ? paidTransactions / totalTransactions : 0;
+
+  const contentKpis = useMemo<KpiItem[]>(() => {
+    const topBlog = data?.top_blogs[0];
+    const topVideo = data?.top_videos[0];
+    const topService = data?.requested_services[0];
+    const totalVisitors = data?.visitor_traffic.reduce((sum, row) => sum + row.visitors, 0) ?? 0;
+    const totalPageviews = data?.visitor_traffic.reduce((sum, row) => sum + row.pageviews, 0) ?? 0;
+
+    return [
+      {
+        label: "Most Viewed Blogs",
+        value: loading ? "..." : String(topBlog?.views ?? 0),
+        hint: topBlog ? shorten(topBlog.title, 42) : "No blog views tracked yet",
+        accent: KPI_ACCENTS[0],
+        icon: FaEye,
+      },
+      {
+        label: "Most Viewed Videos",
+        value: loading ? "..." : String(topVideo?.views ?? 0),
+        hint: topVideo ? shorten(topVideo.title, 42) : "No video views tracked yet",
+        accent: KPI_ACCENTS[5],
+        icon: FaPlay,
+      },
+      {
+        label: "Appointment Clicks",
+        value: loading ? "..." : String(data?.content_clicks_total ?? 0),
+        hint: "Booking clicks from content",
+        accent: KPI_ACCENTS[1],
+        icon: FaArrowPointer,
+      },
+      {
+        label: "Website Visitor Traffic",
+        value: loading ? "..." : String(totalVisitors),
+        hint: `${totalPageviews} pageviews in selected range`,
+        accent: KPI_ACCENTS[6],
+        icon: FaUsers,
+      },
+      {
+        label: "Most Requested Services",
+        value: loading ? "..." : String(topService?.count ?? 0),
+        hint: topService ? topService.service : "No service demand tracked yet",
+        accent: KPI_ACCENTS[3],
+        icon: FaStethoscope,
+      },
+    ];
+  }, [data, loading]);
+
+  const clinicStatusData = useMemo(() => {
+    const total = data?.appointment_summary.total ?? 0;
+    const completed = data?.appointment_summary.completed ?? 0;
+    const cancelled = data?.appointment_summary.cancelled ?? 0;
+    const other = Math.max(total - completed - cancelled, 0);
+
+    return [
+      { label: "Completed", value: completed },
+      { label: "Cancelled", value: cancelled },
+      { label: "Other", value: other },
+    ].filter((row) => row.value > 0);
+  }, [data]);
+
+  const salesData = useMemo(
+    () => [
+      { label: "Daily", value: data?.sales_summary.daily ?? 0 },
+      { label: "Monthly", value: data?.sales_summary.monthly ?? 0 },
+      { label: "POS Daily", value: data?.sales_summary.pos_daily ?? 0 },
+      { label: "POS Monthly", value: data?.sales_summary.pos_monthly ?? 0 },
+    ],
+    [data],
+  );
+
+  const salesTrendData = useMemo(
+    () => (data?.daily_trends ?? []).map((row) => ({
+      date: row.date,
+      revenue: row.revenue,
+      appointments: row.appointments,
+    })),
+    [data],
+  );
+
+  const inventoryData = useMemo(
+    () => [
+      { label: "Products", value: data?.inventory_summary.products ?? 0 },
+      { label: "Low Stock", value: data?.inventory_summary.low_stock ?? 0 },
+      { label: "Expiring", value: data?.inventory_summary.expiring_soon ?? 0 },
+    ],
+    [data],
+  );
+
+  const inventoryValueData = useMemo(
+    () => [
+      { label: "Stock Value", value: data?.inventory_summary.stock_value ?? 0 },
+      { label: "Stock Cost", value: data?.inventory_summary.stock_cost ?? 0 },
+    ],
+    [data],
+  );
+
+  const blogChartData = useMemo(
+    () => (data?.top_blogs ?? []).slice(0, 5).map((row) => ({
+      name: shorten(row.title),
+      views: row.views,
+    })),
+    [data],
+  );
+
+  const videoChartData = useMemo(
+    () => (data?.top_videos ?? []).slice(0, 5).map((row) => ({
+      name: shorten(row.title),
+      views: row.views,
+    })),
+    [data],
+  );
+
+  const maxRequestedServiceCount = Math.max(...((data?.requested_services ?? []).map((row) => row.count)), 1);
 
   return (
-    <div className="space-y-6 pb-8">
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[linear-gradient(135deg,#0f172a_0%,#0284c7_55%,#ecfeff_100%)] px-6 py-7 text-white shadow-[0_30px_80px_rgba(15,23,42,0.22)] animate-fade-in-down">
-        <div className="absolute inset-y-0 right-0 w-72 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.24),transparent_58%)]" />
-        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-cyan-100/90">Reports Center</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-white md:text-4xl">
-              Real clinic reporting for patients, collections, attendance, and busy hours
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-cyan-50/85">
-              Review operations in one place, spot no-show patterns quickly, and export an Excel-ready report for management.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <QuickLink href="/payments" label="Payments" />
-            <QuickLink href="/patients" label="Patients" />
-            <QuickLink href="/appointments" label="Appointments" />
-            <QuickLink href="/dashboard" label="Overview" />
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white/95 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] animate-fade-in-up stagger-1">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Report Window</p>
-            <p className="mt-1 text-sm text-slate-600">Adjust the date range to review performance for a day, week, month, or a custom period.</p>
-          </div>
-
-          <div className="flex flex-col gap-3 xl:items-end">
-            <div className="flex flex-wrap gap-2">
-              <PresetButton
-                label="Today"
-                onClick={() => {
-                  setFrom(todayIso);
-                  setTo(todayIso);
-                }}
-              />
-              <PresetButton label="Last 7 days" onClick={() => applyPreset(setFrom, setTo, 6)} />
-              <PresetButton label="Last 30 days" onClick={() => applyPreset(setFrom, setTo, 29)} />
-              <PresetButton
-                label="This month"
-                onClick={() => {
-                  setFrom(monthStart);
-                  setTo(todayIso);
-                }}
-              />
+    <div className="rounded-[2rem] bg-[linear-gradient(180deg,#eff8ff_0%,#f8fbff_42%,#ffffff_100%)] p-4 text-slate-950 shadow-inner sm:p-6">
+      <div className="space-y-6 pb-8">
+        <section className="overflow-hidden rounded-[1.75rem] border border-sky-100 bg-white shadow-[0_24px_70px_rgba(14,116,144,0.12)]">
+          <div className="grid gap-0 xl:grid-cols-[1.25fr_0.75fr]">
+            <div className="bg-[linear-gradient(135deg,#075985_0%,#0284c7_52%,#e0f2fe_100%)] px-6 py-7 text-white sm:px-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-sky-100">Reports & Analytics</p>
+              <h1 className="mt-3 max-w-3xl text-3xl font-black tracking-tight md:text-4xl">
+                Clinic performance, content reach, and service demand
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-sky-50/95">
+                A calm reporting workspace for appointments, sales, POS, inventory, patient count, content views, website traffic, and booking intent.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <QuickLink href="/appointments" label="Appointments" />
+                <QuickLink href="/payments/pos" label="POS" />
+                <QuickLink href="/inventory" label="Inventory" />
+                <QuickLink href="/contents" label="Content" />
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <label className="text-slate-500">From</label>
-              <input
-                type="date"
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
-              />
-              <label className="text-slate-500">To</label>
-              <input
-                type="date"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
-              />
-              <button
-                type="button"
-                onClick={() => data && downloadWorkbook(data, from, to)}
-                disabled={!data || loading}
-                className="rounded-full bg-slate-900 px-4 py-2.5 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                Export Excel
-              </button>
+            <div className="grid gap-3 bg-sky-50/70 p-5 sm:grid-cols-3 xl:grid-cols-1">
+              <HeroStat label="Report Window" value={`${formatDateLabel(from)} - ${formatDateLabel(to)}`} />
+              <HeroStat label="Monthly Sales" value={loading ? "..." : formatMoney(data?.sales_summary.monthly ?? 0)} />
+              <HeroStat label="Content Clicks" value={loading ? "..." : String(data?.content_clicks_total ?? 0)} />
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <section className="rounded-[1.5rem] border border-sky-100 bg-white/95 p-5 shadow-[0_18px_45px_rgba(14,116,144,0.08)]">
+          <div className="grid gap-5 xl:grid-cols-[1.15fr_1.05fr_1.05fr_0.85fr] xl:items-end">
+            <div className="self-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-600">Report Window</p>
+              <p className="mt-1 text-sm text-slate-600">Filter the dashboard by date range, then export the same view for records.</p>
+            </div>
+
+            <ControlGroup label="Quick Range">
+              <div className="grid grid-cols-2 gap-2">
+                <PresetButton label="Today" onClick={() => { setFrom(todayIso); setTo(todayIso); }} />
+                <PresetButton label="Last 7 days" onClick={() => applyPreset(setFrom, setTo, 6)} />
+                <PresetButton label="Last 30 days" onClick={() => applyPreset(setFrom, setTo, 29)} />
+                <PresetButton label="This month" onClick={() => { setFrom(monthStart); setTo(todayIso); }} />
+              </div>
+            </ControlGroup>
+
+            <ControlGroup label="Custom Dates">
+              <div className="grid grid-cols-2 gap-2">
+                <DateField label="From" value={from} onChange={setFrom} />
+                <DateField label="To" value={to} onChange={setTo} />
+              </div>
+            </ControlGroup>
+
+            <ControlGroup label="Export">
+              <div className="grid grid-cols-2 gap-2">
+                <ExportButton
+                  label="Excel"
+                  icon={FaFileExcel}
+                  onClick={() => data && downloadWorkbook(data, from, to)}
+                  disabled={!data || loading}
+                />
+                  <ExportButton
+                    label="PDF"
+                    icon={FaFilePdf}
+                    onClick={() => data && downloadPdf(data, from, to)}
+                    disabled={!data || loading}
+                  />
+              </div>
+            </ControlGroup>
+          </div>
+        </section>
 
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <MetricCard
-          label="Total Patients"
-          value={loading ? "..." : String(data?.volume.total_patients ?? 0)}
-          hint={`${data?.volume.unique_patients ?? 0} served in selected range`}
-          accent="teal"
-        />
-        <MetricCard
-          label="Revenue"
-          value={loading ? "..." : formatMoney(data?.revenue.total ?? 0)}
-          hint={`${formatMoney(data?.revenue.clinic ?? 0)} clinic + ${formatMoney(data?.revenue.online ?? 0)} online`}
-          accent="emerald"
-        />
-        <MetricCard
-          label="Payment Reports"
-          value={loading ? "..." : `${paidTransactions}/${totalTransactions || 0}`}
-          hint={`${formatPercent(collectionRate)} paid collection rate`}
-          accent="sky"
-        />
-        <MetricCard
-          label="No-show Rate"
-          value={loading ? "..." : formatPercent(noShowRate)}
-          hint={`${totalNoShows} missed appointments`}
-          accent="rose"
-        />
-        <MetricCard
-          label="Peak Hour"
-          value={loading ? "..." : peakHour ? formatHourLabel(peakHour.start_time) : "N/A"}
-          hint={peakHour ? `${peakHour.count} bookings in the busiest slot` : "No activity in this range"}
-          accent="amber"
-        />
-      </div>
+      <ReportGroup
+        eyebrow="Clinic Reports"
+        title="Operational KPI cards"
+        description="All required clinic reports are shown as dashboard cards, then expanded with charts below."
+        items={clinicKpis}
+      />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Panel
-          title="Daily Sales Report"
-          subtitle="Use the Today preset for the cashier's day-end collection snapshot."
-          className="animate-fade-in-up stagger-2"
-        >
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-            Sales totals, payment methods, and visit-linked revenue refresh from the same paid POS and online transaction records used by receipts and billing history.
-          </div>
-        </Panel>
-        <Panel
-          title="Monthly Sales Report"
-          subtitle="Use the This month preset for the running monthly clinic and online sales summary."
-          className="animate-fade-in-up stagger-3"
-        >
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-            Export the selected range to Excel when you need a formal monthly sales report for management or bookkeeping.
-          </div>
-        </Panel>
-      </div>
+      <ReportGroup
+        eyebrow="Content Reports"
+        title="Content and traffic KPI cards"
+        description="Content reach, booking clicks, traffic, and service demand stay visible before the detailed charts."
+        items={contentKpis}
+      />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
-        <Panel
-          title="Revenue and Visit Trend"
-          subtitle="Daily snapshot of revenue, appointments, and patients served"
-          className="animate-fade-in-up stagger-2"
-        >
+      <div className="space-y-6">
+        <Panel title="Clinic Reports" subtitle="Appointment totals rebuilt to match the required clinic metrics">
           {loading ? (
-            <LoadingBlock className="h-[340px]" />
-          ) : !data?.daily_trends.length ? (
-            <EmptyState text="No trend data is available for the selected date range." />
+            <LoadingBlock className="h-[280px]" />
           ) : (
-            <div className="h-[340px]">
+            <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <InfoTile label="Total appointments" value={String(data?.appointment_summary.total ?? 0)} />
+                <InfoTile label="Completed appointments" value={String(data?.appointment_summary.completed ?? 0)} />
+                <InfoTile label="Cancelled appointments" value={String(data?.appointment_summary.cancelled ?? 0)} />
+                <InfoTile label="Patient count" value={String(data?.volume.total_patients ?? 0)} />
+              </div>
+              <ChartShell title="Appointment Status Mix" caption="Completed, cancelled, and remaining appointment statuses">
+                {!clinicStatusData.length ? (
+                  <EmptyState text="No appointment status data is available yet." />
+                ) : (
+                  <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
+                    <div className="h-[280px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={clinicStatusData}
+                            dataKey="value"
+                            nameKey="label"
+                            innerRadius={64}
+                            outerRadius={104}
+                            paddingAngle={3}
+                          >
+                            {clinicStatusData.map((row, index) => (
+                              <Cell key={row.label} fill={BAR_COLORS[index % BAR_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => `${numberFromChartValue(value)} appointments`} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="space-y-3 self-center">
+                      {clinicStatusData.map((row, index) => (
+                        <LegendRow
+                          key={row.label}
+                          color={BAR_COLORS[index % BAR_COLORS.length]}
+                          label={row.label}
+                          value={`${row.value} appointments`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </ChartShell>
+            </div>
+          )}
+        </Panel>
+
+        <Panel title="Sales Analytics" subtitle="Daily sales, monthly sales, and POS reporting in one chart block">
+          {loading ? (
+            <LoadingBlock className="h-[360px]" />
+          ) : (
+            <div className="space-y-5">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <InfoTile label="Daily sales" value={formatMoney(data?.sales_summary.daily ?? 0)} />
+                <InfoTile label="Monthly sales" value={formatMoney(data?.sales_summary.monthly ?? 0)} />
+                <InfoTile label="POS collections" value={formatMoney(data?.pos_summary.paid_total ?? 0)} />
+                <InfoTile label="POS average ticket" value={formatMoney(data?.pos_summary.average_ticket ?? 0)} />
+              </div>
+              <div className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
+                <ChartShell title="Revenue Trend" caption="Paid revenue by day in the selected report window">
+                  {!salesTrendData.length ? (
+                    <EmptyState text="No daily sales trend is available for this range." />
+                  ) : (
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={salesTrendData} margin={{ top: 12, right: 18, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="salesRevenueFill" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#0284c7" stopOpacity={0.32} />
+                              <stop offset="95%" stopColor="#0284c7" stopOpacity={0.04} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid stroke="#dbeafe" strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="date" tickFormatter={formatDateLabel} stroke="#64748b" fontSize={12} />
+                          <YAxis stroke="#64748b" fontSize={12} tickFormatter={(value) => formatMoneyCompact(Number(value))} />
+                          <Tooltip
+                            labelFormatter={(label) => formatDateLabel(String(label))}
+                            formatter={(value) => formatMoney(numberFromChartValue(value))}
+                          />
+                          <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#0284c7" fill="url(#salesRevenueFill)" strokeWidth={3} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </ChartShell>
+                <ChartShell title="Sales Snapshot" caption="Daily, monthly, and POS totals">
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={salesData} layout="vertical" margin={{ top: 8, right: 16, left: 16, bottom: 0 }}>
+                        <CartesianGrid stroke="#dbeafe" strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" stroke="#64748b" fontSize={12} tickFormatter={(value) => formatMoneyCompact(Number(value))} />
+                        <YAxis dataKey="label" type="category" width={86} stroke="#64748b" fontSize={11} />
+                        <Tooltip formatter={(value) => formatMoney(numberFromChartValue(value))} />
+                        <Bar dataKey="value" radius={[0, 12, 12, 0]}>
+                          {salesData.map((row, index) => (
+                            <Cell key={row.label} fill={BAR_COLORS[index % BAR_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </ChartShell>
+              </div>
+            </div>
+          )}
+        </Panel>
+
+        <Panel title="Inventory Reports" subtitle="Stock summary focused on the required inventory analytics">
+          {loading ? (
+            <LoadingBlock className="h-[360px]" />
+          ) : (
+            <div className="space-y-5">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <InfoTile label="Products tracked" value={String(data?.inventory_summary.products ?? 0)} />
+                <InfoTile label="Low stock alert" value={String(data?.inventory_summary.low_stock ?? 0)} />
+                <InfoTile label="Expiring soon" value={String(data?.inventory_summary.expiring_soon ?? 0)} />
+                <InfoTile label="Stock value" value={formatMoney(data?.inventory_summary.stock_value ?? 0)} />
+              </div>
+              <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+                <ChartShell title="Inventory Health" caption="Product count against low-stock and expiring-soon alerts">
+                  <div className="h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={inventoryData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
+                        <CartesianGrid stroke="#dbeafe" strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="label" stroke="#64748b" fontSize={12} />
+                        <YAxis allowDecimals={false} stroke="#64748b" fontSize={12} />
+                        <Tooltip formatter={(value) => `${numberFromChartValue(value)} items`} />
+                        <Bar dataKey="value" radius={[12, 12, 0, 0]}>
+                          {inventoryData.map((row, index) => (
+                            <Cell key={row.label} fill={BAR_COLORS[index % BAR_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </ChartShell>
+                <ChartShell title="Inventory Valuation" caption="Selling value compared with recorded stock cost">
+                  <div className="h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={inventoryValueData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                        <CartesianGrid stroke="#dbeafe" strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="label" stroke="#64748b" fontSize={12} />
+                        <YAxis stroke="#64748b" fontSize={12} tickFormatter={(value) => formatMoneyCompact(Number(value))} />
+                        <Tooltip formatter={(value) => formatMoney(numberFromChartValue(value))} />
+                        <Bar dataKey="value" radius={[12, 12, 0, 0]}>
+                          {inventoryValueData.map((row, index) => (
+                            <Cell key={row.label} fill={BAR_COLORS[(index + 1) % BAR_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </ChartShell>
+              </div>
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+        <Panel title="Website Visitor Traffic" subtitle="Daily website traffic for the selected report window">
+          {loading ? (
+            <LoadingBlock className="h-[320px]" />
+          ) : !data?.visitor_traffic.length ? (
+            <EmptyState text="No website visitor traffic has been tracked yet." />
+          ) : (
+            <div className="h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data.daily_trends} margin={{ top: 12, right: 20, left: 0, bottom: 0 }}>
+                <AreaChart data={data.visitor_traffic} margin={{ top: 12, right: 16, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0284c7" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#0284c7" stopOpacity={0.03} />
+                    <linearGradient id="pageviewFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.32} />
+                      <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0.04} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="date" tickFormatter={formatDateLabel} stroke="#64748b" fontSize={12} />
-                  <YAxis yAxisId="left" stroke="#64748b" fontSize={12} tickFormatter={(value) => formatMoneyCompact(Number(value))} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#64748b" fontSize={12} allowDecimals={false} />
+                  <YAxis allowDecimals={false} stroke="#64748b" fontSize={12} />
                   <Tooltip
-                    formatter={(value, name) =>
-                      String(name) === "Revenue"
-                        ? formatMoney(numberFromChartValue(value))
-                        : numberFromChartValue(value).toLocaleString("en-US")
-                    }
                     labelFormatter={(label) => formatDateLabel(String(label))}
-                    contentStyle={{ borderRadius: 18, borderColor: "#dbeafe", boxShadow: "0 20px 45px rgba(15,23,42,0.12)" }}
+                    formatter={(value, name) => [`${numberFromChartValue(value)}`, String(name) === "visitors" ? "Visitors" : "Pageviews"]}
                   />
                   <Legend />
-                  <Area yAxisId="left" type="monotone" dataKey="revenue" name="Revenue" stroke="#0284c7" fill="url(#revenueFill)" strokeWidth={3} />
-                  <Bar yAxisId="right" dataKey="appointments" name="Appointments" fill="#38bdf8" radius={[8, 8, 0, 0]} maxBarSize={26} />
-                  <Bar yAxisId="right" dataKey="patients" name="Patients" fill="#2563eb" radius={[8, 8, 0, 0]} maxBarSize={26} />
+                  <Area type="monotone" dataKey="pageviews" name="Pageviews" stroke="#0ea5e9" fill="url(#pageviewFill)" strokeWidth={3} />
+                  <Bar dataKey="visitors" name="Visitors" fill="#14b8a6" radius={[8, 8, 0, 0]} maxBarSize={28} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           )}
         </Panel>
 
-        <Panel
-          title="Appointment Mix"
-          subtitle="Clinic versus online visit distribution"
-          className="animate-fade-in-up stagger-3"
-        >
-          {loading ? (
-            <LoadingBlock className="h-[340px]" />
-          ) : !data?.appointment_types.length ? (
-            <EmptyState text="No appointment type data is available yet." />
-          ) : (
-            <>
-              <div className="h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data.appointment_types}
-                      dataKey="count"
-                      nameKey="type"
-                      innerRadius={72}
-                      outerRadius={104}
-                      paddingAngle={4}
-                    >
-                      {data.appointment_types.map((entry) => (
-                        <Cell key={entry.type} fill={TYPE_COLORS[entry.type] ?? "#14b8a6"} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `${numberFromChartValue(value)} appointments`} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-4 space-y-3">
-                {data.appointment_types.map((row) => (
-                  <div key={row.type} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="h-3 w-3 rounded-full" style={{ backgroundColor: TYPE_COLORS[row.type] ?? "#14b8a6" }} />
-                      <span className="text-sm font-semibold text-slate-700">{row.type}</span>
-                    </div>
-                    <span className="text-sm font-bold text-slate-900">{row.count}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </Panel>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <Panel title="Payment Method Breakdown" subtitle="Paid collections grouped by mode of payment" className="animate-fade-in-up stagger-4">
+        <Panel title="Appointment Clicks From Content" subtitle="Tracked booking CTA clicks coming from blog and video content">
           {loading ? (
             <LoadingBlock className="h-[320px]" />
-          ) : !data?.payment_methods.length ? (
-            <EmptyState text="No paid transactions were found for this date range." />
           ) : (
-            <>
-              <div className="h-[260px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.payment_methods} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                    <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="method" stroke="#64748b" fontSize={12} />
-                    <YAxis stroke="#64748b" fontSize={12} tickFormatter={(value) => formatMoneyCompact(Number(value))} />
-                    <Tooltip formatter={(value) => formatMoney(numberFromChartValue(value))} contentStyle={{ borderRadius: 18 }} />
-                    <Bar dataKey="amount" radius={[12, 12, 0, 0]}>
-                      {data.payment_methods.map((entry, index) => (
-                        <Cell key={entry.method} fill={PAYMENT_COLORS[index % PAYMENT_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+            <div className="flex h-[320px] flex-col justify-between rounded-[1.75rem] border border-sky-100 bg-[linear-gradient(180deg,#f0f9ff_0%,#ffffff_100%)] p-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Content conversion signal</p>
+                <p className="mt-4 text-6xl font-black tracking-tight text-slate-950">{data?.content_clicks_total ?? 0}</p>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  This counts booking-intent clicks from the content pages and helps connect educational content to appointment demand.
+                </p>
               </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {data.payment_methods.map((row, index) => (
-                  <div key={row.method} className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: PAYMENT_COLORS[index % PAYMENT_COLORS.length] }} />
-                        <span className="text-sm font-semibold text-slate-700">{row.method}</span>
-                      </div>
-                      <span className="text-xs text-slate-500">{row.transactions} txns</span>
-                    </div>
-                    <p className="mt-2 text-xl font-bold text-slate-900">{formatMoney(row.amount)}</p>
-                  </div>
-                ))}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <MiniInfo label="Blogs tracked" value={String(data?.top_blogs.length ?? 0)} />
+                <MiniInfo label="Videos tracked" value={String(data?.top_videos.length ?? 0)} />
               </div>
-            </>
-          )}
-        </Panel>
-
-        <Panel title="Payment Status Reports" subtitle="Track paid, pending, failed, and refunded transactions" className="animate-fade-in-up stagger-5">
-          {loading ? (
-            <LoadingBlock className="h-[320px]" />
-          ) : !data?.payment_statuses.length ? (
-            <EmptyState text="No payment status records are available yet." />
-          ) : (
-            <div className="space-y-4">
-              {data.payment_statuses.map((row) => {
-                const width = paymentTotal ? `${Math.max((row.amount / paymentTotal) * 100, 8)}%` : "8%";
-                return (
-                  <div key={row.status} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{row.status}</p>
-                        <p className="text-xs text-slate-500">{row.transactions} transaction{row.transactions === 1 ? "" : "s"}</p>
-                      </div>
-                      <p className="text-lg font-bold text-slate-900">{formatMoney(row.amount)}</p>
-                    </div>
-                    <div className="mt-3 h-2.5 rounded-full bg-slate-200">
-                      <div
-                        className={`h-2.5 rounded-full ${
-                          row.status === "Paid"
-                            ? "bg-sky-500"
-                            : row.status === "Pending"
-                              ? "bg-amber-400"
-                              : row.status === "Refunded"
-                                ? "bg-fuchsia-500"
-                                : "bg-rose-500"
-                        }`}
-                        style={{ width }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           )}
         </Panel>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_1fr]">
-        <Panel title="Peak Hour Analysis" subtitle="See which start times attract the highest booking volume" className="animate-fade-in-up stagger-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <Panel title="Most Viewed Blogs" subtitle="Top blog posts by views in the selected range">
           {loading ? (
             <LoadingBlock className="h-[320px]" />
-          ) : !data?.peak_hours.length ? (
-            <EmptyState text="No appointment activity is available for the selected range." />
+          ) : !blogChartData.length ? (
+            <EmptyState text="No blog view analytics are available yet." />
           ) : (
             <div className="h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.peak_hours} margin={{ top: 8, right: 16, left: 0, bottom: 10 }}>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="start_time" tickFormatter={formatHourLabel} stroke="#64748b" fontSize={11} interval={0} angle={-24} textAnchor="end" height={50} />
-                  <YAxis allowDecimals={false} stroke="#64748b" fontSize={12} />
-                  <Tooltip
-                    labelFormatter={(label) => formatHourLabel(String(label))}
-                    formatter={(value) => `${numberFromChartValue(value)} bookings`}
-                    contentStyle={{ borderRadius: 18 }}
-                  />
-                  <Bar dataKey="count" fill="#0284c7" radius={[12, 12, 0, 0]} maxBarSize={34} />
+                <BarChart data={blogChartData} layout="vertical" margin={{ top: 8, right: 16, left: 12, bottom: 0 }}>
+                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} stroke="#64748b" fontSize={12} />
+                  <YAxis dataKey="name" type="category" width={150} stroke="#64748b" fontSize={11} />
+                  <Tooltip formatter={(value) => `${numberFromChartValue(value)} views`} />
+                  <Bar dataKey="views" fill="#0284c7" radius={[0, 12, 12, 0]} maxBarSize={34} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           )}
         </Panel>
 
-        <Panel title="No-show Rate by Doctor" subtitle="Identify providers who may need reminder workflow support" className="animate-fade-in-up stagger-7">
+        <Panel title="Most Viewed Videos" subtitle="Top video and replay content by views in the selected range">
           {loading ? (
             <LoadingBlock className="h-[320px]" />
-          ) : !data?.no_show.length ? (
-            <EmptyState text="No completed or no-show appointment data is available yet." />
+          ) : !videoChartData.length ? (
+            <EmptyState text="No video analytics are available yet." />
           ) : (
+            <div className="h-[320px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={videoChartData} layout="vertical" margin={{ top: 8, right: 16, left: 12, bottom: 0 }}>
+                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} stroke="#64748b" fontSize={12} />
+                  <YAxis dataKey="name" type="category" width={150} stroke="#64748b" fontSize={11} />
+                  <Tooltip formatter={(value) => `${numberFromChartValue(value)} views`} />
+                  <Bar dataKey="views" fill="#6366f1" radius={[0, 12, 12, 0]} maxBarSize={34} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      <Panel title="Most Requested Services" subtitle="Service demand based on booked appointments in the selected range">
+        {loading ? (
+          <LoadingBlock className="h-[340px]" />
+        ) : !data?.requested_services.length ? (
+          <EmptyState text="No requested service data is available yet." />
+        ) : (
+          <div className="space-y-4">
             <div className="space-y-3">
-              {data.no_show.map((row) => (
-                <div key={row.doctor_id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{row.doctor_name}</p>
-                      <p className="text-xs text-slate-500">
-                        {row.no_shows} no-show{row.no_shows === 1 ? "" : "s"} out of {row.total} total tracked visits
-                      </p>
-                    </div>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        row.rate >= 0.2
-                          ? "bg-rose-100 text-rose-700"
-                          : row.rate >= 0.1
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-sky-100 text-sky-700"
-                      }`}
-                    >
-                      {formatPercent(row.rate)}
-                    </span>
+              {data.requested_services.map((row) => (
+                <div key={row.service} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-slate-900">{row.service}</p>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-sky-700">{row.count}</span>
                   </div>
                   <div className="mt-3 h-2.5 rounded-full bg-slate-200">
                     <div
-                      className={`h-2.5 rounded-full ${
-                        row.rate >= 0.2 ? "bg-rose-500" : row.rate >= 0.1 ? "bg-amber-400" : "bg-sky-500"
-                      }`}
-                      style={{ width: `${Math.max(row.rate * 100, 4)}%` }}
+                      className="h-2.5 rounded-full bg-linear-to-r from-sky-500 to-cyan-400"
+                      style={{ width: `${Math.max((row.count / maxRequestedServiceCount) * 100, 10)}%` }}
                     />
                   </div>
                 </div>
               ))}
             </div>
-          )}
-        </Panel>
+            <div className="h-[320px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.requested_services} layout="vertical" margin={{ top: 8, right: 16, left: 12, bottom: 0 }}>
+                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} stroke="#64748b" fontSize={12} />
+                  <YAxis dataKey="service" type="category" width={130} stroke="#64748b" fontSize={11} />
+                  <Tooltip formatter={(value) => `${numberFromChartValue(value)} requests`} />
+                  <Bar dataKey="count" fill="#0ea5e9" radius={[0, 12, 12, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+      </Panel>
       </div>
     </div>
   );
+}
+
+function shorten(value: string, max = 26) {
+  return value.length > max ? `${value.slice(0, max - 1)}...` : value;
 }
 
 function applyPreset(setFrom: (value: string) => void, setTo: (value: string) => void, daysBack: number) {
@@ -624,17 +1052,15 @@ function applyPreset(setFrom: (value: string) => void, setTo: (value: string) =>
 function Panel({
   title,
   subtitle,
-  className,
   children,
 }: {
   title: string;
   subtitle: string;
-  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className={`rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] ${className ?? ""}`}>
-      <div className="mb-5">
+    <section className="rounded-[1.5rem] border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(14,116,144,0.08)]">
+      <div className="mb-5 border-b border-sky-50 pb-4">
         <h2 className="text-lg font-bold text-slate-900">{title}</h2>
         <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
       </div>
@@ -643,30 +1069,116 @@ function Panel({
   );
 }
 
-function MetricCard({
+function HeroStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[1.25rem] border border-sky-100 bg-white px-4 py-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-600">{label}</p>
+      <p className="mt-2 break-words text-xl font-black tracking-tight text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function ChartShell({
+  title,
+  caption,
+  children,
+}: {
+  title: string;
+  caption: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[1.25rem] border border-sky-100 bg-[linear-gradient(180deg,#f8fcff_0%,#ffffff_100%)] p-4 shadow-sm">
+      <div className="mb-4">
+        <h3 className="text-sm font-black uppercase tracking-[0.14em] text-sky-800">{title}</h3>
+        <p className="mt-1 text-sm text-slate-500">{caption}</p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function LegendRow({ color, label, value }: { color: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-sky-100 bg-white px-4 py-3 shadow-sm">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+        <span className="truncate text-sm font-semibold text-slate-700">{label}</span>
+      </div>
+      <span className="shrink-0 text-sm font-black text-slate-950">{value}</span>
+    </div>
+  );
+}
+
+function ReportGroup({
+  eyebrow,
+  title,
+  description,
+  items,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  items: KpiItem[];
+}) {
+  return (
+    <section className="rounded-[1.5rem] border border-sky-100 bg-white p-5 shadow-[0_18px_45px_rgba(14,116,144,0.08)]">
+      <div className="mb-5 flex flex-col gap-1 border-b border-sky-50 pb-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">{eyebrow}</p>
+        <h2 className="text-xl font-black tracking-tight text-slate-950">{title}</h2>
+        <p className="text-sm leading-6 text-slate-500">{description}</p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+        {items.map((item) => (
+          <KpiCard key={item.label} label={item.label} value={item.value} hint={item.hint} accent={item.accent} icon={item.icon} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function KpiCard({
   label,
   value,
   hint,
   accent,
+  icon: Icon,
 }: {
   label: string;
   value: string;
   hint: string;
-  accent: "teal" | "emerald" | "sky" | "rose" | "amber";
+  accent: string;
+  icon: IconType;
 }) {
-  const accents = {
-    teal: "from-cyan-500/20 to-cyan-50 border-cyan-100",
-    emerald: "from-sky-500/20 to-sky-50 border-sky-100",
-    sky: "from-sky-500/20 to-sky-50 border-sky-100",
-    rose: "from-rose-500/20 to-rose-50 border-rose-100",
-    amber: "from-amber-400/20 to-amber-50 border-amber-100",
-  };
-
   return (
-    <div className={`animate-fade-in-up rounded-[1.5rem] border bg-linear-to-br ${accents[accent]} p-5 shadow-sm`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className="mt-3 text-3xl font-black tracking-tight text-slate-900">{value}</p>
-      <p className="mt-2 text-sm text-slate-600">{hint}</p>
+    <div className={`min-h-36 rounded-[1.25rem] border bg-linear-to-br ${accent} p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(14,116,144,0.14)]`}>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="h-1.5 w-12 rounded-full bg-sky-500/80" />
+        <div className="flex size-10 items-center justify-center rounded-2xl border border-sky-100 bg-white/80 text-sky-700 shadow-sm">
+          <Icon className="text-lg" aria-hidden="true" />
+        </div>
+      </div>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">{label}</p>
+      <p className="mt-3 break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{value}</p>
+      <p className="mt-2 line-clamp-2 text-sm leading-5 text-slate-600">{hint}</p>
+    </div>
+  );
+}
+
+function InfoTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function MiniInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-sky-100 bg-white px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-700">{label}</p>
+      <p className="mt-1 text-xl font-black text-slate-900">{value}</p>
     </div>
   );
 }
@@ -675,10 +1187,65 @@ function QuickLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="rounded-full border border-white/20 bg-white/12 px-4 py-2.5 text-center text-sm font-semibold text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/18"
+      className="rounded-full border border-white/25 bg-white/15 px-4 py-2.5 text-center text-sm font-semibold text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/25"
     >
       {label}
     </Link>
+  );
+}
+
+function ControlGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-sky-700">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+function DateField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-semibold text-slate-500">{label}</span>
+      <input
+        type="date"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-2xl border border-sky-100 bg-sky-50/70 px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+      />
+    </label>
+  );
+}
+
+function ExportButton({
+  label,
+  icon: Icon,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  icon: IconType;
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-sky-700 px-4 text-sm font-black text-white shadow-sm transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+    >
+      <Icon className="text-base" aria-hidden="true" />
+      {label}
+    </button>
   );
 }
 
@@ -687,7 +1254,7 @@ function PresetButton({ label, onClick }: { label: string; onClick: () => void }
     <button
       type="button"
       onClick={onClick}
-      className="rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700"
+      className="h-11 rounded-2xl border border-sky-100 bg-sky-50 px-3 text-sm font-semibold text-sky-700 transition hover:border-sky-200 hover:bg-sky-100 hover:text-sky-900"
     >
       {label}
     </button>
@@ -695,12 +1262,12 @@ function PresetButton({ label, onClick }: { label: string; onClick: () => void }
 }
 
 function LoadingBlock({ className }: { className: string }) {
-  return <div className={`rounded-3xl bg-slate-100 shimmer ${className}`} />;
+  return <div className={`rounded-3xl bg-sky-100/70 shimmer ${className}`} />;
 }
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="flex h-[220px] items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 text-center text-sm text-slate-500">
+    <div className="flex h-[220px] items-center justify-center rounded-3xl border border-dashed border-sky-200 bg-sky-50/70 px-6 text-center text-sm text-slate-500">
       {text}
     </div>
   );

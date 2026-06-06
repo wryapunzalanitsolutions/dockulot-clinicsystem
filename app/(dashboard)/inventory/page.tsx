@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { FaBoxesStacked, FaPenToSquare, FaPlus, FaTriangleExclamation, FaTrashCan } from "react-icons/fa6";
+import { FaBoxesStacked, FaChartLine, FaPenToSquare, FaPlus, FaTriangleExclamation, FaTrashCan, FaUsers } from "react-icons/fa6";
 import { useRole } from "@/src/components/layout/RoleProvider";
 
 type Product = {
@@ -111,6 +111,7 @@ export default function InventoryPage() {
   const [deleteSupplierTarget, setDeleteSupplierTarget] = useState<Supplier | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [activeTab, setActiveTab] = useState<"inventory" | "suppliers" | "reports">("inventory");
 
   const authHeaders = useMemo(() => ({
     Authorization: `Bearer ${accessToken}`,
@@ -120,7 +121,7 @@ export default function InventoryPage() {
   async function load() {
     if (!accessToken) return;
     const [productRes, movementRes, supplierRes] = await Promise.all([
-      fetch("/api/v2/inventory/products", { headers: authHeaders, cache: "no-store" }),
+      fetch("/api/v2/inventory/products?active=true", { headers: authHeaders, cache: "no-store" }),
       fetch("/api/v2/inventory/movements", { headers: authHeaders, cache: "no-store" }),
       fetch("/api/v2/inventory/suppliers", { headers: authHeaders, cache: "no-store" }),
     ]);
@@ -163,6 +164,11 @@ export default function InventoryPage() {
         .reduce((sum, movementRow) => sum + Number(movementRow.quantity ?? 0), 0),
     }));
   }, [movements]);
+  const totalStockUnits = products.reduce((sum, product) => sum + Number(product.stock_qty), 0);
+  const activeSuppliers = suppliers.length;
+  const lowStockCount = lowStock.length;
+  const expiringCount = expiring.length;
+  const recentMovementCount = movements.slice(0, 12).length;
 
   async function addProduct(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -212,6 +218,7 @@ export default function InventoryPage() {
       return;
     }
     setDeleteTarget(null);
+    setProducts((current) => current.filter((item) => item.id !== product.id));
     setFeedback("Product removed.");
     await load();
   }
@@ -362,41 +369,78 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <section className="rounded-[2rem] border border-sky-200 bg-linear-to-br from-sky-50/80 via-blue-50 to-cyan-50 p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-sky-700">Inventory System</p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">Inventory Management</h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          Manage branded medicines, generic names, dosage, stock levels, movement history, and low-stock alerts from one place.
-        </p>
+      <section className="overflow-hidden rounded-[2rem] border border-sky-200/80 bg-white shadow-[0_24px_70px_rgba(14,116,144,0.10)]">
+        <div className="grid gap-0 xl:grid-cols-[1.25fr_0.75fr]">
+          <div className="bg-[linear-gradient(135deg,#eff8ff_0%,#dff4ff_48%,#f8fbff_100%)] px-6 py-6 sm:px-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-sky-700">Inventory System</p>
+            <h1 className="mt-3 max-w-3xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Inventory Management</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+              Manage medicines, stock movements, expiry monitoring, supplier records, and inventory reports from one calm, organized workspace.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <HeroPill tone="sky" label={`${products.length} products`} />
+              <HeroPill tone="cyan" label={`${totalStockUnits.toLocaleString()} units`} />
+              <HeroPill tone="amber" label={`${lowStockCount} low stock`} />
+              <HeroPill tone="rose" label={`${expiringCount} expiring soon`} />
+            </div>
+          </div>
+          <div className="grid gap-3 bg-sky-50/70 p-5 sm:grid-cols-2 xl:grid-cols-1">
+            <HeroStat label="Inventory Value" value={formatMoney(totalInventoryValue)} />
+            <HeroStat label="Active Suppliers" value={String(activeSuppliers)} />
+            <HeroStat label="Recent Movements" value={String(recentMovementCount)} />
+          </div>
+        </div>
       </section>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard title="Total Inventory Value" value={formatMoney(products.reduce((sum, product) => sum + Number(product.stock_qty) * Number(product.selling_price), 0))} icon={<FaBoxesStacked />} tone="sky" />
-        <StatCard title="Low Stock Items" value={lowStock.length} icon={<FaTriangleExclamation />} tone="rose" />
-        <StatCard title="Expiring Soon" value={expiring.length} icon={<FaTriangleExclamation />} tone="amber" />
-        <StatCard title="Recent Transactions" value={movements.slice(0, 3).length} icon={<FaBoxesStacked />} tone="cyan" subtitle="Latest movement entries" />
+        <StatCard title="Total Inventory Value" value={formatMoney(totalInventoryValue)} icon={<FaBoxesStacked />} tone="sky" subtitle="Estimated current retail value" />
+        <StatCard title="Low Stock Items" value={lowStockCount} icon={<FaTriangleExclamation />} tone="rose" subtitle="Products at or below reorder level" />
+        <StatCard title="Expiring Soon" value={expiringCount} icon={<FaTriangleExclamation />} tone="amber" subtitle="Items expiring within 45 days" />
+        <StatCard title="Recent Transactions" value={recentMovementCount} icon={<FaBoxesStacked />} tone="cyan" subtitle="Latest movement entries" />
       </div>
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[1.75rem] border border-sky-200/70 bg-white p-3 shadow-[0_16px_45px_rgba(15,23,42,0.06)]">
+        <div className="grid gap-2 sm:grid-cols-3">
+          <SectionTab
+            active={activeTab === "inventory"}
+            label="Inventory"
+            icon={<FaBoxesStacked className="h-4 w-4" />}
+            onClick={() => setActiveTab("inventory")}
+          />
+          <SectionTab
+            active={activeTab === "suppliers"}
+            label="Suppliers"
+            icon={<FaUsers className="h-4 w-4" />}
+            onClick={() => setActiveTab("suppliers")}
+          />
+          <SectionTab
+            active={activeTab === "reports"}
+            label="Reports"
+            icon={<FaChartLine className="h-4 w-4" />}
+            onClick={() => setActiveTab("reports")}
+          />
+        </div>
+      </section>
+
+      <section className={activeTab === "inventory" ? "rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)]" : "hidden"}>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-2xl font-black tracking-tight text-slate-950">Inventory Management</h2>
             <p className="mt-1 text-sm text-slate-600">Search medicines, filter by category, and manage products with compact icon actions.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => openSupplierModal()} className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100">
-              Add Supplier
-            </button>
-            <button type="button" onClick={() => openMovementModal()} className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-100">
+            <button type="button" onClick={() => openMovementModal()} className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-100">
+              <FaBoxesStacked className="h-3.5 w-3.5" />
               Stock Movement
             </button>
-            <button type="button" onClick={openAddModal} className="rounded-full bg-sky-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-sky-700">
+            <button type="button" onClick={openAddModal} className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-5 py-2.5 text-sm font-bold text-white shadow-[0_10px_24px_rgba(2,132,199,0.22)] transition hover:bg-sky-700">
+              <FaPlus className="h-3.5 w-3.5" />
               Add New Drug
             </button>
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_8px_22px_rgba(15,23,42,0.08)]">
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-3 shadow-[0_8px_22px_rgba(15,23,42,0.06)]">
           <div className="grid gap-3 lg:grid-cols-[1fr_180px]">
             <label className="flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-500">
               <span className="h-4 w-4 rounded-full border border-slate-300" />
@@ -422,7 +466,7 @@ export default function InventoryPage() {
 
       {feedback ? <p className="rounded-xl bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-700">{feedback}</p> : null}
 
-      <section className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
+      <section className={activeTab === "inventory" ? "overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.06)]" : "hidden"}>
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
             <h2 className="text-xl font-black tracking-tight text-slate-950">Products</h2>
@@ -431,7 +475,7 @@ export default function InventoryPage() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px] text-left">
-            <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+            <thead className="border-b border-slate-200 bg-gradient-to-r from-sky-50 to-white text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
               <tr>
                 <th className="px-5 py-3">Brand Name</th>
                 <th className="px-5 py-3">Generic Name</th>
@@ -448,7 +492,7 @@ export default function InventoryPage() {
               {filteredProducts.map((product) => {
                 const stockLabel = `${Number(product.stock_qty).toLocaleString()} ${product.unit}`;
                 return (
-                  <tr key={product.id} className="border-b border-slate-100 text-sm text-slate-700 transition hover:bg-sky-50/50">
+                    <tr key={product.id} className="border-b border-slate-100 text-sm text-slate-700 transition hover:bg-sky-50/60">
                     <td className="px-5 py-3 font-semibold text-slate-950">{product.brand_name ?? product.name ?? product.sku}</td>
                     <td className="px-5 py-3 text-slate-600">{product.generic_name ?? "-"}</td>
                     <td className="px-5 py-3 text-slate-600">{product.dosage ?? "-"}</td>
@@ -488,11 +532,12 @@ export default function InventoryPage() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
+      {activeTab === "inventory" ? (
+      <section className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.06)]">
         <div className="border-b border-slate-200 px-5 py-4">
           <h2 className="text-xl font-black tracking-tight text-slate-950">Alerts &amp; Suggestions</h2>
           <p className="mt-1 text-sm text-slate-500">{alertRows.length} items in the active view</p>
-          <div className="mt-4 inline-flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
+          <div className="mt-4 inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-[0_8px_22px_rgba(15,23,42,0.04)]">
             <TabButton active={alertsTab === "expiring"} onClick={() => setAlertsTab("expiring")}>Expiring Items</TabButton>
             <TabButton active={alertsTab === "reorder"} onClick={() => setAlertsTab("reorder")}>Reorder Suggestion</TabButton>
           </div>
@@ -500,7 +545,7 @@ export default function InventoryPage() {
         <div className="overflow-x-auto">
           {alertsTab === "expiring" ? (
             <table className="w-full min-w-[980px] text-left">
-              <thead className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+              <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
                 <tr>
                   <th className="px-5 py-3">Brand Name</th>
                   <th className="px-5 py-3">Batch Number</th>
@@ -514,7 +559,7 @@ export default function InventoryPage() {
                 {expiring.map((product) => {
                   const daysRemaining = product.expiry_date ? Math.ceil((new Date(product.expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
                   return (
-                    <tr key={product.id} className="border-b border-slate-100 text-sm">
+                    <tr key={product.id} className="border-b border-slate-100 text-sm transition hover:bg-amber-50/40">
                       <td className={`px-5 py-3 font-semibold ${daysRemaining != null && daysRemaining < 0 ? "text-rose-600" : "text-slate-950"}`}>{product.brand_name ?? product.name ?? product.sku}</td>
                       <td className={`px-5 py-3 font-mono text-sm ${daysRemaining != null && daysRemaining < 0 ? "text-rose-600" : "text-slate-600"}`}>{product.sku}</td>
                       <td className={`px-5 py-3 ${daysRemaining != null && daysRemaining < 0 ? "text-rose-600" : "text-slate-600"}`}>{Number(product.stock_qty).toLocaleString()} {product.unit}</td>
@@ -553,7 +598,7 @@ export default function InventoryPage() {
                 {lowStock.map((product) => {
                   const suggestedQuantity = Math.max(Number(product.reorder_level) - Number(product.stock_qty), Number(product.reorder_level) || 0);
                   return (
-                    <tr key={product.id} className="border-b border-slate-100 text-sm">
+                    <tr key={product.id} className="border-b border-slate-100 text-sm transition hover:bg-sky-50/40">
                       <td className="px-5 py-3 font-semibold text-slate-950">{product.brand_name ?? product.name ?? product.sku}</td>
                       <td className="px-5 py-3 text-slate-600">{product.generic_name ?? "-"}</td>
                       <td className="px-5 py-3 font-medium text-slate-950">{suggestedQuantity.toLocaleString()} units</td>
@@ -579,8 +624,9 @@ export default function InventoryPage() {
           )}
         </div>
       </section>
+      ) : null}
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <section className={activeTab === "reports" ? "rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)]" : "hidden"}>
         <h2 className="text-xl font-black tracking-tight text-slate-950">Inventory Reports</h2>
         <p className="mt-1 text-sm text-slate-500">Product valuation, movement summary, and export-ready inventory reports.</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -644,19 +690,25 @@ export default function InventoryPage() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
+      <section className={activeTab === "suppliers" ? "overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.06)]" : "hidden"}>
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
             <h2 className="text-xl font-black tracking-tight text-slate-950">Suppliers</h2>
             <p className="mt-1 text-sm text-slate-500">Store supplier information for medicines and other inventory items.</p>
           </div>
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-            {suppliers.length} supplier{suppliers.length === 1 ? "" : "s"}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+              {suppliers.length} supplier{suppliers.length === 1 ? "" : "s"}
+            </span>
+            <button type="button" onClick={() => openSupplierModal()} className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100">
+              <FaPlus className="h-3.5 w-3.5" />
+              Add Supplier
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-left">
-            <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+            <thead className="border-b border-slate-200 bg-gradient-to-r from-sky-50 to-white text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
               <tr>
                 <th className="px-5 py-3">Name</th>
                 <th className="px-5 py-3">Contact Person</th>
@@ -668,7 +720,7 @@ export default function InventoryPage() {
             </thead>
             <tbody>
               {suppliers.map((supplier) => (
-                <tr key={supplier.id} className="border-b border-slate-100 text-sm text-slate-700">
+                <tr key={supplier.id} className="border-b border-slate-100 text-sm text-slate-700 transition hover:bg-sky-50/50">
                   <td className="px-5 py-3 font-semibold text-slate-950">{supplier.name}</td>
                   <td className="px-5 py-3 text-slate-600">{supplier.contact_person ?? "-"}</td>
                   <td className="px-5 py-3 text-slate-600">{supplier.phone ?? "-"}</td>
@@ -704,17 +756,17 @@ export default function InventoryPage() {
           onSubmit={addProduct}
           submitLabel={editingProduct ? "Save changes" : "Save product"}
         >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input label="SKU" value={form.sku} onChange={(v) => setForm((s) => ({ ...s, sku: v }))} />
-            <Input label="Brand name" value={form.brand_name} onChange={(v) => setForm((s) => ({ ...s, brand_name: v }))} />
-            <Input label="Generic name" value={form.generic_name} onChange={(v) => setForm((s) => ({ ...s, generic_name: v }))} />
-            <Input label="Dosage" value={form.dosage} onChange={(v) => setForm((s) => ({ ...s, dosage: v }))} />
-            <Input label="Category" value={form.category} onChange={(v) => setForm((s) => ({ ...s, category: v }))} />
-            <Input label="Unit" value={form.unit} onChange={(v) => setForm((s) => ({ ...s, unit: v }))} />
-            <label className="grid gap-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            <Input compact label="SKU" value={form.sku} onChange={(v) => setForm((s) => ({ ...s, sku: v }))} />
+            <Input compact label="Brand name" value={form.brand_name} onChange={(v) => setForm((s) => ({ ...s, brand_name: v }))} />
+            <Input compact label="Generic name" value={form.generic_name} onChange={(v) => setForm((s) => ({ ...s, generic_name: v }))} />
+            <Input compact label="Dosage" value={form.dosage} onChange={(v) => setForm((s) => ({ ...s, dosage: v }))} />
+            <Input compact label="Category" value={form.category} onChange={(v) => setForm((s) => ({ ...s, category: v }))} />
+            <Input compact label="Unit" value={form.unit} onChange={(v) => setForm((s) => ({ ...s, unit: v }))} />
+            <label className="grid gap-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 sm:col-span-2 xl:col-span-3">
               Supplier
               <select
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
                 value={form.supplier_id}
                 onChange={(event) => setForm((state) => ({ ...state, supplier_id: event.target.value }))}
               >
@@ -726,15 +778,15 @@ export default function InventoryPage() {
                 ))}
               </select>
             </label>
-            <Input label="Cost price" type="number" value={form.cost_price} onChange={(v) => setForm((s) => ({ ...s, cost_price: v }))} />
-            <Input label="Selling price" type="number" value={form.selling_price} onChange={(v) => setForm((s) => ({ ...s, selling_price: v }))} />
-            <Input label="Initial stock" type="number" value={form.stock_qty} onChange={(v) => setForm((s) => ({ ...s, stock_qty: v }))} />
-            <Input label="Reorder level" type="number" value={form.reorder_level} onChange={(v) => setForm((s) => ({ ...s, reorder_level: v }))} />
-            <Input label="Expiry date" type="date" value={form.expiry_date} onChange={(v) => setForm((s) => ({ ...s, expiry_date: v }))} />
-            <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 sm:col-span-2">
+            <Input compact label="Cost price" type="number" value={form.cost_price} onChange={(v) => setForm((s) => ({ ...s, cost_price: v }))} />
+            <Input compact label="Selling price" type="number" value={form.selling_price} onChange={(v) => setForm((s) => ({ ...s, selling_price: v }))} />
+            <Input compact label="Initial stock" type="number" value={form.stock_qty} onChange={(v) => setForm((s) => ({ ...s, stock_qty: v }))} />
+            <Input compact label="Reorder level" type="number" value={form.reorder_level} onChange={(v) => setForm((s) => ({ ...s, reorder_level: v }))} />
+            <Input compact label="Expiry date" type="date" value={form.expiry_date} onChange={(v) => setForm((s) => ({ ...s, expiry_date: v }))} />
+            <label className="grid gap-0.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 sm:col-span-2 xl:col-span-3">
               Notes
               <textarea
-                className="min-h-24 rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                className="min-h-20 rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
                 value={form.description}
                 onChange={(event) => setForm((state) => ({ ...state, description: event.target.value }))}
               />
@@ -750,7 +802,7 @@ export default function InventoryPage() {
           onSubmit={saveMovement}
           submitLabel="Save movement"
         >
-          <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <label className="grid gap-0.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
             Product
             <select
               className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
@@ -762,18 +814,18 @@ export default function InventoryPage() {
               {products.map((p) => <option key={p.id} value={p.id}>{p.sku} - {p.brand_name ?? p.name ?? "Product"}</option>)}
             </select>
           </label>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <label className="grid gap-0.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
               Movement Type
               <select className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100" value={movement.movement_type} onChange={(e) => setMovement((s) => ({ ...s, movement_type: e.target.value }))}>
                 {["StockIn", "StockOut", "Sale", "Return", "Adjustment", "Expired"].map((type) => <option key={type}>{type}</option>)}
               </select>
             </label>
-            <Input label="Quantity" type="number" value={movement.quantity} onChange={(v) => setMovement((s) => ({ ...s, quantity: v }))} />
+            <Input compact label="Quantity" type="number" value={movement.quantity} onChange={(v) => setMovement((s) => ({ ...s, quantity: v }))} />
           </div>
-          <label className="mt-3 grid gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <label className="mt-3 grid gap-0.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
             Notes
-            <textarea className="min-h-24 rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100" placeholder="Notes" value={movement.notes} onChange={(e) => setMovement((s) => ({ ...s, notes: e.target.value }))} />
+            <textarea className="min-h-16 rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100" placeholder="Notes" value={movement.notes} onChange={(e) => setMovement((s) => ({ ...s, notes: e.target.value }))} />
           </label>
         </ProductModal>
       ) : null}
@@ -788,15 +840,15 @@ export default function InventoryPage() {
           onSubmit={saveSupplier}
           submitLabel={editingSupplier ? "Save supplier" : "Add supplier"}
         >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input label="Supplier name" value={supplierForm.name} onChange={(v) => setSupplierForm((state) => ({ ...state, name: v }))} />
-            <Input label="Contact person" value={supplierForm.contact_person} onChange={(v) => setSupplierForm((state) => ({ ...state, contact_person: v }))} required={false} />
-            <Input label="Phone" value={supplierForm.phone} onChange={(v) => setSupplierForm((state) => ({ ...state, phone: v }))} required={false} />
-            <Input label="Email" value={supplierForm.email} onChange={(v) => setSupplierForm((state) => ({ ...state, email: v }))} type="email" required={false} />
-            <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 sm:col-span-2">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Input compact label="Supplier name" value={supplierForm.name} onChange={(v) => setSupplierForm((state) => ({ ...state, name: v }))} />
+            <Input compact label="Contact person" value={supplierForm.contact_person} onChange={(v) => setSupplierForm((state) => ({ ...state, contact_person: v }))} required={false} />
+            <Input compact label="Phone" value={supplierForm.phone} onChange={(v) => setSupplierForm((state) => ({ ...state, phone: v }))} required={false} />
+            <Input compact label="Email" value={supplierForm.email} onChange={(v) => setSupplierForm((state) => ({ ...state, email: v }))} type="email" required={false} />
+            <label className="grid gap-0.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 sm:col-span-2">
               Address
               <textarea
-                className="min-h-24 rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                className="min-h-16 rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
                 value={supplierForm.address}
                 onChange={(event) => setSupplierForm((state) => ({ ...state, address: event.target.value }))}
               />
@@ -866,6 +918,23 @@ function TabButton({ active, children, onClick }: { active: boolean; children: R
   );
 }
 
+function SectionTab({ active, label, icon, onClick }: { active: boolean; label: string; icon: ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center justify-center gap-3 rounded-[1.1rem] px-4 py-3 text-sm font-semibold transition ${
+        active
+          ? "bg-linear-to-r from-sky-600 to-blue-600 text-white shadow-[0_12px_28px_rgba(2,132,199,0.25)]"
+          : "bg-slate-50 text-slate-700 hover:bg-sky-50"
+      }`}
+    >
+      <span className={`rounded-full p-2 ${active ? "bg-white/15" : "bg-sky-100 text-sky-700"}`}>{icon}</span>
+      {label}
+    </button>
+  );
+}
+
 function IconButton({ label, tone, icon, onClick }: { label: string; tone: "sky" | "rose"; icon: ReactNode; onClick: () => void }) {
   const tones = {
     sky: "border-slate-200 bg-white text-slate-700 hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700",
@@ -881,14 +950,19 @@ function IconButton({ label, tone, icon, onClick }: { label: string; tone: "sky"
 
 function ProductModal({ title, submitLabel, onClose, onSubmit, children }: { title: string; submitLabel: string; onClose: () => void; onSubmit: (e: FormEvent<HTMLFormElement>) => Promise<void>; children: ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 py-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
-        <div className="h-1 bg-linear-to-r from-sky-500 to-cyan-400" />
-        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-sky-700">Inventory</p>
-            <h3 className="mt-1 text-lg font-bold tracking-tight text-slate-950">{title}</h3>
-            <p className="mt-1 text-xs text-slate-500">Keep it short. Brand, generic, dosage, then stock.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-4 backdrop-blur-md">
+      <div className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
+        <div className="h-1.5 bg-linear-to-r from-sky-500 via-cyan-400 to-blue-500" />
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 bg-[linear-gradient(180deg,#f8fbff_0%,#ffffff_100%)] px-5 py-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 shadow-sm">
+              <FaBoxesStacked className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-sky-700">Inventory</p>
+              <h3 className="mt-1 text-lg font-bold tracking-tight text-slate-950">{title}</h3>
+              <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Keep the form compact and clean so you can add inventory quickly without extra scrolling.</p>
+            </div>
           </div>
           <button type="button" onClick={onClose} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700">
             Close
@@ -898,17 +972,17 @@ function ProductModal({ title, submitLabel, onClose, onSubmit, children }: { tit
           onSubmit={async (e) => {
             await onSubmit(e);
           }}
-          className="max-h-[calc(100vh-6rem)] overflow-y-auto px-5 py-5"
+          className="max-h-[calc(100vh-5rem)] overflow-y-auto px-5 py-4"
         >
-          <div className="mb-4 rounded-xl border border-sky-100 bg-sky-50/60 px-3 py-2 text-xs text-slate-600">
-            Brand, generic, dosage, then stock.
+          <div className="mb-3 rounded-2xl border border-sky-100 bg-sky-50/70 px-4 py-2.5 text-xs leading-5 text-slate-600">
+            Keep SKU, brand, and supplier consistent for cleaner records.
           </div>
           {children}
           <div className="mt-5 flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
             <button type="button" onClick={onClose} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
               Cancel
             </button>
-            <button type="submit" className="rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-[0_8px_18px_rgba(2,132,199,0.22)] transition hover:bg-sky-700">
+            <button type="submit" className="rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-[0_12px_24px_rgba(2,132,199,0.22)] transition hover:bg-sky-700">
               {submitLabel}
             </button>
           </div>
@@ -922,17 +996,27 @@ function ConfirmationModal({ title, description, confirmLabel, tone, onCancel, o
   const confirmTone = tone === "rose" ? "bg-rose-600 hover:bg-rose-700" : "bg-sky-600 hover:bg-sky-700";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-2xl">
-        <h3 className="text-xl font-black tracking-tight text-slate-950">{title}</h3>
-        <p className="mt-2 text-sm text-slate-600">{description}</p>
-        <div className="mt-5 flex justify-end gap-2">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-md">
+      <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
+        <div className={`h-1.5 ${tone === "rose" ? "bg-linear-to-r from-rose-500 to-pink-500" : "bg-linear-to-r from-sky-500 to-cyan-400"}`} />
+        <div className="p-5">
+          <div className="flex items-start gap-3">
+            <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${tone === "rose" ? "bg-rose-100 text-rose-700" : "bg-sky-100 text-sky-700"}`}>
+              <FaTriangleExclamation className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black tracking-tight text-slate-950">{title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
           <button type="button" onClick={onCancel} className="rounded-full border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             Cancel
           </button>
           <button type="button" onClick={onConfirm} className={`rounded-full px-5 py-2.5 text-sm font-bold text-white ${confirmTone}`}>
             {confirmLabel}
           </button>
+          </div>
         </div>
       </div>
     </div>
@@ -962,11 +1046,35 @@ function downloadCsv(filename: string, rows: string[][]) {
   URL.revokeObjectURL(url);
 }
 
-function Input({ label, value, onChange, type = "text", required = true }: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean }) {
+function Input({ label, value, onChange, type = "text", required = true, compact = false }: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean; compact?: boolean }) {
   return (
-    <label className="grid gap-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+    <label className={`grid ${compact ? "gap-0.5" : "gap-1"} text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500`}>
       {label}
-      <input required={required} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-sky-400 focus:ring-4 focus:ring-sky-100" type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+      <input required={required} className={`rounded-xl border border-slate-200 bg-white px-3 text-sm font-normal normal-case tracking-normal text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-sky-400 focus:ring-4 focus:ring-sky-100 ${compact ? "py-2" : "py-2.5"}`} type={type} value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
+  );
+}
+
+function HeroPill({ label, tone }: { label: string; tone: "sky" | "cyan" | "amber" | "rose" }) {
+  const tones = {
+    sky: "border-sky-200 bg-sky-50 text-sky-700",
+    cyan: "border-cyan-200 bg-cyan-50 text-cyan-700",
+    amber: "border-amber-200 bg-amber-50 text-amber-700",
+    rose: "border-rose-200 bg-rose-50 text-rose-700",
+  };
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold ${tones[tone]}`}>
+      {label}
+    </span>
+  );
+}
+
+function HeroStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[1.25rem] border border-sky-100 bg-white/80 px-4 py-4 shadow-[0_10px_24px_rgba(14,116,144,0.08)] backdrop-blur-sm">
+      <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-sky-600">{label}</p>
+      <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{value}</p>
+    </div>
   );
 }

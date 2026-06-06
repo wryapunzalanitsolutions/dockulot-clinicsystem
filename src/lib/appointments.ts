@@ -1,6 +1,7 @@
 export type AppointmentType = "Clinic" | "Online";
 
 export type AppointmentStatus =
+  | "Pending"
   | "Confirmed"
   | "Checked In"
   | "In Progress"
@@ -205,7 +206,7 @@ export function getAppointmentSummary(appointments: AppointmentRecord[]) {
       || appointment.status === "Completed",
   ).length;
   const pendingCount = appointments.filter(
-    (appointment) => appointment.status === "In Progress",
+    (appointment) => appointment.status === "Pending",
   ).length;
   const checkedInCount = appointments.filter(
     (appointment) => appointment.status === "Checked In",

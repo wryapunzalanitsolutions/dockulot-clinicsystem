@@ -175,7 +175,8 @@ export default function CalendarViewPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-700">Calendar</p>
             <h1 className="mt-3 text-3xl font-black text-slate-900">Shared weekly availability at a glance</h1>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Compare clinic and online slots, then jump straight to the right appointment page when you need it.
+              Clinic visits open Friday to Sunday from 9:00 AM to 3:00 PM. Virtual consults run
+              Monday to Friday from 10:00 AM to 8:00 PM and Saturday to Sunday from 10:00 AM to 6:00 PM.
             </p>
           </div>
 

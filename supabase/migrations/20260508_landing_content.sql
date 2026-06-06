@@ -26,18 +26,25 @@ create table if not exists public.landing_content (
   hero_background_url text,
 
   -- Doctor / About section ----------------------------------------------
-  about_eyebrow text not null default 'Meet Your Doctor',
-  about_title text not null default 'Expert Healthcare Provider',
-  about_subtitle text not null default 'With years of experience in general medicine and patient care',
-  doctor_name text not null default 'Doctora Kulot, MD',
-  doctor_title text not null default 'Family Medicine Specialist',
+  about_eyebrow text not null default 'About the Doctor',
+  about_title text not null default 'Dr. Fatimah Al-Zahra Ditti',
+  about_subtitle text not null default 'Medical Doctor focused on family medicine, women''s health, preventive care, and everyday primary care support for patients and families.',
+  doctor_name text not null default 'Dr. Fatimah Al-Zahra Ditti',
+  doctor_title text not null default 'Medical Doctor',
+  about_highlights jsonb not null default '[
+    {"title":"Specialty","body":"Family Medicine"},
+    {"title":"Experience","body":"8 Years of clinical practice"},
+    {"title":"Subspecialty","body":"PCOS Management and Weightloss Management"},
+    {"title":"Care Focus","body":"Primary care, prevention, and follow-up support"},
+    {"title":"Education","body":"Silliman University, 2017 | Zamboanga City Medical Center, 2021"}
+  ]'::jsonb,
   doctor_photo_url text,
-  feature_1_title text not null default 'Professional Expertise',
-  feature_1_body text not null default 'Comprehensive general medicine practice with focus on patient wellness',
-  feature_2_title text not null default 'Flexible Consultation',
-  feature_2_body text not null default 'Choose between clinic visits or online consultations for your convenience',
-  feature_3_title text not null default 'Patient-Centered Care',
-  feature_3_body text not null default 'Dedicated to understanding your health concerns and providing quality care',
+  feature_1_title text not null default 'Specialty',
+  feature_1_body text not null default 'Family Medicine',
+  feature_2_title text not null default 'Experience',
+  feature_2_body text not null default '8 Years',
+  feature_3_title text not null default 'Subspecialty',
+  feature_3_body text not null default 'PCOS Management and Weightloss Management',
 
   -- Closing CTA banner ---------------------------------------------------
   cta_title text not null default 'Ready to Schedule Your Appointment?',

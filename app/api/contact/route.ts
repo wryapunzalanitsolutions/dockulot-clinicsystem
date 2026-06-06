@@ -4,6 +4,14 @@ import { assertTrustedOrigin, enforceRateLimit } from "@/src/lib/security";
 import { sendContactEmail } from "@/src/lib/services/emailjs";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 
+const VALID_INQUIRY_TYPES = new Set([
+  "Ask about appointment",
+  "Ask about services",
+  "Ask about consultation",
+  "Ask about vlog/content collaboration",
+  "Ask general questions",
+]);
+
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -32,13 +40,16 @@ export async function POST(req: Request) {
     const cleanName = name.trim();
     const cleanEmail = email.trim();
     const cleanMessage = message.trim();
+    const cleanInquiryType = typeof inquiry_type === "string" && VALID_INQUIRY_TYPES.has(inquiry_type.trim())
+      ? inquiry_type.trim()
+      : "Ask general questions";
 
     const supabase = getSupabaseAdmin();
     const { error: inquiryError } = await supabase.from("inquiries").insert({
       name: cleanName,
       email: cleanEmail,
       phone: typeof phone === "string" ? phone.trim() || null : null,
-      inquiry_type: typeof inquiry_type === "string" ? inquiry_type.trim() || "General" : "General",
+      inquiry_type: cleanInquiryType,
       message: cleanMessage,
     });
     if (inquiryError) throw inquiryError;
@@ -47,6 +58,7 @@ export async function POST(req: Request) {
       await sendContactEmail({
         name: cleanName,
         email: cleanEmail,
+        inquiryType: cleanInquiryType,
         message: cleanMessage,
       });
     } catch (emailError) {

@@ -9,9 +9,22 @@ export default function ContactPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-700">Contact / Inquiry</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Send an inquiry</h1>
           <p className="mt-4 leading-8 text-slate-600">
-            Visitors can ask about appointments, services, consultations, collaborations, or general questions. Admin can
-            reply, close, or convert inquiries into appointments in the schema.
+            Ask about appointments, services, consultations, vlog or content collaborations, or general questions. The
+            clinic team can reply, close, and convert relevant inquiries into appointments.
           </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {[
+              "Ask about appointment",
+              "Ask about services",
+              "Ask about consultation",
+              "Ask about vlog/content collaboration",
+              "Ask general questions",
+            ].map((label) => (
+              <span key={label} className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+                {label}
+              </span>
+            ))}
+          </div>
           <Link href="/#booking" className="mt-8 inline-flex rounded-full bg-sky-600 px-6 py-3 text-sm font-bold text-white">
             Go to booking
           </Link>

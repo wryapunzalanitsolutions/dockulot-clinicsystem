@@ -1,4 +1,5 @@
 import { HttpError, httpError, ok, requireActor } from "@/src/lib/http";
+import { isProtectedSuperAdminEmail } from "@/src/lib/auth/protected-accounts";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 
 export async function GET(req: Request) {
@@ -32,6 +33,8 @@ export async function GET(req: Request) {
 type UpdateMeBody = {
   full_name?: string;
   phone?: string | null;
+  email?: string;
+  new_password?: string;
 };
 
 export async function PATCH(req: Request) {
@@ -44,6 +47,8 @@ export async function PATCH(req: Request) {
     }
 
     const updates: Record<string, string | null> = {};
+    let nextEmail: string | null = null;
+    let nextPassword: string | null = null;
 
     if (body.full_name != null) {
       const fullName = body.full_name.trim();
@@ -58,19 +63,44 @@ export async function PATCH(req: Request) {
       updates.phone = phone || null;
     }
 
-    if (Object.keys(updates).length === 0) {
+    if (body.email != null) {
+      const email = body.email.trim().toLowerCase();
+      if (!email) throw new HttpError(400, "Email is required.");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new HttpError(400, "Please provide a valid email address.");
+      }
+      if (isProtectedSuperAdminEmail(email) && actor.profile.role !== "super_admin") {
+        throw new HttpError(400, "This email is reserved for the super admin account.");
+      }
+      nextEmail = email;
+      updates.email = email;
+    }
+
+    if (body.new_password != null) {
+      const password = body.new_password;
+      if (password.length < 8) {
+        throw new HttpError(400, "Password must be at least 8 characters long.");
+      }
+      nextPassword = password;
+    }
+
+    if (Object.keys(updates).length === 0 && nextPassword == null) {
       throw new HttpError(400, "Nothing to update.");
     }
 
     const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
-      .from("profiles")
-      .update(updates)
-      .eq("id", actor.id)
-      .select("*")
-      .single();
+    let data: typeof actor.profile | null = null;
+    if (Object.keys(updates).length > 0) {
+      const result = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", actor.id)
+        .select("*")
+        .single();
 
-    if (error) throw error;
+      if (result.error) throw result.error;
+      data = result.data as typeof actor.profile;
+    }
 
     if (updates.full_name) {
       await supabase.auth.admin.updateUserById(actor.id, {
@@ -78,7 +108,14 @@ export async function PATCH(req: Request) {
       });
     }
 
-    return ok({ profile: data });
+    if (nextEmail || nextPassword) {
+      await supabase.auth.admin.updateUserById(actor.id, {
+        ...(nextEmail ? { email: nextEmail } : {}),
+        ...(nextPassword ? { password: nextPassword } : {}),
+      });
+    }
+
+    return ok({ profile: data ?? actor.profile });
   } catch (e) {
     return httpError(e);
   }

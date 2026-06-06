@@ -121,7 +121,7 @@ export default function ReceiptPage() {
   const [clinicFeedback, setClinicFeedback] = useState<string | null>(null);
   const [isSavingClinic, startSavingClinic] = useTransition();
 
-  const canEditClinic = role === "SUPER_ADMIN" || role === "DOCTOR";
+  const canEditClinic = role === "SUPER_ADMIN" || role === "SECRETARY" || role === "DOCTOR";
 
   useEffect(() => {
     if (authLoading || !accessToken) return;
@@ -334,7 +334,7 @@ export default function ReceiptPage() {
                 <input
                   value={clinicDraft.name}
                   onChange={(e) => setClinicDraft((c) => ({ ...c, name: e.target.value }))}
-                  placeholder="CHIARA Clinic"
+                  placeholder="Doc Kulot Clinic"
                   className="rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
                 />
               </label>
@@ -352,7 +352,7 @@ export default function ReceiptPage() {
                 <input
                   value={clinicDraft.email}
                   onChange={(e) => setClinicDraft((c) => ({ ...c, email: e.target.value }))}
-                  placeholder="admin@chiara.test"
+                  placeholder="admin@dockulot.clinic"
                   type="email"
                   className="rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
                 />

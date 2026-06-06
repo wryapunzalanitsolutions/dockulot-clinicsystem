@@ -14,13 +14,13 @@ export type RoleProfile = {
 export const ROLE_PROFILES: RoleProfile[] = [
   {
     role: "SUPER_ADMIN",
-    label: "Super Admin",
-    shortLabel: "SA",
+    label: "Admin",
+    shortLabel: "AD",
     description: "Full control, permissions, and system configuration",
   },
   {
     role: "SECRETARY",
-    label: "Secretary / Admin Staff",
+    label: "Staff",
     shortLabel: "ST",
     description: "Appointments, patients, walk-ins, and POS billing",
   },
@@ -57,6 +57,10 @@ const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   {
     prefixes: ["/profile"],
     allowedRoles: ["SUPER_ADMIN", "SECRETARY", "DOCTOR", "PATIENT"],
+  },
+  {
+    prefixes: ["/portal"],
+    allowedRoles: ["PATIENT"],
   },
   {
     prefixes: ["/users"],
@@ -100,7 +104,11 @@ const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   },
   {
     prefixes: ["/reports", "/help", "/pricing"],
-    allowedRoles: ["SUPER_ADMIN", "SECRETARY", "DOCTOR"],
+    allowedRoles: ["SUPER_ADMIN", "DOCTOR"],
+  },
+  {
+    prefixes: ["/security"],
+    allowedRoles: ["SUPER_ADMIN", "DOCTOR"],
   },
   {
     prefixes: ["/inventory", "/inquiries", "/faq-content"],
@@ -108,7 +116,7 @@ const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   },
   {
     prefixes: ["/prescriptions"],
-    allowedRoles: ["SUPER_ADMIN", "SECRETARY", "DOCTOR", "PATIENT"],
+    allowedRoles: ["SUPER_ADMIN", "DOCTOR", "PATIENT"],
   },
   {
     prefixes: ["/contents", "/creator-content"],

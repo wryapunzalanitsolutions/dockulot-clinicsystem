@@ -2,7 +2,22 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { FaCalendarDays, FaChartSimple, FaChevronRight, FaClipboardList, FaNotesMedical, FaPause, FaUsers, FaVideo, FaHospital } from "react-icons/fa6";
+import {
+  FaCalendarDays,
+  FaChartLine,
+  FaChartSimple,
+  FaChevronRight,
+  FaClipboardList,
+  FaFileLines,
+  FaFilePen,
+  FaHospital,
+  FaInbox,
+  FaNotesMedical,
+  FaPause,
+  FaPrescriptionBottleMedical,
+  FaUsers,
+  FaVideo,
+} from "react-icons/fa6";
 import { useAppointments } from "@/src/components/appointments/useAppointments";
 import { useConsultationNotes } from "@/src/components/clinic/useClinicData";
 import { ActionCard, DashboardHero, MetricCard, SectionCard, StatusPill } from "@/src/components/dashboard/dashboard-ui";
@@ -71,6 +86,10 @@ export default function DoctorDashboard() {
         <MetricCard href="/consultations/history" label="Completed Today" value={completedToday} helper="Patients seen and finished" tone="teal" icon={<FaChevronRight className="text-2xl" />} />
         <MetricCard href="/consultations" label="Pending Notes" value={pendingNotes} helper="Consultations needing documentation" tone="amber" icon={<FaNotesMedical className="text-2xl" />} />
         <MetricCard href="/consultations/history" label="Total Consultations" value={totalSeen} helper="All completed appointments on record" tone="sky" icon={<FaChartSimple className="text-2xl" />} />
+        <MetricCard href="/prescriptions" label="Prescriptions" value="Rx" helper="Create and review prescriptions" tone="cyan" icon={<FaPrescriptionBottleMedical className="text-2xl" />} />
+        <MetricCard href="/patients/records" label="Records Review" value="Files" helper="Patient records and uploaded files" tone="sky" icon={<FaFileLines className="text-2xl" />} />
+        <MetricCard href="/inquiries" label="Follow-ups" value="Inbox" helper="Patient questions after visits" tone="amber" icon={<FaInbox className="text-2xl" />} />
+        <MetricCard href="/reports" label="Clinical Reports" value="View" helper="Appointment and patient activity" tone="indigo" icon={<FaChartLine className="text-2xl" />} />
       </div>
 
       {nextInQueue ? (
@@ -235,11 +254,13 @@ export default function DoctorDashboard() {
       </SectionCard>
 
       <SectionCard title="Doctor Tools" description="Quick access to your most-used consultation and scheduling tools.">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <ActionCard href="/consultations" title="Write Consultation" description="Document patient encounters and notes." tone="sky" icon={<FaNotesMedical className="text-lg" />} />
           <ActionCard href="/consultations/history" title="Patient History" description="Review past visits and medical notes." tone="sky" icon={<FaClipboardList className="text-lg" />} />
           <ActionCard href="/schedules" title="Your Schedule" description="See the week and plan your day." tone="sky" icon={<FaCalendarDays className="text-lg" />} />
           <ActionCard href="/schedules/slots" title="Blocked Dates" description="Mark leave, closures, and unavailable days." tone="amber" icon={<FaPause className="text-lg" />} />
+          <ActionCard href="/consultations" title="Online Consultation" description="Start or join active virtual consultation rooms." tone="violet" icon={<FaVideo className="text-lg" />} />
+          <ActionCard href="/creator-content" title="Content Status" description="Review blog, vlog, and live schedule content." tone="indigo" icon={<FaFilePen className="text-lg" />} />
         </div>
       </SectionCard>
     </div>

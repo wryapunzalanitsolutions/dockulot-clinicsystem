@@ -292,18 +292,18 @@ export default function SettingsPage() {
 
                 <details className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-600">
                   <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wider text-slate-700">
-                    How to get a Google Meet link
+                    How to get a Google Meet / Zoom link
                   </summary>
                   <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs leading-5">
                     <li>
-                      Open <a href="https://meet.new" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-sky-700 hover:underline">meet.new <FaUpRightFromSquare className="h-2.5 w-2.5" aria-hidden="true" /></a> while signed in to the doctor&apos;s Google account — Google instantly creates a permanent meeting room.
+                      For Google Meet, open <a href="https://meet.new" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-sky-700 hover:underline">meet.new <FaUpRightFromSquare className="h-2.5 w-2.5" aria-hidden="true" /></a> while signed in to the doctor&apos;s Google account.
                     </li>
                     <li>
-                      Copy the URL from the address bar (it looks like <code className="rounded bg-white px-1">https://meet.google.com/abc-defg-hij</code>).
+                      Copy the URL from the address bar for Google Meet, or paste your Zoom meeting URL directly.
                     </li>
                     <li>Paste it above and save. Patients will receive this link in their booking-confirmation email and SMS.</li>
                     <li>
-                      <span className="font-semibold">Privacy tip:</span> with non-Workspace Google accounts, patients land in a &ldquo;Asking to join&rdquo; waiting room — only let in the patient whose slot is active.
+                      <span className="font-semibold">Privacy tip:</span> if your platform uses a waiting room or lobby, only admit the patient whose slot is active.
                     </li>
                   </ol>
                 </details>

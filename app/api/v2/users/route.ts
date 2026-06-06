@@ -1,7 +1,8 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { HttpError, httpError, ok, requireRole } from "@/src/lib/http";
 import { slugifyDoctorName } from "@/src/lib/server/doctor-identity";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
+import { logActivity } from "@/src/lib/services/activity-log";
 import type { DbRole, Profile } from "@/src/lib/db/types";
 
 const CANONICAL_DOCTOR_SPECIALTY = "Family Medicine Specialist";
@@ -10,7 +11,7 @@ type CreateUserBody = {
   email: string;
   full_name: string;
   phone?: string | null;
-  role: "super_admin" | "secretary" | "doctor";
+  role: "super_admin" | "staff" | "doctor";
   doctor?: {
     specialty?: string;
     license_no?: string;
@@ -25,15 +26,19 @@ function assertCreateBody(body: unknown): CreateUserBody {
   if (!b.email || !b.full_name || !b.role) {
     throw new HttpError(400, "email, full_name, role required");
   }
-  if (b.role !== "super_admin" && b.role !== "secretary" && b.role !== "doctor") {
-    throw new HttpError(400, "role must be super_admin, secretary, or doctor");
+  if (b.role !== "super_admin" && b.role !== "staff" && b.role !== "doctor") {
+    throw new HttpError(400, "role must be super_admin, staff, or doctor");
   }
   return b as CreateUserBody;
 }
 
+function createTemporaryPassword() {
+  return `Tmp-${randomBytes(8).toString("base64url")}!9Aa`;
+}
+
 export async function GET(req: Request) {
   try {
-    await requireRole(req, ["super_admin", "doctor"]);
+    await requireRole(req, ["super_admin", "secretary", "doctor"]);
     const supabase = getSupabaseAdmin();
     const url = new URL(req.url);
     const q = url.searchParams.get("q")?.trim();
@@ -50,7 +55,7 @@ export async function GET(req: Request) {
       // Search by email or name (simple, fast)
       query = query.or(`email.ilike.%${q}%,full_name.ilike.%${q}%`);
     }
-    if (role && ["super_admin", "secretary", "doctor", "patient", "admin"].includes(role)) {
+    if (role && ["super_admin", "secretary", "staff", "doctor", "patient", "admin"].includes(role)) {
       query = query.eq("role", role);
     }
     if (active === "true") query = query.eq("is_active", true);
@@ -66,11 +71,11 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const actor = await requireRole(req, ["super_admin", "doctor"]);
+    const actor = await requireRole(req, ["super_admin", "secretary", "doctor"]);
     const body = assertCreateBody(await req.json());
 
     const supabase = getSupabaseAdmin();
-    const tempPassword = randomUUID();
+    const tempPassword = createTemporaryPassword();
 
     const { data: created, error: createError } = await supabase.auth.admin.createUser({
       email: body.email,
@@ -120,6 +125,14 @@ export async function POST(req: Request) {
       });
       if (doctorError) throw doctorError;
     }
+
+    await logActivity({
+      actor,
+      action: "users.create",
+      entity_table: "profiles",
+      entity_id: created.user.id,
+      metadata: { role: body.role },
+    });
 
     return ok(
       {

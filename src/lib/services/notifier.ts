@@ -30,7 +30,7 @@ export async function sendEmail(input: EmailInput): Promise<void> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: process.env.RESEND_FROM ?? "CHIARA Clinic <no-reply@chiara.clinic>",
+      from: process.env.RESEND_FROM ?? "Doc Kulot Clinic <no-reply@dockulot.clinic>",
       to: input.to,
       subject: input.subject,
       text: input.body,
@@ -80,20 +80,21 @@ export function renderTemplate(template: string, payload: TemplatePayload): { su
   const patientName = payload.patient_name as string | undefined;
   const appointmentDate = payload.appointment_date as string | undefined;
   const startTime = payload.start_time as string | undefined;
+  const prescriptionNo = payload.prescription_no as string | undefined;
   const scheduleLine = [appointmentDate, startTime].filter(Boolean).join(" at ");
   const patientLine = patientName ? ` for ${patientName}` : "";
 
   switch (template) {
     case "verify_email":
       return {
-        subject: "Verify your CHIARA Clinic account",
+        subject: "Verify your Doc Kulot Clinic account",
         body: verifyUrl
           ? `Please verify your email before signing in. Open this confirmation link to activate your account: ${verifyUrl}`
           : "Please verify your email before signing in. Use the confirmation link from your latest verification email.",
       };
     case "welcome":
       return {
-        subject: "Welcome to CHIARA Clinic",
+        subject: "Welcome to Doc Kulot Clinic",
         body: "Welcome! Your account is now active. You can book clinic visits and online consultations at any time.",
       };
     case "appointment_booked":
@@ -182,15 +183,23 @@ export function renderTemplate(template: string, payload: TemplatePayload): { su
       };
     case "appointment_reminder_24h":
       return {
-        subject: "Reminder: online consultation tomorrow",
-        body: `This is a 24-hour reminder for your online consultation (ref ${appt}) tomorrow.${
-          link ? ` Meeting link: ${link}` : ""
-        }`,
+        subject: type === "Clinic"
+          ? "Reminder: clinic appointment tomorrow"
+          : "Reminder: online consultation tomorrow",
+        body: type === "Clinic"
+          ? `This is a 24-hour reminder for your clinic appointment (ref ${appt}) tomorrow.`
+          : `This is a 24-hour reminder for your online consultation (ref ${appt}) tomorrow.${
+            link ? ` Meeting link: ${link}` : ""
+          }`,
       };
     case "appointment_reminder_6h":
       return {
-        subject: "Reminder: appointment in a few hours",
-        body: `Your appointment (ref ${appt}) is coming up soon.${link ? ` Meeting link: ${link}` : ""}`,
+        subject: type === "Clinic"
+          ? "Reminder: clinic appointment in a few hours"
+          : "Reminder: appointment in a few hours",
+        body: type === "Clinic"
+          ? `Your clinic appointment (ref ${appt}) is coming up soon.`
+          : `Your appointment (ref ${appt}) is coming up soon.${link ? ` Meeting link: ${link}` : ""}`,
       };
     case "appointment_cancelled":
       return {
@@ -202,7 +211,12 @@ export function renderTemplate(template: string, payload: TemplatePayload): { su
         subject: "Your receipt is ready",
         body: `Your bill (ref ${appt}) has been issued. You can review it on your dashboard.`,
       };
+    case "prescription_released":
+      return {
+        subject: "Your prescription is ready",
+        body: `Your prescription${prescriptionNo ? ` (${prescriptionNo})` : ""} is ready in the patient portal. You can view, download, or print it from Prescriptions.`,
+      };
     default:
-      return { subject: "Notification from CHIARA Clinic", body: "You have a new notification." };
+      return { subject: "Notification from Doc Kulot Clinic", body: "You have a new notification." };
   }
 }

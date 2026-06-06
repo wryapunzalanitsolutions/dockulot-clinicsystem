@@ -2,15 +2,18 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   FaArrowRight,
+  FaFacebookF,
   FaHeartPulse,
   FaLaptopMedical,
   FaStethoscope,
+  FaYoutube,
   FaUserDoctor,
 } from "react-icons/fa6";
 import BookAppointmentPage from "@/src/components/appointments/BookAppointmentPage";
 import InlineArticleBrowser from "@/src/components/blog/InlineArticleBrowser";
 import PublicHeader from "@/src/components/layout/PublicHeader";
 import InquiryForm from "@/src/components/marketing/InquiryForm";
+import PublicVideoGallery from "@/src/components/videos/PublicVideoGallery";
 import { clinicServices, contentCategories } from "@/src/lib/healthcare-content";
 import { getPublishedContentPosts, getPublishedMediaPosts } from "@/src/lib/services/content-posts";
 import { getPublishedFaqs, type PublicFaq } from "@/src/lib/services/faqs";
@@ -19,6 +22,62 @@ import { getPublicLiveEvents } from "@/src/lib/services/live-events";
 
 const DEFAULT_HERO = "/images/chiarabg.png";
 const DEFAULT_DOCTOR = "/images/doctora.png";
+const DOCTOR_PROFILE = {
+  eyebrow: "About the Doctor",
+  title: "Dr. Fatimah Al-Zahra Ditti",
+  subtitle:
+    "Medical Doctor focused on family medicine, women's health, preventive care, and everyday primary care support for patients and families.",
+  name: "Dr. Fatimah Al-Zahra Ditti",
+  titleLabel: "Medical Doctor",
+} as const;
+
+const ABOUT_HIGHLIGHTS = [
+  { title: "Specialty", body: "Family Medicine" },
+  { title: "Experience", body: "8 Years of clinical practice" },
+  { title: "Subspecialty", body: "PCOS Management and Weightloss Management" },
+  { title: "Care Focus", body: "Primary care, prevention, and follow-up support" },
+  { title: "Education", body: "Silliman University, 2017 | Zamboanga City Medical Center, 2021" },
+] as const;
+
+function getAboutProfile(landingContent: {
+  about_eyebrow: string;
+  about_title: string;
+  about_subtitle: string;
+  doctor_name: string;
+  doctor_title: string;
+  about_highlights?: Array<{ title?: string | null; body?: string | null }>;
+}) {
+  const isLegacyAbout =
+    landingContent.about_title === "Expert Healthcare Provider"
+    || landingContent.doctor_name === "Doctora Kulot, MD"
+    || landingContent.doctor_title === "Family Medicine Specialist";
+
+  const sanitize = (value: string, fallback: string) =>
+    /nowserving/i.test(value) ? fallback : value;
+
+  return {
+    eyebrow: isLegacyAbout ? DOCTOR_PROFILE.eyebrow : landingContent.about_eyebrow,
+    title: isLegacyAbout ? DOCTOR_PROFILE.title : landingContent.about_title,
+    subtitle: isLegacyAbout ? DOCTOR_PROFILE.subtitle : sanitize(landingContent.about_subtitle, DOCTOR_PROFILE.subtitle),
+    name: isLegacyAbout ? DOCTOR_PROFILE.name : landingContent.doctor_name,
+    titleLabel: isLegacyAbout ? DOCTOR_PROFILE.titleLabel : landingContent.doctor_title,
+    highlights: isLegacyAbout
+      ? ABOUT_HIGHLIGHTS
+      : sanitizeHighlights(landingContent.about_highlights),
+  };
+}
+
+function sanitizeHighlights(
+  highlights: Array<{ title?: string | null; body?: string | null }> | undefined,
+) {
+  const normalized = (highlights ?? [])
+    .map((item) => ({
+      title: String(item.title ?? "").trim(),
+      body: String(item.body ?? "").trim(),
+    }))
+    .filter((item) => item.title || item.body);
+  return normalized.length ? normalized : ABOUT_HIGHLIGHTS;
+}
 
 export default async function HomePage() {
   const [landingContent, faqItems, blogPosts, mediaItems, liveSchedule] = await Promise.all([
@@ -32,6 +91,7 @@ export default async function HomePage() {
   const mediaPosts = mediaItems;
   const liveEvents = liveSchedule;
   const faqGroups = groupFaqsByCategory(faqItems);
+  const aboutProfile = getAboutProfile(landingContent);
   const services = landingContent.services.length
     ? landingContent.services
     : clinicServices.map((service, index) => ({
@@ -54,9 +114,9 @@ export default async function HomePage() {
           priority
           unoptimized
           sizes="100vw"
-          className="object-cover"
+          className="object-cover object-left md:object-center"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-slate-950/35 to-sky-900/20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-slate-950/25 to-sky-900/20 md:bg-gradient-to-r md:from-black/50 md:via-slate-950/35 md:to-sky-900/20" />
         <div className="relative mx-auto flex min-h-[100svh] max-w-7xl items-center justify-center px-4 pb-14 pt-20 sm:px-6 sm:pt-24 lg:justify-end lg:pt-16">
           <div className="max-w-2xl text-center lg:max-w-3xl lg:text-right">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-200 sm:tracking-[0.28em]">
@@ -93,7 +153,7 @@ export default async function HomePage() {
           <div className="overflow-hidden rounded-[2rem] border border-sky-100 bg-sky-50 p-4 shadow-sm">
             <Image
               src={landingContent.doctor_photo_url || DEFAULT_DOCTOR}
-              alt={landingContent.doctor_name || "Doctor Kulot"}
+              alt={aboutProfile.name}
               width={900}
               height={1100}
               unoptimized
@@ -101,37 +161,23 @@ export default async function HomePage() {
             />
           </div>
           <section>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-700">{landingContent.about_eyebrow}</p>
+            <p className="text-sm font-bold uppercase tracking-[0.38em] text-sky-700">{aboutProfile.eyebrow}</p>
             <h2 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
-              {landingContent.about_title}
+              {aboutProfile.title}
             </h2>
-            <p className="mt-3 text-lg font-semibold text-sky-800">
-              {landingContent.doctor_name} {landingContent.doctor_title ? `, ${landingContent.doctor_title}` : ""}
-            </p>
-            <p className="mt-5 max-w-2xl leading-8 text-slate-600">{landingContent.about_subtitle}</p>
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              {[
-                { title: landingContent.feature_1_title, body: landingContent.feature_1_body },
-                { title: landingContent.feature_2_title, body: landingContent.feature_2_body },
-                { title: landingContent.feature_3_title, body: landingContent.feature_3_body },
-              ]
-                .filter((feature) => feature.title || feature.body)
-                .map((feature) => (
-                  <div key={feature.title} className="rounded-2xl border border-sky-100 p-5">
-                    <p className="text-sm font-bold text-slate-900">{feature.title}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">{feature.body}</p>
-                  </div>
-                ))}
+            <p className="mt-3 text-lg font-semibold text-slate-700">{aboutProfile.titleLabel}</p>
+            <p className="mt-5 max-w-2xl leading-8 text-slate-600">{aboutProfile.subtitle}</p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {aboutProfile.highlights.map((feature) => (
+                <div key={`${feature.title}-${feature.body}`} className="rounded-2xl border border-sky-100 bg-sky-50/40 p-5 shadow-sm">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{feature.title}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">{feature.body}</p>
+                </div>
+              ))}
             </div>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8">
               <Link href="/#booking" className="inline-flex rounded-full bg-sky-600 px-6 py-3 text-sm font-bold text-white">
                 Book an appointment
-              </Link>
-              <Link
-                href="/about"
-                className="inline-flex rounded-full border border-sky-200 bg-white px-6 py-3 text-sm font-bold text-sky-800"
-              >
-                Learn more about Doctor Kulot
               </Link>
             </div>
           </section>
@@ -163,6 +209,26 @@ export default async function HomePage() {
               );
             })}
           </div>
+          <div className="mt-8 grid gap-4 lg:grid-cols-3">
+            <ScheduleCard
+              title="Clinic Visit"
+              schedule="Friday to Sunday"
+              hours="9:00 AM - 3:00 PM"
+              detail="Face-to-face visits at FamMed Family Clinic."
+            />
+            <ScheduleCard
+              title="Virtual Consult"
+              schedule="Monday to Friday"
+              hours="10:00 AM - 8:00 PM"
+              detail="Online consults for weekdays."
+            />
+            <ScheduleCard
+              title="Weekend Virtual"
+              schedule="Saturday and Sunday"
+              hours="10:00 AM - 6:00 PM"
+              detail="Extended virtual consult hours on weekends."
+            />
+          </div>
         </div>
       </section>
 
@@ -181,10 +247,12 @@ export default async function HomePage() {
 
       <section id="blog" className="scroll-mt-20 bg-sky-50 py-16 md:scroll-mt-24 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <p className="mb-3 text-sm font-bold uppercase tracking-[0.38em] text-sky-700">Blogs</p>
           <SectionHeading
             eyebrow={landingContent.blog_eyebrow}
             title={landingContent.blog_title}
             description={landingContent.blog_subtitle}
+            eyebrowClassName="text-sm font-bold uppercase tracking-[0.38em] text-sky-700"
           />
           <div className="mb-5 flex justify-between">
             <Link href="/#blog" className="inline-flex items-center gap-2 text-sm font-bold text-sky-700 hover:text-sky-800">
@@ -205,10 +273,12 @@ export default async function HomePage() {
 
       <section id="videos" className="bg-white py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <p className="mb-3 text-sm font-bold uppercase tracking-[0.38em] text-sky-700">Vlogs</p>
           <SectionHeading
             eyebrow={landingContent.videos_eyebrow}
             title={landingContent.videos_title}
             description={landingContent.videos_subtitle}
+            eyebrowClassName="text-sm font-bold uppercase tracking-[0.38em] text-sky-700"
           />
           <div className="mb-5 flex justify-between">
             <Link href="/videos" className="inline-flex items-center gap-2 text-sm font-bold text-sky-700 hover:text-sky-800">
@@ -216,44 +286,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {mediaPosts.slice(0, 6).map((post) => (
-              <article key={post.id} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-                {post.thumbnail_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={post.thumbnail_url} alt={post.title} className="h-52 w-full object-cover" />
-                ) : (
-                  <div className="flex h-52 items-center justify-center bg-slate-100 text-sm font-semibold text-slate-500">
-                    No thumbnail yet
-                  </div>
-                )}
-
-                <div className="space-y-4 p-5">
-                  <div className="flex flex-wrap gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                    <span>{post.content_type}</span>
-                    <span>{post.category}</span>
-                  </div>
-                  <h3 className="text-2xl font-black tracking-tight text-slate-950">{post.title}</h3>
-                  <p className="line-clamp-3 text-sm leading-7 text-slate-600">
-                    {post.excerpt || "Fresh creator content from Doctor Kulot will appear here once published."}
-                  </p>
-                  <Link
-                    href="/videos"
-                    className="inline-flex items-center gap-2 rounded-full border border-sky-200 px-4 py-2 text-sm font-bold text-sky-800 transition hover:bg-sky-50"
-                  >
-                    View content
-                    <FaArrowRight />
-                  </Link>
-                </div>
-              </article>
-            ))}
-
-            {!mediaPosts.length ? (
-              <div className="rounded-[2rem] border border-dashed border-slate-300 px-6 py-10 text-center text-sm leading-7 text-slate-500 md:col-span-2 xl:col-span-3">
-                No public video or announcement posts are published yet. The creator team can publish them from the internal content creator page.
-              </div>
-            ) : null}
-          </div>
+          <PublicVideoGallery posts={mediaPosts.slice(0, 6)} variant="compact" />
 
           {mediaPosts.length ? (
             <div className="mt-6 flex justify-end">
@@ -268,10 +301,12 @@ export default async function HomePage() {
 
       <section id="live" className="scroll-mt-20 bg-sky-50 py-16 md:scroll-mt-24 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <p className="mb-3 text-sm font-bold uppercase tracking-[0.38em] text-sky-700">Live Schedule</p>
           <SectionHeading
             eyebrow={landingContent.live_eyebrow}
             title={landingContent.live_title}
             description={landingContent.live_subtitle}
+            eyebrowClassName="text-sm font-bold uppercase tracking-[0.38em] text-sky-700"
           />
           <div className="mb-5 flex justify-between">
             <Link href="/live" className="inline-flex items-center gap-2 text-sm font-bold text-sky-700 hover:text-sky-800">
@@ -453,6 +488,30 @@ export default async function HomePage() {
               <Link href="/#booking" className="mt-8 inline-flex rounded-full bg-sky-600 px-6 py-3 text-sm font-bold text-white">
                 Go to booking
               </Link>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <a
+                  href="https://www.facebook.com/share/1GnJA9tPm2/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2.5 text-sm font-bold text-sky-800 transition hover:bg-sky-50"
+                >
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#1877F2] text-white">
+                    <FaFacebookF className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  Doc Kulot Facebook
+                </a>
+                <a
+                  href="https://www.youtube.com/@DocKulot"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2.5 text-sm font-bold text-sky-800 transition hover:bg-sky-50"
+                >
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#FF0000] text-white">
+                    <FaYoutube className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  Doc Kulot YouTube
+                </a>
+              </div>
             </section>
             <InquiryForm />
           </div>
@@ -468,13 +527,13 @@ export default async function HomePage() {
           <div className="grid gap-8 border-b border-sky-400/20 pb-8 lg:grid-cols-[1.2fr_0.8fr_0.9fr_0.9fr]">
             <div className="max-w-lg">
               <div className="flex items-center gap-3">
-                <div className="flex h-20 w-20 items-center justify-center">
+                <div className="flex h-36 w-36 items-center justify-center">
                   <Image
                     src="/images/dockulotslogonobg.png"
                     alt="Doctor Kulot Clinic logo"
-                    width={140}
-                    height={140}
-                    className="h-20 w-20 object-contain"
+                    width={320}
+                    height={320}
+                    className="h-36 w-36 object-contain"
                     unoptimized
                   />
                 </div>
@@ -531,12 +590,40 @@ export default async function HomePage() {
               </ul>
 
               <p className="mt-6 text-sm font-bold uppercase tracking-[0.22em] text-sky-700">Clinic Hours</p>
-              <p className="mt-4 text-sm leading-6 text-slate-700">8:00 AM - 5:00 PM</p>
+              <div className="mt-4 space-y-2 text-sm leading-6 text-slate-700">
+                <p>Clinic Visit: Friday to Sunday, 9:00 AM - 3:00 PM</p>
+                <p>Virtual Consult: Monday to Friday, 10:00 AM - 8:00 PM</p>
+                <p>Weekend Virtual: Saturday and Sunday, 10:00 AM - 6:00 PM</p>
+              </div>
             </div>
 
             <div>
               <p className="text-sm font-bold uppercase tracking-[0.22em] text-sky-700">Contact</p>
               <p className="mt-4 text-sm leading-7 text-slate-700">{landingContent.footer_contact_text}</p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <a
+                  href="https://www.facebook.com/share/1GnJA9tPm2/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-transparent px-4 py-2.5 text-sm font-bold text-sky-800 transition hover:bg-white/40"
+                >
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#1877F2] text-white shadow-sm">
+                    <FaFacebookF className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  Doc Kulot Facebook
+                </a>
+                <a
+                  href="https://www.youtube.com/@DocKulot"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-transparent px-4 py-2.5 text-sm font-bold text-sky-800 transition hover:bg-white/40"
+                >
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#FF0000] text-white shadow-sm">
+                    <FaYoutube className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  Doc Kulot YouTube
+                </a>
+              </div>
             </div>
           </div>
 
@@ -555,15 +642,17 @@ function SectionHeading({
   title,
   description,
   inverted = false,
+  eyebrowClassName = "text-sm font-semibold uppercase tracking-[0.25em] text-sky-600",
 }: {
   eyebrow: string;
   title: string;
   description: string;
   inverted?: boolean;
+  eyebrowClassName?: string;
 }) {
   return (
     <div className="mb-10 max-w-3xl">
-      <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">{eyebrow}</p>
+      <p className={eyebrowClassName}>{eyebrow}</p>
       <h2 className={`mt-3 text-3xl font-black tracking-tight sm:text-4xl ${inverted ? "text-white" : "text-slate-950"}`}>
         {title}
       </h2>
@@ -596,5 +685,26 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
       </summary>
       <p className="mt-4 border-t border-slate-200 pt-4 text-sm leading-7 text-slate-600">{answer}</p>
     </details>
+  );
+}
+
+function ScheduleCard({
+  title,
+  schedule,
+  hours,
+  detail,
+}: {
+  title: string;
+  schedule: string;
+  hours: string;
+  detail: string;
+}) {
+  return (
+    <article className="rounded-[1.8rem] border border-sky-100 bg-white p-5 shadow-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-sky-700">{title}</p>
+      <h3 className="mt-3 text-xl font-black tracking-tight text-slate-950">{hours}</h3>
+      <p className="mt-2 text-sm font-semibold text-slate-700">{schedule}</p>
+      <p className="mt-3 text-sm leading-6 text-slate-600">{detail}</p>
+    </article>
   );
 }

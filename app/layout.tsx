@@ -3,11 +3,11 @@ import "./globals.css";
 import { RoleProvider } from "@/src/components/layout/RoleProvider";
 
 export const metadata: Metadata = {
-  title: "Healthcare & Doctor Creator System",
+  title: "Doc Kulot Clinic",
   description: "Clinic, patient portal, online consultation, POS, inventory, and doctor creator platform",
   icons: {
-    icon: "/images/favicon.png?v=2",
-    apple: "/images/favicon.png?v=2",
+    icon: "/images/svg-removebg-preview.png?v=3",
+    apple: "/images/svg-removebg-preview.png?v=3",
   },
 };
 

@@ -1,6 +1,7 @@
 import { HttpError, httpError, ok, requireRole } from "@/src/lib/http";
 import { slugifyDoctorName } from "@/src/lib/server/doctor-identity";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
+import { logActivity } from "@/src/lib/services/activity-log";
 import type { DbRole } from "@/src/lib/db/types";
 
 const CANONICAL_DOCTOR_SPECIALTY = "Family Medicine Specialist";
@@ -8,13 +9,13 @@ const CANONICAL_DOCTOR_SPECIALTY = "Family Medicine Specialist";
 type UpdateUserBody = {
   full_name?: string;
   phone?: string | null;
-  role?: DbRole; // super_admin|secretary|doctor|patient|admin
+  role?: DbRole; // super_admin|staff|doctor|patient|admin|secretary
   is_active?: boolean;
 };
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requireRole(req, ["super_admin", "doctor"]);
+    const actor = await requireRole(req, ["super_admin", "secretary", "doctor"]);
     const { id } = await ctx.params;
     if (!id) throw new HttpError(400, "Missing user id");
 
@@ -83,6 +84,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         app_metadata: { role: body.role },
       });
     }
+
+    await logActivity({
+      actor,
+      action: "users.update",
+      entity_table: "profiles",
+      entity_id: id,
+      metadata: {
+        fields: Object.keys(updates),
+        role: body.role,
+        is_active: body.is_active,
+      },
+    });
 
     return ok({ user: data });
   } catch (e) {

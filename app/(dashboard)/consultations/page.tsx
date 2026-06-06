@@ -479,10 +479,17 @@ export default function OnlineConsultationPage() {
 
               {activeAppointment.type === "Online" ? (
                 <div className="rounded-[1.5rem] border border-sky-100 bg-sky-50/50 p-4">
-                  <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <FaFileWaveform className="h-4 w-4 text-sky-600" aria-hidden="true" />
-                    Online consultation intake
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      <FaFileWaveform className="h-4 w-4 text-sky-600" aria-hidden="true" />
+                      Online consultation intake
+                    </p>
+                    {activeOnlineConsultation?.platform ? (
+                      <span className="rounded-full border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-700">
+                        {activeOnlineConsultation.platform}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="mt-4 grid gap-4 lg:grid-cols-2">
                     <div className="rounded-2xl border border-sky-100 bg-white px-4 py-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Concern</p>

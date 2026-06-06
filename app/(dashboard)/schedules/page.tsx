@@ -51,10 +51,10 @@ const DAYS = [
 
 const INITIAL_FORM: ScheduleForm = {
   day_of_week: 1,
-  start_time: "08:00",
-  end_time: "17:00",
+  start_time: "10:00",
+  end_time: "20:00",
   slot_minutes: 60,
-  schedule_mode: "Both",
+  schedule_mode: "Online",
   is_active: true,
 };
 
@@ -86,6 +86,50 @@ function formatMinutes(totalMinutes: number) {
   return `${hours}h ${minutes}m`;
 }
 
+function formatTimeLabel(value: string) {
+  const parsed = parseTimeInput(value);
+  const normalized = /^\d{2}:\d{2}$/.test(parsed) ? parsed : normalizeTime(value);
+  const [hoursText, minutesText] = normalized.split(":");
+  const hours = Number(hoursText);
+  const minutes = Number(minutesText);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return value;
+  const period = hours >= 12 ? "pm" : "am";
+  const displayHour = hours % 12 || 12;
+  return `${String(displayHour).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${period}`;
+}
+
+function parseTimeInput(value: string) {
+  const raw = value.trim().toLowerCase();
+  if (!raw) return "";
+
+  const match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if (!match) return value.trim();
+
+  let hours = Number(match[1]);
+  const minutes = Number(match[2] ?? "0");
+  const period = match[3];
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes) || minutes < 0 || minutes > 59) {
+    return value.trim();
+  }
+
+  if (period) {
+    if (hours === 12) {
+      hours = period === "am" ? 0 : 12;
+    } else if (period === "pm") {
+      hours += 12;
+    }
+  }
+
+  if (hours < 0 || hours > 23) return value.trim();
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function normalizeTimeInput(value: string) {
+  const parsed = parseTimeInput(value);
+  return /^\d{2}:\d{2}$/.test(parsed) ? parsed : value.trim();
+}
+
 function doctorDisplayName(doctor: DoctorOption | null) {
   if (!doctor) return "Doctor";
   if (doctor.full_name?.trim()) return doctor.full_name.trim();
@@ -110,7 +154,7 @@ export default function SchedulesPage() {
   const [isSavingHours, startHoursTransition] = useTransition();
 
   const canManageSchedule = role === "SUPER_ADMIN" || role === "SECRETARY" || role === "DOCTOR";
-  const canManageClinicHours = role === "SUPER_ADMIN" || role === "DOCTOR";
+  const canManageClinicHours = role === "SUPER_ADMIN" || role === "SECRETARY" || role === "DOCTOR";
   const selectedDoctor = doctors.find((doctor) => doctor.id === selectedDoctorId) ?? null;
 
   useEffect(() => {
@@ -210,10 +254,22 @@ export default function SchedulesPage() {
     };
   }, [accessToken, canManageClinicHours]);
 
-  const scheduleByDay = useMemo(
-    () => new Map(schedules.map((item) => [item.day_of_week, item])),
-    [schedules],
-  );
+  const schedulesByDay = useMemo(() => {
+    const map = new Map<number, DoctorSchedule[]>();
+    for (const schedule of schedules) {
+      const current = map.get(schedule.day_of_week) ?? [];
+      map.set(schedule.day_of_week, [...current, schedule]);
+    }
+    for (const items of map.values()) {
+      items.sort((left, right) => {
+        if (left.schedule_mode !== right.schedule_mode) {
+          return left.schedule_mode.localeCompare(right.schedule_mode);
+        }
+        return left.start_time.localeCompare(right.start_time);
+      });
+    }
+    return map;
+  }, [schedules]);
 
   const activeScheduleCount = schedules.filter((item) => item.is_active).length;
   const weeklyHoursText = `${settings.clinicOpenTime} - ${settings.clinicCloseTime}`;
@@ -227,7 +283,7 @@ export default function SchedulesPage() {
       return sum + Math.max(end - start, 0);
     }, 0);
   const nextFormDayLabel = DAYS[form.day_of_week] ?? "Selected day";
-  const existingDaySchedule = scheduleByDay.get(form.day_of_week) ?? null;
+  const existingDaySchedules = schedulesByDay.get(form.day_of_week) ?? [];
   const coveragePercent = Math.round((activeScheduleCount / 7) * 100);
 
   function updateField<K extends keyof ScheduleForm>(field: K, value: ScheduleForm[K]) {
@@ -267,6 +323,8 @@ export default function SchedulesPage() {
 
     startScheduleTransition(async () => {
       const method = editingId ? "PATCH" : "POST";
+      const startTime = normalizeTimeInput(form.start_time);
+      const endTime = normalizeTimeInput(form.end_time);
       const res = await fetch(`/api/v2/doctors/${selectedDoctorId}/schedule`, {
         method,
         headers: {
@@ -276,8 +334,8 @@ export default function SchedulesPage() {
         body: JSON.stringify({
           schedule_id: editingId ?? undefined,
           day_of_week: form.day_of_week,
-          start_time: form.start_time,
-          end_time: form.end_time,
+          start_time: startTime,
+          end_time: endTime,
           slot_minutes: form.slot_minutes,
           schedule_mode: form.schedule_mode,
           is_active: form.is_active,
@@ -295,8 +353,14 @@ export default function SchedulesPage() {
 
       const savedSchedule = body.schedule;
       setSchedules((current) => {
-        const withoutDay = current.filter((item) => item.day_of_week !== savedSchedule.day_of_week);
-        return [...withoutDay, savedSchedule].sort((left, right) => left.day_of_week - right.day_of_week);
+        const withoutSaved = current.filter((item) => item.id !== savedSchedule.id);
+        return [...withoutSaved, savedSchedule].sort((left, right) => {
+          if (left.day_of_week !== right.day_of_week) return left.day_of_week - right.day_of_week;
+          if (left.schedule_mode !== right.schedule_mode) {
+            return left.schedule_mode.localeCompare(right.schedule_mode);
+          }
+          return left.start_time.localeCompare(right.start_time);
+        });
       });
       setFeedback({
         tone: "success",
@@ -355,13 +419,13 @@ export default function SchedulesPage() {
         message?: string;
       };
       if (!res.ok || !body.data) {
-        setFeedback({ tone: "error", message: body.message ?? "Failed to save clinic hours." });
+        setFeedback({ tone: "error", message: body.message ?? "Failed to save reference hours." });
         return;
       }
       setSettings(body.data);
       setFeedback({
         tone: "success",
-        message: `Clinic hours updated to ${body.data.clinicOpenTime} - ${body.data.clinicCloseTime}.`,
+        message: `Reference hours updated to ${body.data.clinicOpenTime} - ${body.data.clinicCloseTime}.`,
       });
     });
   }
@@ -372,10 +436,10 @@ export default function SchedulesPage() {
         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">Schedule Management</p>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">Manage doctor schedules, leave, and clinic hours</h1>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">Manage doctor schedules, leave, and booking rules</h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              This workspace now covers weekly schedule CRUD, working hours, blocked leave dates,
-              and clinic-wide operating hours in one green scheduling flow.
+              This workspace now covers weekly schedule CRUD, booking windows, blocked leave dates,
+              and clinic-wide reference hours in one green scheduling flow.
             </p>
           </div>
 
@@ -386,7 +450,7 @@ export default function SchedulesPage() {
               tone={schedules.length > 0 ? "success" : "neutral"}
             />
             <SummaryBadge
-              label="Clinic hours"
+              label="Reference hours"
               value={weeklyHoursText}
               tone={Boolean(settings.clinicOpenTime && settings.clinicCloseTime) ? "success" : "neutral"}
             />
@@ -442,26 +506,26 @@ export default function SchedulesPage() {
               helper="Across active saved days"
             />
             <CompactStat
-              label="Clinic Window"
+              label="Reference Hours"
               value={weeklyHoursText}
-              helper="Schedules stay inside this range"
+              helper="General clinic settings only"
             />
             <CompactStat
               label="Next Target"
               value={nextFormDayLabel}
-              helper={existingDaySchedule ? "Already has a saved schedule" : "Not scheduled yet"}
+              helper={existingDaySchedules.length ? `${existingDaySchedules.length} saved schedule(s)` : "Not scheduled yet"}
             />
           </div>
 
           <div className="mt-5 rounded-[1.6rem] border border-sky-100 bg-white px-4 py-4">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <p className="text-sm font-semibold text-slate-900">Quick flow</p>
-              <p className="text-sm text-slate-600">1. Set clinic hours  2. Save weekly availability  3. Block exceptions when needed</p>
+              <p className="text-sm text-slate-600">1. Save clinic or virtual rows  2. Review the weekly board  3. Block exceptions when needed</p>
             </div>
           </div>
 
           <div className="mt-4 rounded-[1.6rem] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
-            Booking rule: patients can only book on weekdays that already have an
+            Booking rule: patients can only book on days that already have an
             <span className="font-semibold"> active saved schedule</span>. If a day is not configured yet, booking stays closed for that day.
           </div>
         </section>
@@ -469,10 +533,10 @@ export default function SchedulesPage() {
         <section className="rounded-4xl border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Clinic Hours</p>
-              <h2 className="mt-2 text-xl font-bold text-slate-900">Adjust clinic operating hours</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Reference Hours</p>
+              <h2 className="mt-2 text-xl font-bold text-slate-900">General clinic operating hours</h2>
               <p className="mt-2 text-sm text-slate-600">
-                Weekly doctor schedules must stay inside these hours.
+                These settings are used as a general clinic reference. The schedule editor enforces the actual booking rules for clinic and virtual consults.
               </p>
             </div>
             {settingsLoading ? <span className="text-sm text-slate-500">Loading...</span> : null}
@@ -502,8 +566,7 @@ export default function SchedulesPage() {
             </div>
 
             <div className="rounded-[1.4rem] border border-sky-100 bg-sky-50/70 px-4 py-3 text-sm text-sky-900">
-              Current scheduling guardrail: doctors can only be booked between{" "}
-              <span className="font-semibold">{weeklyHoursText}</span>.
+              Current scheduling guardrail: use the weekday rule cards below to define clinic and virtual consult hours.
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -512,7 +575,7 @@ export default function SchedulesPage() {
                 disabled={!canManageClinicHours || isSavingHours || settingsLoading}
                 className="rounded-full bg-[linear-gradient(135deg,#0284c7,#0ea5e9)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSavingHours ? "Saving..." : "Save Clinic Hours"}
+                {isSavingHours ? "Saving..." : "Save Reference Hours"}
               </button>
               <Link
                 href="/settings"
@@ -545,13 +608,13 @@ export default function SchedulesPage() {
               <div>
                 <p className="text-sm font-semibold text-slate-900">Editing {nextFormDayLabel}</p>
                 <p className="mt-1 text-sm text-slate-600">
-                  {existingDaySchedule
-                    ? `Existing schedule: ${normalizeTime(existingDaySchedule.start_time)} - ${normalizeTime(existingDaySchedule.end_time)}`
+                  {existingDaySchedules.length
+                    ? `${existingDaySchedules.length} saved schedule(s) for this weekday.`
                     : "No schedule is saved for this weekday yet, so patients cannot book it."}
                 </p>
               </div>
               <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-sky-700 shadow-sm">
-                {editingId ? "Editing saved availability" : "Creating or replacing this weekday"}
+                {editingId ? "Editing saved availability" : "Creating a new schedule row"}
               </span>
             </div>
           </div>
@@ -603,29 +666,21 @@ export default function SchedulesPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <Field label="Start Time">
-                <input
-                  type="time"
-                  min={settings.clinicOpenTime}
-                  max={settings.clinicCloseTime}
-                  value={form.start_time}
-                  onChange={(event) => updateField("start_time", event.target.value)}
-                  disabled={!canManageSchedule || isSavingSchedule}
-                  className="mt-2 w-full rounded-[1.15rem] border border-sky-100 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-50"
-                />
-              </Field>
+              <TimeField
+                label="Start Time"
+                value={form.start_time}
+                onChange={(value) => updateField("start_time", value)}
+                onBlur={(value) => updateField("start_time", normalizeTimeInput(value))}
+                disabled={!canManageSchedule || isSavingSchedule}
+              />
 
-              <Field label="End Time">
-                <input
-                  type="time"
-                  min={settings.clinicOpenTime}
-                  max={settings.clinicCloseTime}
-                  value={form.end_time}
-                  onChange={(event) => updateField("end_time", event.target.value)}
-                  disabled={!canManageSchedule || isSavingSchedule}
-                  className="mt-2 w-full rounded-[1.15rem] border border-sky-100 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-50"
-                />
-              </Field>
+              <TimeField
+                label="End Time"
+                value={form.end_time}
+                onChange={(value) => updateField("end_time", value)}
+                onBlur={(value) => updateField("end_time", normalizeTimeInput(value))}
+                disabled={!canManageSchedule || isSavingSchedule}
+              />
 
               <Field label="Slot Minutes">
                 <select
@@ -655,8 +710,7 @@ export default function SchedulesPage() {
             </label>
 
             <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              Schedules for this page must stay within clinic hours of{" "}
-              <span className="font-semibold text-slate-900">{weeklyHoursText}</span>.
+              Schedules are validated against the weekday booking rules first; these settings are only a clinic-wide reference.
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -715,14 +769,15 @@ export default function SchedulesPage() {
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               {DAYS.map((day, index) => {
-                const schedule = scheduleByDay.get(index) ?? null;
+                const daySchedules = schedulesByDay.get(index) ?? [];
+                const hasActive = daySchedules.some((schedule) => schedule.is_active);
                 return (
                   <div
                     key={day}
                     className={`rounded-3xl border p-4 transition ${
-                      schedule?.is_active
+                      hasActive
                         ? "border-sky-200 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] shadow-[0_10px_24px_rgba(14,165,233,0.08)]"
-                        : schedule
+                        : daySchedules.length
                           ? "border-amber-200 bg-[linear-gradient(180deg,#fffdf7_0%,#fffbeb_100%)]"
                           : "border-slate-200 bg-slate-50/85"
                     }`}
@@ -730,52 +785,63 @@ export default function SchedulesPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-bold text-slate-900">{day}</p>
-                        {schedule ? (
-                          <>
-                            <p className="mt-2 text-sm text-slate-700">
-                              {normalizeTime(schedule.start_time)} - {normalizeTime(schedule.end_time)}
-                            </p>
-                            <p className="mt-1 text-sm text-slate-500">
-                              {formatMode(schedule.schedule_mode)} | {schedule.slot_minutes} min slots
-                            </p>
-                          </>
+                        {daySchedules.length ? (
+                          <div className="mt-2 space-y-2">
+                            {daySchedules.map((schedule) => (
+                              <div key={schedule.id} className="rounded-2xl border border-white/70 bg-white/80 px-3 py-3 shadow-sm">
+                                <p className="text-sm font-semibold text-slate-700">
+                                  {normalizeTime(schedule.start_time)} - {normalizeTime(schedule.end_time)}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  {formatMode(schedule.schedule_mode)} | {schedule.slot_minutes} min slots
+                                </p>
+                                <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                                  {schedule.is_active ? "Active" : "Inactive"}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
                         ) : (
                           <p className="mt-2 text-sm text-slate-500">Not configured for booking yet.</p>
                         )}
                       </div>
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          schedule?.is_active
+                          hasActive
                             ? "bg-sky-100 text-sky-700"
-                            : schedule
+                            : daySchedules.length
                               ? "bg-amber-100 text-amber-700"
                               : "bg-slate-100 text-slate-500"
                         }`}
                       >
-                        {schedule ? (schedule.is_active ? "Active" : "Inactive") : "Off"}
+                        {daySchedules.length ? (hasActive ? "Active" : "Inactive") : "Off"}
                       </span>
                     </div>
 
-                    {schedule && canManageSchedule ? (
-                      <div className="mt-4 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => beginEdit(schedule)}
-                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => deleteSchedule(schedule)}
-                          className="rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
-                        >
-                          Delete
-                        </button>
+                    {daySchedules.length && canManageSchedule ? (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {daySchedules.map((schedule) => (
+                          <div key={schedule.id} className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => beginEdit(schedule)}
+                              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                            >
+                              Edit {formatMode(schedule.schedule_mode)}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteSchedule(schedule)}
+                              className="rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     ) : null}
 
-                    {!schedule ? (
+                    {!daySchedules.length ? (
                       <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white/80 px-3 py-2 text-xs font-medium text-slate-500">
                         Patients cannot book this day until a schedule is saved
                       </div>
@@ -877,5 +943,54 @@ function StateLegend({
       <p className="text-sm font-semibold">{title}</p>
       <p className="mt-1 text-xs leading-5">{detail}</p>
     </div>
+  );
+}
+
+const TIME_PRESETS = ["09:00", "10:00", "12:00", "15:00", "18:00", "20:00"];
+
+function TimeField({
+  label,
+  value,
+  onChange,
+  onBlur,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  onBlur: (value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <Field label={label}>
+      <div className="mt-2 space-y-2">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={value ? formatTimeLabel(value) : ""}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={(event) => onBlur(event.target.value)}
+          disabled={disabled}
+          placeholder="e.g. 10:00 am"
+          className="w-full rounded-[1.15rem] border border-sky-100 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-50"
+        />
+        <div className="flex flex-wrap gap-2">
+          {TIME_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(preset)}
+              className="rounded-full border border-sky-100 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {formatTimeLabel(preset)}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs leading-5 text-slate-500">
+          Type a time like `10:00 am` or `14:00`, or tap a preset.
+        </p>
+      </div>
+    </Field>
   );
 }

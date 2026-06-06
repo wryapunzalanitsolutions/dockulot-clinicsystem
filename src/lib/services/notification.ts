@@ -1,7 +1,6 @@
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 import type { NotificationChannel } from "@/src/lib/db/types";
 import { processDueNotifications } from "@/src/lib/services/notification-dispatch";
-import { renderTemplate } from "@/src/lib/services/notifier";
 
 export type NotifyTemplate =
   | "welcome"
@@ -22,6 +21,7 @@ export type NotifyTemplate =
   | "appointment_reminder_6h"
   | "appointment_cancelled"
   | "billing_issued"
+  | "prescription_released"
   | "appointment_staff_booked"
   | "appointment_staff_cancelled";
 
@@ -99,7 +99,7 @@ export async function enqueueAppointmentTeamNotifications(input: {
   const { data, error } = await supabase
     .from("profiles")
     .select("id")
-    .in("role", ["secretary", "admin", "super_admin"])
+    .in("role", ["staff", "secretary", "admin", "super_admin"])
     .eq("is_active", true);
 
   if (error) throw error;

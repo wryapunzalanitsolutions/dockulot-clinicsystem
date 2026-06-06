@@ -58,6 +58,7 @@ function buildNotificationHref(item: NotificationFeedItem) {
 function buildNotificationHrefFromPayload(payload: Record<string, unknown> | null) {
   const appointmentId = typeof payload?.appointment_id === "string" ? payload.appointment_id : null;
   const billingId = typeof payload?.billing_id === "string" ? payload.billing_id : null;
+  const prescriptionId = typeof payload?.prescription_id === "string" ? payload.prescription_id : null;
 
   if (appointmentId) {
     return `/appointments/my?appointment=${encodeURIComponent(appointmentId)}`;
@@ -65,6 +66,10 @@ function buildNotificationHrefFromPayload(payload: Record<string, unknown> | nul
 
   if (billingId) {
     return `/payments/history?billing=${encodeURIComponent(billingId)}`;
+  }
+
+  if (prescriptionId) {
+    return `/prescriptions?prescription=${encodeURIComponent(prescriptionId)}`;
   }
 
   return null;

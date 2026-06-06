@@ -17,8 +17,13 @@ export async function upsertNote(
   actor: Actor,
 ): Promise<ConsultationNote> {
   const appt = await getAppointment(appointmentId);
-  if (actor.profile.role !== "doctor" || actor.id !== appt.doctor_id)
-    throw new HttpError(403, "Only the assigned doctor can write notes");
+  const role = actor.profile.role;
+  const allowed =
+    isStaff(role) ||
+    (role === "doctor" && actor.id === appt.doctor_id);
+  if (!allowed) {
+    throw new HttpError(403, "Only clinic staff can write consultation notes");
+  }
 
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase

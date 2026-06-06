@@ -4,11 +4,11 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 
 const inquiryTypes = [
-  "Appointment inquiry",
-  "Clinic service inquiry",
-  "Online consultation inquiry",
-  "Content collaboration",
-  "General question",
+  "Ask about appointment",
+  "Ask about services",
+  "Ask about consultation",
+  "Ask about vlog/content collaboration",
+  "Ask general questions",
 ];
 
 export default function InquiryForm() {
@@ -73,7 +73,9 @@ export default function InquiryForm() {
         onChange={(e) => setForm((current) => ({ ...current, type: e.target.value }))}
       >
         {inquiryTypes.map((type) => (
-          <option key={type}>{type}</option>
+          <option key={type} value={type}>
+            {type}
+          </option>
         ))}
       </select>
       <textarea

@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { FaCalendarDays, FaChevronRight, FaFileLines, FaHospital, FaVideo } from "react-icons/fa6";
+import {
+  FaCalendarDays,
+  FaChevronRight,
+  FaCreditCard,
+  FaFileLines,
+  FaHospital,
+  FaInbox,
+  FaPrescriptionBottleMedical,
+  FaShieldHalved,
+  FaVideo,
+} from "react-icons/fa6";
 import { useAppointments } from "@/src/components/appointments/useAppointments";
 import { ActionCard, DashboardHero, MetricCard, SectionCard, StatusPill } from "@/src/components/dashboard/dashboard-ui";
 import { useRole } from "@/src/components/layout/RoleProvider";
@@ -58,6 +68,11 @@ export default function PatientDashboard() {
         <MetricCard href="/appointments/my?filter=clinic" label="Clinic Visits" value={clinicVisits} helper="In-person appointments" tone="teal" icon={<FaHospital className="text-2xl" />} />
         <MetricCard href="/consultations" label="Online Consults" value={onlineConsultations} helper="Video consultations" tone="sky" icon={<FaVideo className="text-2xl" />} />
         <MetricCard href="/appointments/my?tab=completed" label="Completed" value={pastCompleted} helper="Past visits completed" tone="sky" icon={<FaChevronRight className="text-2xl" />} />
+        <MetricCard href="/portal" label="Patient Portal" value="Open" helper="All patient records" tone="sky" icon={<FaShieldHalved className="text-2xl" />} />
+        <MetricCard href="/profile/files" label="Medical Files" value="Files" helper="Lab results and documents" tone="indigo" icon={<FaFileLines className="text-2xl" />} />
+        <MetricCard href="/prescriptions" label="Prescriptions" value="Rx" helper="Medicine instructions" tone="sky" icon={<FaPrescriptionBottleMedical className="text-2xl" />} />
+        <MetricCard href="/payments/history" label="Receipts" value="Paid" helper="Billing history and receipts" tone="cyan" icon={<FaCreditCard className="text-2xl" />} />
+        <MetricCard href="/profile/inquiries" label="Follow-ups" value="Ask" helper="Questions after your visit" tone="amber" icon={<FaInbox className="text-2xl" />} />
       </div>
 
       {next ? (
@@ -179,7 +194,8 @@ export default function PatientDashboard() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <ActionCard href="/appointments" title="Book New Appointment" description="Schedule your next visit at a time that works for you." tone="emerald" icon={<FaCalendarDays className="text-lg" />} />
           <ActionCard href="/appointments/my" title="View Schedule" description="See your upcoming and past appointments." tone="teal" icon={<FaCalendarDays className="text-lg" />} />
-          <ActionCard href="/payments" title="View Payments" description="See your billing history and receipts." tone="sky" icon={<FaChevronRight className="text-lg" />} />
+          <ActionCard href="/payments" title="Online Payments" description="Pay active billings and review payment status." tone="sky" icon={<FaCreditCard className="text-lg" />} />
+          <ActionCard href="/payments/history" title="Payment History" description="Open receipts and past transaction records." tone="cyan" icon={<FaChevronRight className="text-lg" />} />
           <ActionCard href="/consultations" title="Join Online Consultation" description="Open your active online consultation link." tone="violet" icon={<FaVideo className="text-lg" />} />
           <ActionCard href="/consultations/history" title="Consultation History" description="Review past visit notes and follow-ups." tone="cyan" icon={<FaFileLines className="text-lg" />} />
         </div>

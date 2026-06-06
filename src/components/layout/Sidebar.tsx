@@ -30,6 +30,9 @@ import {
   FaBoxesStacked,
   FaInbox,
   FaPrescriptionBottleMedical,
+  FaShieldHalved,
+  FaUserLock,
+  FaUserPlus,
 } from "react-icons/fa6";
 import type { UserRole } from "@/src/lib/roles";
 
@@ -73,11 +76,8 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
       label: "Payments",
       href: "/payments",
       icon: FaCreditCard,
-      subItems: [
-        { label: "Payments", href: "/payments", icon: FaCreditCard },
-        { label: "POS Billing", href: "/payments/pos", icon: FaFileLines },
-      ],
     },
+    { label: "POS Billing", href: "/payments/pos", icon: FaFileLines },
     {
       label: "Consultations",
       href: "/consultations",
@@ -98,10 +98,12 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     },
     { label: "Pricing", href: "/pricing", icon: FaCreditCard },
     { label: "Reports", href: "/reports", icon: FaChartLine },
+    { label: "Security", href: "/security", icon: FaShieldHalved },
     { label: "Inventory", href: "/inventory", icon: FaBoxesStacked },
     { label: "Prescriptions", href: "/prescriptions", icon: FaPrescriptionBottleMedical },
     { label: "Inquiries", href: "/inquiries", icon: FaInbox },
     { label: "Website Content", href: "/contents", icon: FaWandMagicSparkles },
+    { label: "FAQ Content", href: "/faq-content", icon: FaCircleQuestion },
     { label: "Content Creator", href: "/creator-content", icon: FaVideo },
     { label: "Settings", href: "/settings", icon: FaGear },
     { label: "Help Center", href: "/help", icon: FaCircleQuestion },
@@ -115,6 +117,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
       subItems: [
         { label: "All Patients", href: "/patients", icon: FaUsers },
         { label: "Patient Records", href: "/patients/records", icon: FaFileLines },
+        { label: "Walk-In Patients", href: "/patients/add", icon: FaUserPlus },
       ],
     },
     {
@@ -123,7 +126,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
       icon: FaCalendarCheck,
       subItems: [
         { label: "Book Appointment", href: "/appointments", icon: FaCalendarPlus },
-        { label: "Manage Appointments", href: "/appointments/my", icon: FaListUl },
+        { label: "Queue List", href: "/appointments/my", icon: FaListUl },
         { label: "Calendar View", href: "/appointments/calendar", icon: FaCalendarDays },
       ],
     },
@@ -131,24 +134,12 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
       label: "Payments",
       href: "/payments",
       icon: FaCreditCard,
-      subItems: [
-        { label: "Payments", href: "/payments", icon: FaCreditCard },
-        { label: "POS Billing", href: "/payments/pos", icon: FaFileLines },
-      ],
     },
-    {
-      label: "Schedules",
-      href: "/schedules",
-      icon: FaStethoscope,
-      subItems: [
-        { label: "Doctor Schedules", href: "/schedules", icon: FaStethoscope },
-        { label: "Blocked Dates", href: "/schedules/slots", icon: FaClock },
-      ],
-    },
-    { label: "Pricing", href: "/pricing", icon: FaCreditCard },
-    { label: "Reports", href: "/reports", icon: FaChartLine },
+    { label: "POS Billing", href: "/payments/pos", icon: FaFileLines },
     { label: "Inventory", href: "/inventory", icon: FaBoxesStacked },
     { label: "Inquiries", href: "/inquiries", icon: FaInbox },
+    { label: "Website Content", href: "/contents", icon: FaWandMagicSparkles },
+    { label: "FAQ Content", href: "/faq-content", icon: FaCircleQuestion },
   ],
   DOCTOR: [
     { label: "Dashboard", href: "/dashboard", icon: FaHouse },
@@ -193,22 +184,22 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
       label: "Payments",
       href: "/payments",
       icon: FaCreditCard,
-      subItems: [
-        { label: "Payments", href: "/payments", icon: FaCreditCard },
-        { label: "POS Billing", href: "/payments/pos", icon: FaFileLines },
-      ],
     },
+    { label: "POS Billing", href: "/payments/pos", icon: FaFileLines },
     { label: "Pricing", href: "/pricing", icon: FaCreditCard },
     { label: "Reports", href: "/reports", icon: FaChartLine },
+    { label: "Security", href: "/security", icon: FaShieldHalved },
     { label: "Inventory", href: "/inventory", icon: FaBoxesStacked },
     { label: "Prescriptions", href: "/prescriptions", icon: FaPrescriptionBottleMedical },
     { label: "Inquiries", href: "/inquiries", icon: FaInbox },
     { label: "Website Content", href: "/contents", icon: FaWandMagicSparkles },
+    { label: "FAQ Content", href: "/faq-content", icon: FaCircleQuestion },
     { label: "Content Creator", href: "/creator-content", icon: FaVideo },
     { label: "Settings", href: "/settings", icon: FaGear },
   ],
   PATIENT: [
     { label: "Dashboard", href: "/dashboard", icon: FaHouse },
+    { label: "Patient Portal", href: "/portal", icon: FaUserLock },
    {
       label: "Appointments",
       href: "/appointments",
@@ -223,10 +214,6 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
       label: "Payments",
       href: "/payments",
       icon: FaCreditCard,
-      subItems: [
-        { label: "Online Payments", href: "/payments", icon: FaCreditCard },
-        { label: "Payment History", href: "/payments/history", icon: FaClockRotateLeft },
-      ],
     },
     {
       label: "Consultations",

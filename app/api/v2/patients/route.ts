@@ -1,6 +1,7 @@
 import { HttpError, httpError, ok, requireActor, isStaff } from "@/src/lib/http";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 import { isProtectedSuperAdminEmail } from "@/src/lib/auth/protected-accounts";
+import { logActivity } from "@/src/lib/services/activity-log";
 
 export async function GET(req: Request) {
   try {
@@ -18,6 +19,12 @@ export async function GET(req: Request) {
     if (search) q = q.ilike("profiles.full_name", `%${search}%`);
     const { data, error } = await q.limit(100);
     if (error) throw error;
+    await logActivity({
+      actor,
+      action: "patients.read",
+      entity_table: "patients",
+      metadata: { search: Boolean(search), result_count: data?.length ?? 0 },
+    });
     return ok({ patients: data ?? [] });
   } catch (e) {
     return httpError(e);
@@ -66,6 +73,13 @@ export async function POST(req: Request) {
       .select()
       .single();
     if (patErr) throw patErr;
+
+    await logActivity({
+      actor,
+      action: "patients.create",
+      entity_table: "patients",
+      entity_id: authUser.user.id,
+    });
 
     return ok({ user_id: authUser.user.id, patient }, 201);
   } catch (e) {

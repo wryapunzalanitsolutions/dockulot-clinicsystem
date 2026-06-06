@@ -2,7 +2,21 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { FaCalendarDays, FaCreditCard, FaHospital, FaPlus, FaUserCheck, FaUserPlus, FaUsers, FaVideo, FaClipboardList } from "react-icons/fa6";
+import {
+  FaCalendarDays,
+  FaCreditCard,
+  FaHospital,
+  FaInbox,
+  FaPlus,
+  FaFilePen,
+  FaUserCheck,
+  FaUserPlus,
+  FaUsers,
+  FaVideo,
+  FaClipboardList,
+  FaWandMagicSparkles,
+  FaCircleQuestion,
+} from "react-icons/fa6";
 import { useAppointments } from "@/src/components/appointments/useAppointments";
 import { usePatients } from "@/src/components/clinic/useClinicData";
 import { ActionCard, DashboardHero, MetricCard, SectionCard, StatusPill } from "@/src/components/dashboard/dashboard-ui";
@@ -43,9 +57,12 @@ export default function SecretaryDashboard() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard href="/appointments" label="Today's Schedule" value={todayAppointments.length} helper="All appointments booked for today" tone="sky" icon={<FaCalendarDays className="text-2xl" />} />
-        <MetricCard href="/appointments?filter=online" label="Online Visits" value={onlineToday} helper="Virtual consultations needing links" tone="sky" icon={<FaVideo className="text-2xl" />} />
         <MetricCard href="/payments/pos" label="Ready for Billing" value={waitingClinicBilling} helper="Clinic visits ready for POS" tone="amber" icon={<FaCreditCard className="text-2xl" />} />
         <MetricCard href="/patients" label="Patient Records" value={patients.length} helper="Total registered patients" tone="teal" icon={<FaUsers className="text-2xl" />} />
+        <MetricCard href="/appointments?filter=online" label="Online Visits" value={onlineToday} helper="Virtual consultations needing links" tone="sky" icon={<FaVideo className="text-2xl" />} />
+        <MetricCard href="/inquiries" label="Inquiries" value="Inbox" helper="Public and patient messages" tone="indigo" icon={<FaInbox className="text-2xl" />} />
+        <MetricCard href="/contents" label="Website Content" value="Edit" helper="Landing page text and media" tone="indigo" icon={<FaWandMagicSparkles className="text-2xl" />} />
+        <MetricCard href="/faq-content" label="FAQ Content" value="Edit" helper="Public clinic FAQs" tone="cyan" icon={<FaCircleQuestion className="text-2xl" />} />
       </div>
 
       <SectionCard
@@ -163,11 +180,13 @@ export default function SecretaryDashboard() {
       </SectionCard>
 
       <SectionCard title="Front Desk Tools" description="Quick access to booking, management, and billing functions.">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <ActionCard href="/appointments" title="Book Appointment" description="Create a new visit for an existing patient." tone="sky" icon={<FaPlus className="text-lg" />} />
           <ActionCard href="/appointments" title="Manage Queue" description="Review and update appointment statuses." tone="sky" icon={<FaClipboardList className="text-lg" />} />
           <ActionCard href="/patients/add" title="Add Walk-In" description="Register new walk-in patients quickly." tone="amber" icon={<FaUserPlus className="text-lg" />} />
           <ActionCard href="/payments/pos" title="POS Billing" description="Process payments and generate receipts." tone="sky" icon={<FaCreditCard className="text-lg" />} />
+          <ActionCard href="/contents" title="Website Content" description="Edit landing-page text, images, and content sections." tone="indigo" icon={<FaFilePen className="text-lg" />} />
+          <ActionCard href="/faq-content" title="FAQ Content" description="Manage public FAQs shown on the site." tone="cyan" icon={<FaInbox className="text-lg" />} />
         </div>
       </SectionCard>
     </div>

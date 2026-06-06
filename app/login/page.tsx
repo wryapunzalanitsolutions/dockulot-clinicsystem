@@ -164,14 +164,21 @@ export default function LoginPage() {
 
     startTransition(async () => {
       const supabase = getSupabaseBrowserClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
+      const response = await fetch("/api/v2/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, password }),
       });
 
-      if (error) {
-        if (/email.*confirm|confirm.*email|not confirmed/i.test(error.message)) {
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        const message = payload?.message ?? "Invalid credentials.";
+        if (/verify your email|email.*confirm|confirm.*email|not confirmed/i.test(message)) {
           setFeedback("Please verify your email before signing in.");
+          return;
+        }
+        if (/inactive/i.test(message)) {
+          setFeedback(message);
           return;
         }
 
@@ -190,10 +197,32 @@ export default function LoginPage() {
         return;
       }
 
-      if (!data.user?.email_confirmed_at) {
-        await supabase.auth.signOut();
-        setFeedback("Please verify your email before signing in.");
+      const payload = (await response.json()) as {
+        session?: { access_token?: string; refresh_token?: string };
+      };
+      if (!payload.session?.access_token || !payload.session.refresh_token) {
+        setFeedback("Unable to create a secure session. Please try again.");
         return;
+      }
+
+      const { error: setSessionError } = await supabase.auth.setSession({
+        access_token: payload.session.access_token,
+        refresh_token: payload.session.refresh_token,
+      });
+      if (setSessionError) {
+        setFeedback(setSessionError.message);
+        return;
+      }
+
+      if (payload.session.access_token) {
+        await fetch("/api/v2/security/session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${payload.session.access_token}`,
+          },
+          body: JSON.stringify({ event: "login" }),
+        }).catch(() => null);
       }
 
       setSignInAttempts(0);

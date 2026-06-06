@@ -3,8 +3,8 @@ import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 
 function ensureCanUpload(actor: Actor) {
   const role = actor.profile.role;
-  if (role !== "super_admin" && role !== "admin" && role !== "doctor") {
-    throw new HttpError(403, "Only clinic managers can upload blog images");
+  if (role !== "super_admin" && role !== "admin" && role !== "staff" && role !== "secretary" && role !== "doctor") {
+    throw new HttpError(403, "Only clinic staff can upload blog images");
   }
 }
 

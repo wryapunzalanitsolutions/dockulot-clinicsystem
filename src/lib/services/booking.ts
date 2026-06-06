@@ -187,7 +187,7 @@ export async function reserveAppointment(input: BookingInput, actor: Actor) {
       end_time: input.end_time,
       appointment_type: input.appointment_type,
       reason: input.reason ?? "",
-      status: "Confirmed",
+      status: actor.profile.role === "patient" ? "Pending" : "Confirmed",
       queue_number,
     })
     .select()

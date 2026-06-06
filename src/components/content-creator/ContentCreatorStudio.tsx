@@ -15,6 +15,7 @@ import {
 import BlogPostStudio from "@/src/components/blog/editor/BlogPostStudio";
 import { useRole } from "@/src/components/layout/RoleProvider";
 import { contentCategories } from "@/src/lib/healthcare-content";
+import { getPublicVideoThumbnail } from "@/src/lib/video-media";
 
 type CreatorTab = "blog" | "videos" | "live";
 
@@ -761,7 +762,7 @@ export default function ContentCreatorStudio() {
                     accessToken={accessToken}
                     currentUrl={videoDraft.thumbnail_url}
                     label="Card thumbnail"
-                    helper="Upload the preview image visitors will see on the landing page and the public video page."
+                    helper="Upload the preview image visitors will see on the landing page and the public video page. If you leave this blank, a YouTube thumbnail will be used automatically when available."
                     onChange={(url) => setVideoDraft((current) => ({ ...current, thumbnail_url: url }))}
                     onError={setFeedback}
                   />
@@ -800,14 +801,21 @@ export default function ContentCreatorStudio() {
                   </div>
 
                   <div className="mt-4 overflow-hidden rounded-[1.6rem] border border-slate-200 bg-white shadow-sm">
-                    {videoDraft.thumbnail_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={videoDraft.thumbnail_url} alt={videoDraft.title || "Video thumbnail"} className="h-52 w-full object-cover" />
-                    ) : (
-                      <div className="flex h-52 items-center justify-center bg-slate-100 text-sm font-semibold text-slate-500">
-                        Upload a thumbnail to preview the public card
-                      </div>
-                    )}
+                    {(() => {
+                      const previewThumbnail = getPublicVideoThumbnail({
+                        thumbnail_url: videoDraft.thumbnail_url || null,
+                        embed_url: videoDraft.embed_url || null,
+                      });
+
+                      return previewThumbnail ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={previewThumbnail} alt={videoDraft.title || "Video thumbnail"} className="h-52 w-full object-cover" />
+                      ) : (
+                        <div className="flex h-52 items-center justify-center bg-slate-100 text-sm font-semibold text-slate-500">
+                          Upload a thumbnail to preview the public card
+                        </div>
+                      );
+                    })()}
 
                     <div className="space-y-3 p-5">
                       <div className="flex flex-wrap gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
@@ -873,14 +881,20 @@ export default function ContentCreatorStudio() {
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {mediaPosts.map((post) => (
                 <article key={post.id} className="overflow-hidden rounded-[1.6rem] border border-slate-200 bg-white shadow-sm">
-                  {post.thumbnail_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={post.thumbnail_url} alt={post.title} className="h-52 w-full object-cover" />
-                  ) : (
-                    <div className="flex h-52 items-center justify-center bg-slate-100 text-sm font-bold uppercase tracking-[0.16em] text-slate-500">
-                      No thumbnail
-                    </div>
-                  )}
+                  <div className="aspect-[16/9] overflow-hidden bg-slate-100">
+                    {getPublicVideoThumbnail(post) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={getPublicVideoThumbnail(post) ?? ""}
+                        alt={post.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center bg-slate-100 text-sm font-bold uppercase tracking-[0.16em] text-slate-500">
+                        No thumbnail
+                      </div>
+                    )}
+                  </div>
 
                   <div className="space-y-4 p-4">
                     <div className="flex flex-wrap items-center gap-2">

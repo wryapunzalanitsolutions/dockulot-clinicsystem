@@ -110,7 +110,11 @@ export async function requireActor(req: Request): Promise<Actor> {
 
 export async function requireRole(req: Request, allow: DbRole[]): Promise<Actor> {
   const actor = await requireActor(req);
-  if (!allow.includes(actor.profile.role)) {
+  const role = actor.profile.role === "admin" ? "super_admin" : actor.profile.role;
+  const normalizedAllow = allow.map((allowedRole) =>
+    allowedRole === "admin" ? "super_admin" : allowedRole,
+  );
+  if (!normalizedAllow.includes(role)) {
     throw new HttpError(403, "Forbidden");
   }
   return actor;

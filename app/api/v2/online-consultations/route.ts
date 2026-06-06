@@ -1,4 +1,4 @@
-import { HttpError, httpError, isClinicStaff, ok, requireActor } from "@/src/lib/http";
+import { HttpError, httpError, ok, requireActor } from "@/src/lib/http";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 
 type UploadedFilePayload = {
@@ -7,12 +7,35 @@ type UploadedFilePayload = {
   file_url: string;
 };
 
+const MAX_CONCERN_FILES = 3;
+const MAX_CONCERN_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+function estimateDataUrlSizeBytes(dataUrl: string) {
+  const match = /^data:[^;]+;base64,(.*)$/.exec(dataUrl);
+  if (!match) return null;
+  const base64 = match[1] ?? "";
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - padding;
+}
+
 function mapAppointmentStatusToOnlineStatus(status: string): "Pending" | "Confirmed" | "InProgress" | "Completed" | "Cancelled" {
   if (status === "Completed") return "Completed";
   if (status === "In Progress" || status === "InProgress") return "InProgress";
   if (status === "Cancelled") return "Cancelled";
   if (status === "Confirmed") return "Confirmed";
   return "Pending";
+}
+
+function resolveMeetingPlatform(meetingLink: string | null): string {
+  if (!meetingLink) return "Video Call";
+  try {
+    const host = new URL(meetingLink).hostname.toLowerCase();
+    if (host.includes("zoom")) return "Zoom";
+    if (host.includes("meet.google") || host.includes("google.com")) return "Google Meet";
+    return "Video Call";
+  } catch {
+    return "Video Call";
+  }
 }
 
 export async function GET(req: Request) {
@@ -59,7 +82,7 @@ export async function GET(req: Request) {
       });
     }
 
-    if (!isClinicStaff(actor.profile.role) && actor.profile.role !== "doctor") {
+    if (actor.profile.role !== "doctor" && actor.profile.role !== "super_admin" && actor.profile.role !== "admin") {
       throw new HttpError(403, "Forbidden");
     }
 
@@ -126,7 +149,10 @@ export async function POST(req: Request) {
     if (actor.profile.role === "patient" && appointment.patient_id !== actor.id) {
       throw new HttpError(403, "Forbidden");
     }
-    if (actor.profile.role !== "patient" && !isClinicStaff(actor.profile.role) && actor.profile.role !== "doctor") {
+    if (actor.profile.role !== "patient"
+      && actor.profile.role !== "doctor"
+      && actor.profile.role !== "super_admin"
+      && actor.profile.role !== "admin") {
       throw new HttpError(403, "Forbidden");
     }
 
@@ -137,6 +163,17 @@ export async function POST(req: Request) {
         file_type: String(file.file_type ?? "attachment").trim(),
         file_url: String(file.file_url).trim(),
       }));
+
+    if (files.length > MAX_CONCERN_FILES) {
+      throw new HttpError(400, `You can upload up to ${MAX_CONCERN_FILES} concern files or photos.`);
+    }
+
+    for (const file of files) {
+      const sizeBytes = estimateDataUrlSizeBytes(file.file_url);
+      if (sizeBytes != null && sizeBytes > MAX_CONCERN_FILE_SIZE_BYTES) {
+        throw new HttpError(400, `${file.file_name} is too large. Please keep each file under 10 MB.`);
+      }
+    }
 
     const concern = String(body.concern ?? "").trim();
     const symptoms = String(body.symptoms ?? "").trim();
@@ -152,7 +189,7 @@ export async function POST(req: Request) {
       appointment_id: appointment.id,
       concern: concern || null,
       file_urls: files,
-      platform: "Google Meet",
+      platform: resolveMeetingPlatform(appointment.meeting_link),
       meeting_link: appointment.meeting_link,
       status: mapAppointmentStatusToOnlineStatus(appointment.status),
     };

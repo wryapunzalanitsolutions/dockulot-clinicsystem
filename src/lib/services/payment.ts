@@ -60,7 +60,7 @@ export type OnlineCheckoutBookingInput = Pick<
 >;
 
 // Resolve the meeting link for a freshly confirmed Online consultation.
-// Strategy: read the clinic-wide default Google Meet link saved in
+// Strategy: read the clinic-wide default meeting link saved in
 // system_settings.default_meeting_link. If the doctor hasn't configured one
 // yet, return null — the appointment is still created, but the UI surfaces a
 // "meeting link not set" hint and notifications gently tell the patient the
@@ -160,7 +160,7 @@ export async function createOnlineCheckoutSession(
   instructions?: string;
   paymentReference?: string;
 }> {
-  if (actor.profile.role !== "patient" && actor.profile.role !== "secretary" && actor.profile.role !== "super_admin" && actor.profile.role !== "admin") {
+  if (actor.profile.role !== "patient" && actor.profile.role !== "staff" && actor.profile.role !== "secretary" && actor.profile.role !== "super_admin" && actor.profile.role !== "admin") {
     throw new HttpError(403, "Forbidden");
   }
 

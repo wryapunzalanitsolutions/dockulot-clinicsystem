@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   FaHome,
+  FaCalendarAlt,
   FaInfoCircle,
   FaMicrophone,
   FaPhone,
@@ -13,14 +14,17 @@ import {
   FaVideo,
 } from "react-icons/fa";
 import MobileNav from "@/src/components/layout/MobileNav";
+import PublicAnalyticsTracker from "@/src/components/marketing/PublicAnalyticsTracker";
 
 export default function PublicHeader() {
   return (
-    <header className="relative md:fixed md:inset-x-0 md:top-0 md:z-50 border-b border-sky-200/50 bg-sky-50/55 backdrop-blur-md">
-      <div className="mx-auto flex h-12 max-w-7xl items-center justify-between gap-3 px-4 sm:h-16 sm:gap-4 sm:px-6">
-        <Link href="/" className="flex h-full items-center gap-3">
-          <Image
-            src="/images/dockulotslogonobg.png"
+    <>
+      <PublicAnalyticsTracker />
+      <header className="relative md:fixed md:inset-x-0 md:top-0 md:z-50 border-b border-sky-200/50 bg-sky-50/55 backdrop-blur-md">
+        <div className="mx-auto flex h-12 max-w-7xl items-center justify-between gap-3 px-4 sm:h-16 sm:gap-4 sm:px-6">
+          <Link href="/" className="flex h-full items-center gap-3">
+            <Image
+              src="/images/dockulotslogonobg.png"
             alt="Clinic logo"
             width={220}
             height={88}
@@ -95,6 +99,14 @@ export default function PublicHeader() {
         <div className="flex items-center gap-3">
           <MobileNav />
           <Link
+            href="/#booking"
+            className="inline-flex items-center gap-1.5 rounded-full border border-sky-300 bg-sky-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-sky-500 sm:px-4 sm:py-2 sm:text-sm"
+          >
+            <FaCalendarAlt className="shrink-0" />
+            <span className="whitespace-nowrap sm:hidden">Book</span>
+            <span className="hidden whitespace-nowrap sm:inline">Book appointment</span>
+          </Link>
+          <Link
             href="/#contact"
             className="inline-flex items-center gap-2 rounded-full border border-sky-300 bg-white/70 px-4 py-2 text-sm font-semibold text-sky-800 hover:bg-white"
           >
@@ -113,7 +125,8 @@ export default function PublicHeader() {
             Sign Up
           </Link>
         </div>
-      </div>
-    </header>
+        </div>
+      </header>
+    </>
   );
 }

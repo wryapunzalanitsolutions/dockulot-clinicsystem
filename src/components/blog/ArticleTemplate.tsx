@@ -3,6 +3,8 @@ import { getPublishedContentPosts } from "@/src/lib/services/content-posts";
 import { contentCategories } from "@/src/lib/healthcare-content";
 import BlogBlockRenderer from "@/src/components/blog/BlogBlockRenderer";
 import PublicHeader from "@/src/components/layout/PublicHeader";
+import ContentViewTracker from "@/src/components/marketing/ContentViewTracker";
+import TrackedLink from "@/src/components/marketing/TrackedLink";
 import Link from "next/link";
 import { FaArrowLeft } from "react-icons/fa6";
 
@@ -15,6 +17,11 @@ export default async function ArticleTemplate({ post }: { post: PublicContentPos
   return (
     <>
       <PublicHeader />
+      <ContentViewTracker
+        contentPostId={post.id}
+        path={`/blog/${post.slug}`}
+        metadata={{ content_type: post.content_type, source: "blog_article" }}
+      />
 
       <article className="mx-auto max-w-7xl px-4 pt-20 pb-10 sm:px-6 sm:pt-24 sm:pb-14">
         <div className="mb-8 border-b border-slate-200 pb-4">
@@ -66,12 +73,15 @@ export default async function ArticleTemplate({ post }: { post: PublicContentPos
                 <p className="mt-6 text-lg leading-8 text-slate-600">{post.excerpt}</p>
 
                 <div className="mt-8">
-                  <Link
+                  <TrackedLink
                     href="/#booking"
+                    eventName="appointment_click"
+                    contentPostId={post.id}
+                    metadata={{ source: "blog_article" }}
                     className="inline-flex w-full max-w-md rounded-full bg-sky-700 px-6 py-3 text-center text-base font-semibold text-white shadow-sm transition hover:bg-sky-600"
                   >
                     Book An Appointment
-                  </Link>
+                  </TrackedLink>
                 </div>
 
                 <div className="mt-10 space-y-7">

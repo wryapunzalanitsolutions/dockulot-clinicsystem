@@ -22,7 +22,7 @@ type CreateUserForm = {
   email: string;
   full_name: string;
   phone: string;
-  role: "super_admin" | "secretary" | "doctor";
+  role: "super_admin" | "staff" | "doctor";
 };
 type EditUserForm = {
   full_name: string;
@@ -41,7 +41,7 @@ const EMPTY_NEW_USER: CreateUserForm = {
   email: "",
   full_name: "",
   phone: "",
-  role: "secretary",
+  role: "staff",
 };
 
 function profileToEditForm(user: Profile): EditUserForm {
@@ -108,9 +108,9 @@ const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Record<string, boolean>> =
 function roleLabel(role: DbRole) {
   switch (role) {
     case "super_admin":
-      return "Super Admin";
+      return "Admin";
     case "secretary":
-      return "Secretary";
+      return "Staff";
     case "staff":
       return "Staff";
     case "doctor":
@@ -141,7 +141,7 @@ export default function UsersPage() {
   const [editUser, setEditUser] = useState<EditUserForm>({
     full_name: "",
     phone: "",
-    role: "secretary",
+    role: "staff",
     is_active: true,
   });
   const [activeTab, setActiveTab] = useState<UserManagementTab>("accounts");
@@ -166,7 +166,7 @@ export default function UsersPage() {
   const submitLockRef = useRef(false);
   const editSubmitLockRef = useRef(false);
 
-  const canManage = role === "SUPER_ADMIN" || role === "DOCTOR";
+  const canManage = role === "SUPER_ADMIN" || role === "SECRETARY" || role === "DOCTOR";
   const currentUserId = sessionUser?.id ?? null;
 
   const filtered = useMemo(() => {
@@ -188,7 +188,7 @@ export default function UsersPage() {
 
   const activeUsers = users.filter((u) => u.is_active).length;
   const doctorUsers = users.filter((u) => u.role === "doctor").length;
-  const secretaryUsers = users.filter((u) => u.role === "secretary").length;
+  const secretaryUsers = users.filter((u) => u.role === "secretary" || u.role === "staff").length;
   const superAdminUsers = users.filter((u) => u.role === "super_admin").length;
   const patientUsers = users.filter((u) => u.role === "patient").length;
   const filteredCount = filtered.length;
@@ -301,7 +301,7 @@ export default function UsersPage() {
     setEditUser({
       full_name: "",
       phone: "",
-      role: "secretary",
+      role: "staff",
       is_active: true,
     });
   }
@@ -683,7 +683,7 @@ export default function UsersPage() {
   if (!canManage) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        Forbidden. Only Super Admin and Doctor can manage users.
+        Forbidden. Only Admin and Doctor can manage users.
       </div>
     );
   }
@@ -770,8 +770,8 @@ export default function UsersPage() {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         <StatTile label="Active" value={activeUsers} icon={<FaUsers className="h-3 w-3" />} />
         <StatTile label="Doctors" value={doctorUsers} icon={<FaUserDoctor className="h-3 w-3" />} />
-        <StatTile label="Secretaries" value={secretaryUsers} icon={<FaUserTie className="h-3 w-3" />} />
-        <StatTile label="Super Admins" value={superAdminUsers} icon={<FaUserShield className="h-3 w-3" />} />
+        <StatTile label="Staff" value={secretaryUsers} icon={<FaUserTie className="h-3 w-3" />} />
+        <StatTile label="Admins" value={superAdminUsers} icon={<FaUserShield className="h-3 w-3" />} />
         <StatTile label="Patients" value={patientUsers} icon={<FaUserGear className="h-3 w-3" />} />
       </div>
 
@@ -795,9 +795,10 @@ export default function UsersPage() {
               className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200"
             >
               <option value="all">All roles</option>
-              <option value="super_admin">Super Admin</option>
+              <option value="super_admin">Admin</option>
               <option value="doctor">Doctor</option>
-              <option value="secretary">Secretary</option>
+              <option value="staff">Staff</option>
+              <option value="secretary">Secretary (legacy)</option>
               <option value="patient">Patient</option>
             </select>
           </label>
@@ -1154,7 +1155,7 @@ export default function UsersPage() {
                 },
                 {
                   key: "secretary",
-                  title: "Secretary / Admin Staff",
+                  title: "Staff",
                   icon: FaUserTie,
                   count: secretaryUsers,
                   accent: "border-sky-200 bg-sky-50/40",
@@ -1172,7 +1173,7 @@ export default function UsersPage() {
                 },
                 {
                   key: "super_admin",
-                  title: "Super Admin",
+                  title: "Admin",
                   icon: FaUserShield,
                   count: superAdminUsers,
                   accent: "border-violet-200 bg-violet-50/40",
@@ -1306,11 +1307,11 @@ export default function UsersPage() {
                   }
                   className={INPUT_CLASS}
                 >
-                  <option value="secretary">Secretary / Admin Staff</option>
+                  <option value="staff">Staff</option>
                   <option value="doctor" disabled={doctorUsers > 0}>
                     Doctor{doctorUsers > 0 ? " (already assigned)" : ""}
                   </option>
-                  <option value="super_admin">Super Admin</option>
+                  <option value="super_admin">Admin</option>
                 </select>
               </Field>
             </div>
@@ -1379,13 +1380,13 @@ export default function UsersPage() {
                 }
                 className={INPUT_CLASS}
               >
-                <option value="super_admin">Super Admin</option>
+                <option value="super_admin">Admin</option>
                 <option value="doctor" disabled={doctorUsers > 0 && editingUser.role !== "doctor"}>
                   Doctor{doctorUsers > 0 && editingUser.role !== "doctor" ? " (already assigned)" : ""}
                 </option>
-                <option value="secretary">Secretary / Admin Staff</option>
+                <option value="staff">Staff</option>
+                <option value="secretary">Secretary (legacy)</option>
                 <option value="patient">Patient</option>
-                <option value="admin">Admin (legacy)</option>
               </select>
             </Field>
             <label className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">

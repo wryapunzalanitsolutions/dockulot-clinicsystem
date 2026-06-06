@@ -17,6 +17,7 @@ export function dbRoleToUiRole(dbRole: DbRole | string | null | undefined): User
     case "super_admin":
     case "admin":
       return "SUPER_ADMIN";
+    case "staff":
     case "secretary":
       return "SECRETARY";
     case "doctor":

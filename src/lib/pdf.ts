@@ -7,8 +7,28 @@ function escapePdfText(value: string) {
     .replace(/\n/g, " ");
 }
 
+function wrapLine(line: string, width = 82) {
+  if (line.length <= width) return [line];
+  const words = line.split(" ");
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > width && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines;
+}
+
 export function createSimplePdf(lines: string[]) {
-  const safeLines = lines.map((line) => escapePdfText(line));
+  const safeLines = lines.flatMap((line) => wrapLine(line)).map((line) => escapePdfText(line));
   const content = [
     "BT",
     "/F1 12 Tf",

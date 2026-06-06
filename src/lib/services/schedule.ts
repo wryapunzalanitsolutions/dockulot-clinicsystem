@@ -21,6 +21,45 @@ export type SchedulableSlot = {
   mode: ScheduleMode;
 };
 
+const WEEKDAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+const BOOKING_RULES = {
+  Clinic: {
+    days: [5, 6, 0],
+    start: "09:00",
+    end: "15:00",
+    label: "Clinic visits are available Friday to Sunday from 9:00 AM to 3:00 PM.",
+  },
+  Online: {
+    weekday: {
+      days: [1, 2, 3, 4, 5],
+      start: "10:00",
+      end: "20:00",
+      label: "Virtual consults are available Monday to Friday from 10:00 AM to 8:00 PM.",
+    },
+    weekend: {
+      days: [0, 6],
+      start: "10:00",
+      end: "18:00",
+      label: "Virtual consults are available Saturday and Sunday from 10:00 AM to 6:00 PM.",
+    },
+  },
+  Both: {
+    days: [0, 6],
+    start: "10:00",
+    end: "15:00",
+    label: "Combined clinic and virtual slots are only available Saturday and Sunday from 10:00 AM to 3:00 PM.",
+  },
+} as const;
+
 function dayOfWeek(dateStr: string) {
   return new Date(`${dateStr}T00:00:00Z`).getUTCDay();
 }
@@ -46,55 +85,97 @@ function expandSlots(start: string, end: string, minutes: number, mode: Schedule
   return slots;
 }
 
-async function getClinicHours() {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("system_settings")
-    .select("clinic_open_time, clinic_close_time")
-    .eq("id", true)
-    .maybeSingle<{ clinic_open_time: string | null; clinic_close_time: string | null }>();
-  if (error) throw error;
-  return {
-    open: data?.clinic_open_time?.slice(0, 5) ?? "08:00",
-    close: data?.clinic_close_time?.slice(0, 5) ?? "17:00",
-  };
-}
-
 function normalizeClock(value: string) {
   return value.slice(0, 5);
 }
 
-async function assertWithinClinicHours(start: string, end: string) {
-  const hours = await getClinicHours();
+function dayName(day: number) {
+  return WEEKDAY_NAMES[day] ?? "Selected day";
+}
+
+function isAllowedDay(day: number, allowedDays: readonly number[]) {
+  return allowedDays.includes(day);
+}
+
+function assertWithinRule(
+  day: number,
+  start: string,
+  end: string,
+  rule: { days: readonly number[]; start: string; end: string; label: string },
+) {
   const normalizedStart = normalizeClock(start);
   const normalizedEnd = normalizeClock(end);
-  if (normalizedStart < hours.open || normalizedEnd > hours.close) {
-    throw new HttpError(400, `Schedule must stay within clinic hours (${hours.open}-${hours.close}).`);
+
+  if (!isAllowedDay(day, rule.days as number[])) {
+    throw new HttpError(400, `${dayName(day)} is outside this schedule type. ${rule.label}`);
   }
+
+  if (normalizedStart < rule.start || normalizedEnd > rule.end) {
+    throw new HttpError(400, rule.label);
+  }
+}
+
+function assertScheduleWithinPolicy(day: number, mode: ScheduleMode, start: string, end: string) {
+  if (mode === "Clinic") {
+    assertWithinRule(day, start, end, BOOKING_RULES.Clinic);
+    return;
+  }
+
+  if (mode === "Online") {
+    const weekend = BOOKING_RULES.Online.weekend;
+    const weekday = BOOKING_RULES.Online.weekday;
+    if (isAllowedDay(day, weekday.days)) {
+      assertWithinRule(day, start, end, weekday);
+      return;
+    }
+    assertWithinRule(day, start, end, weekend);
+    return;
+  }
+
+  assertWithinRule(day, start, end, BOOKING_RULES.Both);
+}
+
+function mergeScheduleModes(left: ScheduleMode, right: ScheduleMode): ScheduleMode {
+  if (left === right) return left;
+  return "Both";
 }
 
 export async function getSchedulableSlotsForDate(
   doctorId: string,
   date: string,
 ): Promise<SchedulableSlot[]> {
-  const clinicHours = await getClinicHours();
-  const schedule = await getDoctorScheduleForDate(doctorId, date);
-  if (schedule) {
-    return expandSlots(
-      schedule.start_time,
-      schedule.end_time,
-      schedule.slot_minutes,
-      schedule.schedule_mode ?? "Both",
-    ).filter((slot) => normalizeClock(slot.start) >= clinicHours.open && normalizeClock(slot.end) <= clinicHours.close);
+  const schedules = await getDoctorSchedulesForDate(doctorId, date);
+  if (schedules.length) {
+    const bySlot = new Map<string, SchedulableSlot>();
+    for (const schedule of schedules) {
+      const slots = expandSlots(
+        schedule.start_time,
+        schedule.end_time,
+        schedule.slot_minutes,
+        schedule.schedule_mode ?? "Both",
+      );
+      for (const slot of slots) {
+        const key = `${slot.start}-${slot.end}`;
+        const existing = bySlot.get(key);
+        bySlot.set(
+          key,
+          existing
+            ? { ...existing, mode: mergeScheduleModes(existing.mode, slot.mode) }
+            : slot,
+        );
+      }
+    }
+
+    return Array.from(bySlot.values()).sort((left, right) => left.start.localeCompare(right.start));
   }
 
   return [];
 }
 
-export async function getDoctorScheduleForDate(
+export async function getDoctorSchedulesForDate(
   doctorId: string,
   date: string,
-): Promise<DoctorSchedule | null> {
+): Promise<DoctorSchedule[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("doctor_schedules")
@@ -102,9 +183,9 @@ export async function getDoctorScheduleForDate(
     .eq("doctor_id", doctorId)
     .eq("day_of_week", dayOfWeek(date))
     .eq("is_active", true)
-    .maybeSingle<DoctorSchedule>();
+    .order("start_time", { ascending: true });
   if (error) throw error;
-  return data;
+  return data ?? [];
 }
 
 export async function getUnavailabilityForDate(
@@ -190,7 +271,12 @@ export async function upsertSchedule(input: {
     throw new HttpError(400, "day_of_week must be 0..6");
   if (input.start_time >= input.end_time)
     throw new HttpError(400, "start_time must be before end_time");
-  await assertWithinClinicHours(input.start_time, input.end_time);
+  assertScheduleWithinPolicy(
+    input.day_of_week,
+    input.schedule_mode ?? "Both",
+    input.start_time,
+    input.end_time,
+  );
 
   const supabase = getSupabaseAdmin();
   const { data: existing, error: existingError } = await supabase
@@ -198,6 +284,7 @@ export async function upsertSchedule(input: {
     .select("id")
     .eq("doctor_id", input.doctor_id)
     .eq("day_of_week", input.day_of_week)
+    .eq("schedule_mode", input.schedule_mode ?? "Both")
     .maybeSingle<{ id: string }>();
   if (existingError) throw existingError;
 
@@ -251,18 +338,26 @@ export async function updateSchedule(
     is_active?: boolean;
   },
 ) {
-  if (
-    input.start_time &&
-    input.end_time &&
-    input.start_time >= input.end_time
-  ) {
+  const supabase = getSupabaseAdmin();
+  const { data: current, error: currentError } = await supabase
+    .from("doctor_schedules")
+    .select("day_of_week, schedule_mode, start_time, end_time")
+    .eq("id", id)
+    .maybeSingle<{ day_of_week: number; schedule_mode: ScheduleMode; start_time: string; end_time: string }>();
+  if (currentError) throw currentError;
+
+  const nextStart = input.start_time ?? current?.start_time;
+  const nextEnd = input.end_time ?? current?.end_time;
+  const effectiveDay = current?.day_of_week ?? 0;
+  const effectiveMode = input.schedule_mode ?? current?.schedule_mode ?? "Both";
+
+  if (nextStart && nextEnd && nextStart >= nextEnd) {
     throw new HttpError(400, "start_time must be before end_time");
   }
-  if (input.start_time && input.end_time) {
-    await assertWithinClinicHours(input.start_time, input.end_time);
+  if (nextStart && nextEnd) {
+    assertScheduleWithinPolicy(effectiveDay, effectiveMode, nextStart, nextEnd);
   }
 
-  const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("doctor_schedules")
     .update(input)

@@ -1,5 +1,7 @@
-import { HttpError, httpError, isClinicStaff, ok, requireActor } from "@/src/lib/http";
+import { HttpError, httpError, ok, requireActor } from "@/src/lib/http";
+import { enqueueNotification } from "@/src/lib/services/notification";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
+import type { DbRole } from "@/src/lib/db/types";
 
 type PrescriptionItemInput = {
   medicine_name?: string;
@@ -9,10 +11,18 @@ type PrescriptionItemInput = {
   instructions?: string | null;
 };
 
+function canManagePrescriptions(role: DbRole) {
+  return role === "super_admin" || role === "admin" || role === "doctor";
+}
+
+function normalizeText(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 export async function PATCH(req: Request, ctx: RouteContext<"/api/v2/prescriptions/[id]">) {
   try {
     const actor = await requireActor(req);
-    if (!isClinicStaff(actor.profile.role)) throw new HttpError(403, "Forbidden");
+    if (!canManagePrescriptions(actor.profile.role)) throw new HttpError(403, "Only doctors and admins can update prescriptions.");
     const { id } = await ctx.params;
     const body = await req.json();
     const patch: Record<string, unknown> = {};
@@ -23,7 +33,7 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/v2/prescriptio
     const supabase = getSupabaseAdmin();
     const { data: current, error: currentError } = await supabase
       .from("prescriptions")
-      .select("id, patient_id, doctor_id, appointment_id, diagnosis_id")
+      .select("id, patient_id, doctor_id, appointment_id, diagnosis_id, prescription_no, released_to_patient")
       .eq("id", id)
       .single<{
         id: string;
@@ -31,12 +41,13 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/v2/prescriptio
         doctor_id: string;
         appointment_id: string | null;
         diagnosis_id: string | null;
+        prescription_no: string;
+        released_to_patient: boolean;
       }>();
     if (currentError) throw currentError;
 
-    let diagnosisId = current.diagnosis_id;
-    const diagnosisText = typeof body.diagnosis_text === "string" ? body.diagnosis_text.trim() : undefined;
-    const treatmentPlan = typeof body.treatment_plan === "string" ? body.treatment_plan.trim() : undefined;
+    const diagnosisText = "diagnosis_text" in body ? normalizeText(body.diagnosis_text) : undefined;
+    const treatmentPlan = "treatment_plan" in body ? normalizeText(body.treatment_plan) : undefined;
     const nextFollowUpDate =
       "follow_up_date" in body ? (body.follow_up_date || null) : undefined;
     const nextVisibleToPatient =
@@ -72,7 +83,6 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/v2/prescriptio
           .select("id")
           .single<{ id: string }>();
         if (diagnosisError) throw diagnosisError;
-        diagnosisId = diagnosis.id;
         patch.diagnosis_id = diagnosis.id;
       }
     }
@@ -82,7 +92,15 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/v2/prescriptio
     if (Array.isArray(body.items)) {
       const { error: deleteError } = await supabase.from("prescription_items").delete().eq("prescription_id", id);
       if (deleteError) throw deleteError;
-      const nextItems = (body.items as PrescriptionItemInput[]).filter((item) => item.medicine_name);
+      const nextItems = (body.items as PrescriptionItemInput[])
+        .map((item) => ({
+          medicine_name: normalizeText(item.medicine_name),
+          dosage: normalizeText(item.dosage),
+          frequency: normalizeText(item.frequency),
+          duration: normalizeText(item.duration),
+          instructions: normalizeText(item.instructions),
+        }))
+        .filter((item) => item.medicine_name);
       if (nextItems.length) {
         const { error: insertError } = await supabase.from("prescription_items").insert(
           nextItems.map((item, index) => ({
@@ -97,6 +115,17 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/v2/prescriptio
         );
         if (insertError) throw insertError;
       }
+    }
+    if ("released_to_patient" in body && Boolean(body.released_to_patient) && !current.released_to_patient) {
+      await enqueueNotification({
+        user_id: current.patient_id,
+        template: "prescription_released",
+        channels: ["email"],
+        payload: {
+          prescription_id: current.id,
+          prescription_no: current.prescription_no,
+        },
+      });
     }
     return ok({ prescription: data });
   } catch (e) {

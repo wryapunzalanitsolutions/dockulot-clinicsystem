@@ -16,7 +16,7 @@ import {
   FaUserDoctor,
 } from "react-icons/fa6";
 import { useRole } from "@/src/components/layout/RoleProvider";
-import type { LandingContent, LandingService } from "@/src/lib/db/types";
+import type { LandingContent, LandingHighlight, LandingService } from "@/src/lib/db/types";
 import { clinicServices, contentCategories, faqCategories } from "@/src/lib/healthcare-content";
 
 type Tab = "home" | "about" | "services" | "blog" | "videos" | "faq";
@@ -32,6 +32,13 @@ type Faq = {
 
 const DEFAULT_HERO = "/images/chiarabg.png";
 const DEFAULT_DOCTOR = "/images/doctora.png";
+const DEFAULT_ABOUT_HIGHLIGHTS: LandingHighlight[] = [
+  { title: "Specialty", body: "Family Medicine" },
+  { title: "Experience", body: "8 Years of clinical practice" },
+  { title: "Subspecialty", body: "PCOS Management and Weightloss Management" },
+  { title: "Care Focus", body: "Primary care, prevention, and follow-up support" },
+  { title: "Education", body: "Silliman University, 2017 | Zamboanga City Medical Center, 2021" },
+];
 const EMPTY_FAQ_FORM = {
   category: faqCategories[0],
   question: "",
@@ -59,7 +66,7 @@ export default function ContentsManagerPage() {
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [faqForm, setFaqForm] = useState(EMPTY_FAQ_FORM);
 
-  const canEdit = role === "SUPER_ADMIN" || role === "DOCTOR";
+  const canEdit = role === "SUPER_ADMIN" || role === "SECRETARY" || role === "DOCTOR";
 
   useEffect(() => {
     let active = true;
@@ -128,6 +135,27 @@ export default function ContentsManagerPage() {
     setFeedback(null);
   }
 
+  function updateAboutHighlight(index: number, patch: Partial<LandingHighlight>) {
+    patchArray("about_highlights", (current) => {
+      const next = [...ensureAboutHighlights(current as LandingHighlight[])];
+      next[index] = { ...next[index], ...patch };
+      return next as LandingContent["about_highlights"];
+    });
+  }
+
+  function addAboutHighlight() {
+    patchArray("about_highlights", (current) => [
+      ...ensureAboutHighlights(current as LandingHighlight[]),
+      { title: "", body: "" },
+    ] as LandingContent["about_highlights"]);
+  }
+
+  function removeAboutHighlight(index: number) {
+    patchArray("about_highlights", (current) =>
+      ensureAboutHighlights(current as LandingHighlight[]).filter((_, itemIndex) => itemIndex !== index) as LandingContent["about_highlights"],
+    );
+  }
+
   function addService() {
     patchArray("services", (current) => [
       ...(current as LandingService[]),
@@ -182,12 +210,7 @@ export default function ContentsManagerPage() {
         doctor_name: content.doctor_name,
         doctor_title: content.doctor_title,
         doctor_photo_url: content.doctor_photo_url,
-        feature_1_title: content.feature_1_title,
-        feature_1_body: content.feature_1_body,
-        feature_2_title: content.feature_2_title,
-        feature_2_body: content.feature_2_body,
-        feature_3_title: content.feature_3_title,
-        feature_3_body: content.feature_3_body,
+        about_highlights: content.about_highlights,
         services_eyebrow: content.services_eyebrow,
         services_title: content.services_title,
         services_subtitle: content.services_subtitle,
@@ -459,10 +482,37 @@ export default function ContentsManagerPage() {
                   aspect="portrait"
                 />
               </div>
-              <div className="grid gap-4 md:grid-cols-3">
-                <FeatureRow index={1} title={content.feature_1_title ?? ""} body={content.feature_1_body ?? ""} onTitle={(value) => update("feature_1_title", value)} onBody={(value) => update("feature_1_body", value)} />
-                <FeatureRow index={2} title={content.feature_2_title ?? ""} body={content.feature_2_body ?? ""} onTitle={(value) => update("feature_2_title", value)} onBody={(value) => update("feature_2_body", value)} />
-                <FeatureRow index={3} title={content.feature_3_title ?? ""} body={content.feature_3_body ?? ""} onTitle={(value) => update("feature_3_title", value)} onBody={(value) => update("feature_3_body", value)} />
+              <div className="rounded-[1.5rem] border border-sky-100 bg-sky-50/60 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-700">About highlights</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      These cards show on the landing-page About section and now mirror the updated profile details.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addAboutHighlight}
+                    className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-bold text-sky-800 transition hover:bg-sky-50"
+                  >
+                    <FaPlus className="h-3 w-3" aria-hidden="true" />
+                    Add card
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  {ensureAboutHighlights(content.about_highlights).map((item, index) => (
+                    <div key={`${item.title}-${index}`} className="rounded-[1.4rem] border border-sky-100 bg-white p-4 shadow-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-700">Card {index + 1}</p>
+                        <RemoveButton onClick={() => removeAboutHighlight(index)} title="Remove about card" compact />
+                      </div>
+                      <div className="mt-3 space-y-3">
+                        <Field label="Title" value={item.title} onChange={(value) => updateAboutHighlight(index, { title: value })} />
+                        <Textarea label="Body" rows={3} value={item.body} onChange={(value) => updateAboutHighlight(index, { body: value })} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -477,8 +527,19 @@ export default function ContentsManagerPage() {
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-sky-700">{content.about_eyebrow}</p>
                     <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{content.about_title}</h3>
-                    <p className="mt-2 text-sm font-semibold text-sky-800">{content.doctor_name} {content.doctor_title ? `, ${content.doctor_title}` : ""}</p>
+                    <p className="mt-2 text-sm font-semibold text-sky-800">
+                      {content.doctor_name}
+                      {content.doctor_title ? `, ${content.doctor_title}` : ""}
+                    </p>
                     <p className="mt-3 text-sm leading-6 text-slate-600">{content.about_subtitle}</p>
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                      {ensureAboutHighlights(content.about_highlights).map((item, index) => (
+                        <div key={`${item.title}-${index}`} className="rounded-2xl border border-sky-100 bg-sky-50/50 p-4">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-sky-700">{item.title}</p>
+                          <p className="mt-2 text-sm leading-6 text-slate-700">{item.body}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -874,17 +935,38 @@ function groupFaqsByCategory(faqs: Faq[]) {
 }
 
 function normalizeLandingContent(content: LandingContent): LandingContent {
-  if (content.services.length) return content;
+  const normalizedHighlights = ensureAboutHighlights(content.about_highlights);
+  const normalizedServices = content.services.length
+    ? content.services
+    : clinicServices.map((service, index) => ({
+        kind: index === 1 ? "online" : index === clinicServices.length - 1 ? "wellness" : "clinic",
+        title: service.title,
+        description: service.description,
+        bullets: [],
+      }));
+
+  if (
+    content.services.length
+    && JSON.stringify(normalizedHighlights) === JSON.stringify(content.about_highlights ?? [])
+  ) {
+    return content;
+  }
 
   return {
     ...content,
-    services: clinicServices.map((service, index) => ({
-      kind: index === 1 ? "online" : index === clinicServices.length - 1 ? "wellness" : "clinic",
-      title: service.title,
-      description: service.description,
-      bullets: [],
-    })),
+    about_highlights: normalizedHighlights,
+    services: normalizedServices,
   };
+}
+
+function ensureAboutHighlights(highlights?: LandingHighlight[] | null) {
+  const normalized = (highlights ?? [])
+    .map((item) => ({
+      title: String(item.title ?? "").trim(),
+      body: String(item.body ?? "").trim(),
+    }))
+    .filter((item) => item.title || item.body);
+  return normalized.length ? normalized : DEFAULT_ABOUT_HIGHLIGHTS;
 }
 
 function EditorSection({
@@ -967,30 +1049,6 @@ function Textarea({
         className="mt-1 w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
       />
     </label>
-  );
-}
-
-function FeatureRow({
-  index,
-  title,
-  body,
-  onTitle,
-  onBody,
-}: {
-  index: number;
-  title: string;
-  body: string;
-  onTitle: (value: string) => void;
-  onBody: (value: string) => void;
-}) {
-  return (
-    <div className="rounded-[1.2rem] border border-sky-100 bg-sky-50/70 p-4">
-      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-700">Highlight {index}</p>
-      <div className="mt-3 space-y-3">
-        <Field label="Title" value={title} onChange={onTitle} />
-        <Textarea label="Body" rows={3} value={body} onChange={onBody} />
-      </div>
-    </div>
   );
 }
 

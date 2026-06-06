@@ -17,7 +17,6 @@ async function handleReminderCron(req: Request) {
     const { data: appts, error } = await supabase
       .from("appointments")
       .select("id, patient_id, appointment_date, start_time, status, appointment_type, meeting_link")
-      .eq("appointment_type", "Online")
       .in("status", ["Confirmed"])
       .gte("appointment_date", nowIso.slice(0, 10))
       .lte("appointment_date", horizonIso.slice(0, 10));
@@ -32,6 +31,7 @@ async function handleReminderCron(req: Request) {
         patient_id: string;
         appointment_date: string;
         start_time: string;
+        appointment_type: string;
         meeting_link: string | null;
       };
 
@@ -53,7 +53,11 @@ async function handleReminderCron(req: Request) {
             user_id: r.patient_id,
             template: "appointment_reminder_24h",
             channels: ["email", "sms"],
-            payload: { appointment_id: r.id, meeting_link: r.meeting_link },
+            payload: {
+              appointment_id: r.id,
+              appointment_type: r.appointment_type,
+              meeting_link: r.meeting_link,
+            },
             send_at: reminder24At.toISOString(),
           });
           enqueued24++;
@@ -75,7 +79,11 @@ async function handleReminderCron(req: Request) {
             user_id: r.patient_id,
             template: "appointment_reminder_6h",
             channels: ["email", "sms"],
-            payload: { appointment_id: r.id, meeting_link: r.meeting_link },
+            payload: {
+              appointment_id: r.id,
+              appointment_type: r.appointment_type,
+              meeting_link: r.meeting_link,
+            },
             send_at: reminder6At.toISOString(),
           });
           enqueued6++;

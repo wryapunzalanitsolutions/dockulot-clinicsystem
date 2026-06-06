@@ -95,8 +95,8 @@ export default function ResetPasswordPage() {
     event.preventDefault();
     setFeedback(null);
 
-    if (password.length < 8) {
-      setFeedback("Password must be at least 8 characters.");
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(password)) {
+      setFeedback("Password must include uppercase, lowercase, number, and special character.");
       return;
     }
     if (password !== confirm) {

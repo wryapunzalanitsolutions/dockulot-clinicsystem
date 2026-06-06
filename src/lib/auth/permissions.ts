@@ -30,7 +30,7 @@ const PERMISSION_MAP: Record<PermissionAction, UserRole[]> = {
   "payments.pos": ["SUPER_ADMIN", "SECRETARY", "DOCTOR"],
   // Landing-page CMS — owners only. Doctor is included because the
   // single-doctor practice owner edits their own marketing copy.
-  "landing.manage": ["SUPER_ADMIN", "DOCTOR"],
+  "landing.manage": ["SUPER_ADMIN", "SECRETARY", "DOCTOR"],
 };
 
 export function hasPermission(role: UserRole, action: PermissionAction) {

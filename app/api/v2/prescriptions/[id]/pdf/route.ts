@@ -1,6 +1,7 @@
 import { HttpError, httpError, requireActor } from "@/src/lib/http";
 import { createSimplePdf } from "@/src/lib/pdf";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
+import type { DbRole } from "@/src/lib/db/types";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -24,10 +25,15 @@ type PrescriptionRow = {
     frequency: string | null;
     duration: string | null;
     instructions: string | null;
+    sort_order?: number | null;
   }>;
   patients?: { profiles?: { full_name?: string | null } | null } | null;
   doctors?: { profiles?: { full_name?: string | null } | null } | null;
 };
+
+function canManagePrescriptions(role: DbRole) {
+  return role === "super_admin" || role === "admin" || role === "doctor";
+}
 
 export async function GET(req: Request, { params }: Ctx) {
   try {
@@ -47,10 +53,19 @@ export async function GET(req: Request, { params }: Ctx) {
       if (data.patient_id !== actor.id || !data.released_to_patient) {
         throw new HttpError(403, "Forbidden");
       }
+    } else if (!canManagePrescriptions(actor.profile.role)) {
+      throw new HttpError(403, "Forbidden");
     }
+
+    const medicines = [...(data.prescription_items ?? [])].sort((a, b) => {
+      const left = "sort_order" in a && typeof a.sort_order === "number" ? a.sort_order : 0;
+      const right = "sort_order" in b && typeof b.sort_order === "number" ? b.sort_order : 0;
+      return left - right;
+    });
 
     const lines = [
       "Doctora Kulot Clinic",
+      "Prescription for pharmacy reference",
       `Prescription No: ${data.prescription_no}`,
       `Patient: ${data.patients?.profiles?.full_name ?? "Patient"}`,
       `Doctor: ${data.doctors?.profiles?.full_name ?? "Doctor"}`,
@@ -60,7 +75,7 @@ export async function GET(req: Request, { params }: Ctx) {
       data.follow_up_date ? `Follow-up: ${data.follow_up_date}` : "Follow-up: Not set",
       " ",
       "Medicines",
-      ...(data.prescription_items ?? []).flatMap((item, index) => {
+      ...medicines.flatMap((item, index) => {
         const details = [item.dosage, item.frequency, item.duration].filter(Boolean).join(" | ");
         const result = [`${index + 1}. ${item.medicine_name}`];
         if (details) result.push(`   ${details}`);
@@ -70,6 +85,8 @@ export async function GET(req: Request, { params }: Ctx) {
       " ",
       "General Instructions",
       data.general_instructions ?? "No general instructions provided.",
+      " ",
+      "Please present this prescription to the pharmacy if needed.",
     ];
 
     const pdf = createSimplePdf(lines);

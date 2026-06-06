@@ -246,7 +246,7 @@ export function DashboardHeader({
 
   const pageTitle = PAGE_TITLES[pathname] ?? "Workspace";
   const roleLabel = getRoleProfile(role).label.toUpperCase();
-  const displayName = profile?.full_name ?? "CHIARA User";
+  const displayName = profile?.full_name ?? "Doc Kulot User";
   const compactName = getCompactName(displayName);
   const displayEmail = profile?.email ?? "";
   const initials = getInitials(displayName);
@@ -431,7 +431,7 @@ export function DashboardHeader({
           </button>
 
           <div className="min-w-0 flex-1">
-            <p className="hidden text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 sm:block">CHIARA Workspace</p>
+            <p className="hidden text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 sm:block">Doc Kulot Workspace</p>
             <h1 className="truncate text-base font-bold text-slate-900 sm:text-xl">{pageTitle}</h1>
           </div>
         </div>

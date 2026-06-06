@@ -28,7 +28,6 @@ import { SharedSlotPicker } from "@/src/components/appointments/SharedSlotPicker
 import { useAppointments } from "@/src/components/appointments/useAppointments";
 import { useAppointmentAvailability } from "@/src/components/appointments/useAppointmentAvailability";
 import { useDoctors } from "@/src/components/appointments/useDoctors";
-import { useDoctorFees } from "@/src/components/clinic/useDoctorFees";
 import { useRole } from "@/src/components/layout/RoleProvider";
 import {
   encodeAppointmentContext,
@@ -45,15 +44,12 @@ import {
   type AppointmentType,
 } from "@/src/lib/appointments";
 import { getClinicToday } from "@/src/lib/timezone";
-import {
-  ONLINE_CONSULTATION_HOURLY_RATE,
-  calculateConsultationCharge,
-  calculateOnlineConsultationCharge,
-  formatDurationLabel,
-} from "@/src/lib/consultation-pricing";
+import { calculateConsultationCharge, formatDurationLabel } from "@/src/lib/consultation-pricing";
 
 type BookingForm = {
+  patientStatus: BookingPatientStatus;
   service: string;
+  clinicId: string;
   patientName: string;
   email: string;
   phone: string;
@@ -67,11 +63,48 @@ type BookingForm = {
   paymentOption: OnlinePaymentOption;
 };
 
+type BookingPatientStatus = "Existing" | "New";
+
+type BookingClinicOption = {
+  value: string;
+  label: string;
+  note: string;
+};
+
 type UploadedConcernFile = {
   file_name: string;
   file_type: string;
   file_url: string;
 };
+
+const MAX_CONCERN_FILES = 3;
+const MAX_CONCERN_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_CONCERN_FILE_SIZE_LABEL = "10 MB";
+
+const BOOKING_VISIT_OPTIONS: Array<{
+  type: AppointmentType;
+  label: string;
+  helper: string;
+}> = [
+  {
+    type: "Online",
+    label: "Virtual Consult",
+    helper: "Video call from home. Pay online before the session.",
+  },
+  {
+    type: "Clinic",
+    label: "Clinic Visit",
+    helper: "In-person visit at the clinic. Pay at the front desk.",
+  },
+];
+
+const BOOKING_CLINICS: BookingClinicOption[] = [
+  {
+    value: "fammed-family-clinic",
+    label: "FamMed Family Clinic",
+    note: "Face-to-face appointments at FamMed Family Clinic",
+  },
+];
 
 // Online consultation now routes every payment option through PayMongo:
 //   QR/GCash → PayMongo gcash + qrph
@@ -86,7 +119,9 @@ const today = getClinicToday();
 const DEFAULT_DOCTOR_ID = "doctora-kulot-md";
 
 const INITIAL_FORM: BookingForm = {
+  patientStatus: "New",
   service: getDefaultServiceForType("Clinic"),
+  clinicId: BOOKING_CLINICS[0].value,
   patientName: "",
   email: "",
   phone: "",
@@ -312,6 +347,10 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
+function isPreviewableImage(file: UploadedConcernFile) {
+  return file.file_type.startsWith("image/") && file.file_url.startsWith("data:image/");
+}
+
 export default function BookAppointmentPage() {
   const pathname = usePathname();
   const requiresAuthForReview = pathname === "/";
@@ -340,7 +379,6 @@ export default function BookAppointmentPage() {
   const primaryDoctor = doctors[0] ?? null;
   const activeDoctorId = primaryDoctor?.slug ?? DEFAULT_DOCTOR_ID;
   const selectedDoctor = primaryDoctor ?? getDoctorById(activeDoctorId);
-  const { fees } = useDoctorFees(activeDoctorId);
   const {
     slotStatuses,
     blockedReason,
@@ -350,20 +388,23 @@ export default function BookAppointmentPage() {
   } = useAppointmentAvailability(activeDoctorId, formData.date, formData.type);
   const selectedSlot = slotStatuses.find((slot) => slot.start === formData.start) ?? null;
   const serviceOptions = useMemo(() => getServiceOptionsForType(formData.type), [formData.type]);
-  const estimatedFee = selectedSlot
-    ? formData.type === "Online"
-      ? calculateOnlineConsultationCharge(selectedSlot.start, selectedSlot.end)
-      : calculateConsultationCharge(fees.clinic, selectedSlot.start, selectedSlot.end)
-    : formData.type === "Online"
-      ? ONLINE_CONSULTATION_HOURLY_RATE
-      : fees.clinic;
+  const selectedVisitHourlyRate =
+    formData.type === "Online"
+      ? selectedDoctor?.consultation_fee_online ?? 0
+      : selectedDoctor?.consultation_fee_clinic ?? 0;
+  const selectedVisitExactFee = selectedSlot
+    ? calculateConsultationCharge(selectedVisitHourlyRate, selectedSlot.start, selectedSlot.end)
+    : selectedVisitHourlyRate;
+  const selectedVisitFeeLabel = selectedVisitExactFee > 0
+    ? `PHP ${selectedVisitExactFee.toLocaleString("en-PH", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+    : "Select a slot";
   const selectedSlotDuration = selectedSlot
     ? formatDurationLabel(selectedSlot.start, selectedSlot.end)
     : "1 hr";
 
   const BOOKING_STEP_LABELS = [
-    "Service & Doctor",
-    "Patient Information",
+    "Patient Type",
+    "Visit & Info",
     "Date & Time",
     "Review & Payment",
   ] as const;
@@ -400,11 +441,11 @@ export default function BookAppointmentPage() {
           });
         }
         if (parsed?.activeStep) {
-          if (requiresAuthForReview && parsed.activeStep === 4 && !accessToken) {
-            setActiveStep(3);
-          } else {
-            setActiveStep(parsed.activeStep);
-          }
+        if (requiresAuthForReview && parsed.activeStep === 4 && !accessToken) {
+          setActiveStep(3);
+        } else {
+          setActiveStep(parsed.activeStep);
+        }
         }
       }
       const reservationId = localStorage.getItem("bookingReservation");
@@ -461,15 +502,26 @@ export default function BookAppointmentPage() {
     [profile, user],
   );
   const effectivePatientName =
-    role === "PATIENT" ? formData.patientName || patientDefaults.patientName : formData.patientName;
+    formData.patientStatus === "Existing" && role === "PATIENT"
+      ? formData.patientName || patientDefaults.patientName
+      : formData.patientName;
   const effectivePatientEmail =
-    role === "PATIENT" ? formData.email || patientDefaults.email : formData.email;
+    formData.patientStatus === "Existing" && role === "PATIENT"
+      ? formData.email || patientDefaults.email
+      : formData.email;
   const effectivePatientPhone =
-    role === "PATIENT" ? formData.phone || patientDefaults.phone : formData.phone;
+    formData.patientStatus === "Existing" && role === "PATIENT"
+      ? formData.phone || patientDefaults.phone
+      : formData.phone;
+  const selectedClinic = BOOKING_CLINICS.find((clinic) => clinic.value === formData.clinicId) ?? BOOKING_CLINICS[0];
 
-  const step1Valid = !!formData.type && !!formData.service.trim();
+  const step1Valid = !!formData.patientStatus;
   const step2Valid =
-    !!effectivePatientName.trim() && !!effectivePatientEmail.trim() && !!effectivePatientPhone.trim();
+    !!formData.type
+    && !!formData.service.trim()
+    && !!effectivePatientName.trim()
+    && !!effectivePatientEmail.trim()
+    && !!effectivePatientPhone.trim();
   const datePicked = !!formData.date && !blockedReason;
   const step3Valid = datePicked && !!formData.start;
   const step4Done = step1Valid && step2Valid && step3Valid;
@@ -503,11 +555,19 @@ export default function BookAppointmentPage() {
   function updateForm<K extends keyof BookingForm>(field: K, value: BookingForm[K]) {
     setFormData((current) => {
       const nextState = { ...current, [field]: value };
+      if (field === "patientStatus") {
+        nextState.patientName = value === "Existing" && role === "PATIENT" ? patientDefaults.patientName : current.patientName;
+        nextState.email = value === "Existing" && role === "PATIENT" ? patientDefaults.email : current.email;
+        nextState.phone = value === "Existing" && role === "PATIENT" ? patientDefaults.phone : current.phone;
+      }
       if (field === "doctorId" || field === "date" || field === "type") {
         nextState.start = "";
       }
       if (field === "type") {
         nextState.service = getDefaultServiceForType(value as AppointmentType);
+        if (value === "Clinic") {
+          nextState.clinicId = BOOKING_CLINICS[0].value;
+        }
         if (value !== "Online") {
           nextState.symptoms = "";
         }
@@ -524,8 +584,11 @@ export default function BookAppointmentPage() {
     const files = Array.from(event.target.files ?? []);
     if (files.length === 0) return;
 
-    if (uploadedConcernFiles.length + files.length > 3) {
-      setFeedback({ message: "You can upload up to 3 concern files or photos.", type: "error" });
+    if (uploadedConcernFiles.length + files.length > MAX_CONCERN_FILES) {
+      setFeedback({
+        message: `You can upload up to ${MAX_CONCERN_FILES} concern files or photos.`,
+        type: "error",
+      });
       event.target.value = "";
       return;
     }
@@ -533,8 +596,8 @@ export default function BookAppointmentPage() {
     try {
       const nextFiles: UploadedConcernFile[] = [];
       for (const file of files) {
-        if (file.size > 1024 * 1024) {
-          throw new Error(`${file.name} is too large. Please keep each file under 1 MB.`);
+        if (file.size > MAX_CONCERN_FILE_SIZE_BYTES) {
+          throw new Error(`${file.name} is too large. Please keep each file under ${MAX_CONCERN_FILE_SIZE_LABEL}.`);
         }
         const fileUrl = await readFileAsDataUrl(file);
         nextFiles.push({
@@ -706,7 +769,11 @@ export default function BookAppointmentPage() {
         // ignore storage errors
       }
       setFeedback({
-        message: `Booked! ${result.appointment.patientName} with ${selectedDoctor?.name ?? "doctor"} on ${formatDisplayDate(result.appointment.date)} at ${formatRange(result.appointment.start, result.appointment.end)}. Queue #${result.appointment.queueNumber}.${formData.type === "Clinic" ? " Clinic appointment confirmed." : ""}`,
+        message: `Booked! ${result.appointment.patientName} with ${selectedDoctor?.name ?? "doctor"} on ${formatDisplayDate(result.appointment.date)} at ${formatRange(result.appointment.start, result.appointment.end)}. Queue #${result.appointment.queueNumber}.${result.appointment.status === "Pending"
+          ? " Clinic appointment submitted for approval."
+          : formData.type === "Clinic"
+            ? " Clinic appointment confirmed."
+            : ""}`,
         type: "success",
       });
     });
@@ -742,8 +809,8 @@ export default function BookAppointmentPage() {
             </div>
           ) : (
             <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:w-auto lg:max-w-md">
-              <MarketingChip label="Mon-Fri 8am-5pm" />
-              <MarketingChip label="From PHP 350/hr" />
+              <MarketingChip label={`Clinic PHP ${selectedDoctor?.consultation_fee_clinic?.toLocaleString("en-PH") ?? "300"}`} />
+              <MarketingChip label={`Virtual PHP ${selectedDoctor?.consultation_fee_online?.toLocaleString("en-PH") ?? "400"}`} />
               <MarketingChip label="Secure PayMongo" />
             </div>
           )}
@@ -787,28 +854,98 @@ export default function BookAppointmentPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-600">Step 1 of 4</p>
-                    <h2 className="mt-2 text-2xl font-bold text-slate-900">Choose Your Visit Type</h2>
-                    <p className="mt-2 text-sm text-slate-600">Select the appointment mode and the service you want to book.</p>
-                  </div>
-                  <div className="inline-flex w-fit items-center gap-2.5 rounded-full border border-sky-200 bg-[linear-gradient(135deg,#f0f9ff,#e0f2fe)] px-4 py-2.5 text-xs font-semibold text-sky-800 shadow-sm">
-                    <span className="h-2.5 w-2.5 rounded-full bg-sky-500 animate-pulse" />
-                    {selectedDoctor?.name ?? "Assigned doctor"}
+                    <h2 className="mt-2 text-2xl font-bold text-slate-900">Are you an existing patient?</h2>
+                    <p className="mt-2 text-sm text-slate-600">
+                      To request a virtual or face-to-face appointment, please choose how the clinic should handle your booking.
+                    </p>
                   </div>
                 </div>
 
                 <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {(["Clinic", "Online"] as AppointmentType[]).map((type) => {
-                    const selected = formData.type === type;
-                    const Icon = type === "Clinic" ? FaHospital : FaVideo;
-                    const blurb =
-                      type === "Clinic"
-                        ? "In-person visit at the clinic. Pay at the front desk."
-                        : "Video call from home. Pay online before the call.";
+                  {(["Existing", "New"] as BookingPatientStatus[]).map((status) => {
+                    const selected = formData.patientStatus === status;
                     return (
                       <button
-                        key={type}
+                        key={status}
                         type="button"
-                        onClick={() => updateForm("type", type)}
+                        onClick={() => updateForm("patientStatus", status)}
+                        aria-pressed={selected}
+                        className={`group overflow-hidden rounded-2xl border p-5 text-left transition ${
+                          selected
+                            ? "border-sky-500 bg-sky-50 shadow-[0_12px_28px_rgba(14,165,233,0.16)] ring-2 ring-sky-200 ring-offset-1"
+                            : "border-sky-100 bg-white hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_12px_24px_rgba(14,165,233,0.10)]"
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <span
+                            className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition ${
+                              selected ? "bg-white text-sky-700 shadow-sm" : "bg-sky-50 text-sky-600 group-hover:bg-sky-100"
+                            }`}
+                            aria-hidden="true"
+                          >
+                            {status === "Existing" ? <FaCheck className="h-6 w-6" /> : <FaUser className="h-6 w-6" />}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-3">
+                              <p className={`text-lg font-bold ${selected ? "text-slate-900" : "text-slate-800"}`}>
+                                {status === "Existing" ? "I'm an Existing Patient" : "I'm a New Patient"}
+                              </p>
+                              {selected ? (
+                                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
+                                  <FaCheck className="h-2.5 w-2.5" aria-hidden="true" /> Selected
+                                </span>
+                              ) : (
+                                <span className="inline-flex shrink-0 rounded-full border border-sky-200 bg-white px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-sky-700">
+                                  Choose
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1.5 text-sm text-slate-600 leading-snug">
+                              {status === "Existing"
+                                ? "Use your existing patient record so the clinic can match your details faster."
+                                : "Start fresh and complete your patient details in the next step."}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+              </section>
+
+              <WizardNav showBack={false} onNext={goNext} nextDisabled={!step1Valid} nextLabel="Next: Visit Type" />
+            </>
+          ) : null}
+
+          {activeStep === 2 ? (
+            <>
+              <section className="rounded-4xl border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fbff_100%)] p-4 shadow-[0_20px_45px_rgba(14,165,233,0.08)] sm:p-6">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-600">Step 2 of 4</p>
+                    <h2 className="mt-2 text-xl font-bold text-slate-900">Visit Selection and Patient Information</h2>
+                    <p className="mt-1 text-sm text-slate-600">Choose the appointment type first, then confirm your contact details.</p>
+                  </div>
+                  <div className="flex flex-col items-start gap-2 sm:items-end">
+                    <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-700">
+                      <span className="h-2 w-2 rounded-full bg-sky-500" />
+                      All fields required
+                    </div>
+                    <div className="inline-flex w-fit rounded-full border border-sky-100 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-sky-700 shadow-sm">
+                      Fee: {selectedVisitFeeLabel}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {BOOKING_VISIT_OPTIONS.map((option) => {
+                    const selected = formData.type === option.type;
+                    const Icon = option.type === "Clinic" ? FaHospital : FaVideo;
+                    return (
+                      <button
+                        key={option.type}
+                        type="button"
+                        onClick={() => updateForm("type", option.type)}
                         aria-pressed={selected}
                         className={`group overflow-hidden rounded-2xl border p-5 text-left transition ${
                           selected
@@ -827,9 +964,7 @@ export default function BookAppointmentPage() {
                           </span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-3">
-                              <p className={`text-lg font-bold ${selected ? "text-slate-900" : "text-slate-800"}`}>
-                                {type === "Clinic" ? "Clinic Visit" : "Online Consultation"}
-                              </p>
+                              <p className={`text-lg font-bold ${selected ? "text-slate-900" : "text-slate-800"}`}>{option.label}</p>
                               {selected ? (
                                 <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
                                   <FaCheck className="h-2.5 w-2.5" aria-hidden="true" /> Selected
@@ -840,15 +975,50 @@ export default function BookAppointmentPage() {
                                 </span>
                               )}
                             </div>
-                            <p className="mt-1.5 text-sm text-slate-600 leading-snug">{blurb}</p>
+                            <p className="mt-1.5 text-sm text-slate-600 leading-snug">{option.helper}</p>
                           </div>
                         </div>
                       </button>
                     );
                   })}
                 </div>
+                {formData.type === "Clinic" ? (
+                  <div className="mt-8 rounded-2xl border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-sm">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">Which clinic and schedule is most convenient for you?</p>
+                        <p className="mt-1 text-sm text-slate-600">Select the clinic location that matches your visit.</p>
+                      </div>
+                      <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-sky-700">
+                        Required
+                      </span>
+                    </div>
 
-                <div className="mt-8 rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
+                    <div className="mt-4">
+                      <label htmlFor="clinicId" className="mb-3 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
+                        Select clinic
+                      </label>
+                      <select
+                        id="clinicId"
+                        value={formData.clinicId}
+                        onChange={(event) => updateForm("clinicId", event.target.value)}
+                        className="w-full cursor-pointer rounded-[1.2rem] border border-sky-100 bg-white px-4 py-3.5 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:bg-sky-50/30 focus:ring-4 focus:ring-sky-200"
+                      >
+                        {BOOKING_CLINICS.map((clinic) => (
+                          <option key={clinic.value} value={clinic.value}>
+                            {clinic.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="mt-4 rounded-[1.25rem] border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-600">
+                      <p className="font-semibold text-slate-700">{selectedClinic.label}</p>
+                      <p className="mt-2 text-slate-500">{selectedClinic.note}</p>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="mt-8 rounded-2xl border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-sm">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">Type of Service</p>
@@ -873,109 +1043,13 @@ export default function BookAppointmentPage() {
                           className={`rounded-2xl border px-4 py-3 text-left transition ${
                             selected
                               ? "border-sky-500 bg-sky-50 shadow-[0_12px_24px_rgba(14,165,233,0.12)] ring-2 ring-sky-100"
-                              : "border-sky-100 bg-white hover:border-sky-300 hover:bg-sky-50/50"
+                              : "border-sky-100 bg-white hover:border-sky-300 hover:bg-sky-50/70"
                           }`}
                         >
                           <p className="text-sm font-bold text-slate-900">{service}</p>
                         </button>
                       );
                     })}
-                  </div>
-                </div>
-
-                {/*
-                  Single consolidated doctor card — used to be two side-by-side
-                  cards that repeated the doctor's name and specialty. Now we
-                  show the avatar/initials, name, and specialty once, with the
-                  two rates as inline tiles and the optional Online duration
-                  picker below.
-                */}
-                <div className="mt-8 rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
-                  <div className="flex items-start gap-4">
-                    <span
-                      className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-base font-black text-sky-700"
-                      aria-hidden="true"
-                    >
-                      {(selectedDoctor?.name ?? "C P")
-                        .replace(/^Dra?\.\s*/, "")
-                        .split(" ")
-                        .filter(Boolean)
-                        .slice(0, 2)
-                        .map((part) => part[0])
-                        .join("")}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">Your Doctor</p>
-                      <p className="mt-1 text-base font-bold text-slate-900">
-                        {selectedDoctor?.name ?? "Assigned doctor"}
-                      </p>
-                      {selectedDoctor?.specialty ? (
-                        <p className="text-sm text-slate-600">{selectedDoctor.specialty}</p>
-                      ) : null}
-                    </div>
-                  </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div
-                      className={`rounded-xl border px-3.5 py-3 transition ${
-                        formData.type === "Clinic" ? "border-sky-300 bg-sky-50" : "border-sky-100 bg-white"
-                      }`}
-                    >
-                      <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                        <FaHospital className="h-3 w-3 text-sky-600" aria-hidden="true" />
-                        Clinic / hr
-                      </p>
-                      <p className="mt-1.5 text-lg font-bold text-slate-900">PHP {fees.clinic.toLocaleString()}</p>
-                    </div>
-                    <div
-                      className={`rounded-xl border px-3.5 py-3 transition ${
-                        formData.type === "Online" ? "border-sky-300 bg-sky-50" : "border-sky-100 bg-white"
-                      }`}
-                    >
-                      <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                        <FaVideo className="h-3 w-3 text-sky-600" aria-hidden="true" />
-                        Online / hr
-                      </p>
-                      <p className="mt-1.5 text-lg font-bold text-slate-900">
-                        PHP {ONLINE_CONSULTATION_HOURLY_RATE.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {formData.type === "Online" ? (
-                    <div className="mt-4 rounded-xl border border-sky-100 bg-sky-50/60 px-3.5 py-3">
-                      <label htmlFor="duration" className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                        Duration
-                      </label>
-                      <select
-                        id="duration"
-                        value={formData.durationMinutes}
-                        onChange={(event) => updateForm("durationMinutes", event.target.value as "60")}
-                        className="mt-2 w-full rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100 cursor-pointer"
-                      >
-                        <option value="60">1 hour — PHP 350</option>
-                      </select>
-                    </div>
-                  ) : null}
-                </div>
-              </section>
-
-              <WizardNav showBack={false} onNext={goNext} nextDisabled={!step1Valid} nextLabel="Next: Patient Info" />
-            </>
-          ) : null}
-
-          {activeStep === 2 ? (
-            <>
-              <section className="rounded-4xl border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f7fef9_100%)] p-4 shadow-[0_20px_45px_rgba(14,165,233,0.08)] sm:p-6">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-600">Step 2 of 4</p>
-                    <h2 className="mt-2 text-xl font-bold text-slate-900">Patient Information</h2>
-                    <p className="mt-1 text-sm text-slate-600">Please provide your contact details for the appointment</p>
-                  </div>
-                  <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-700">
-                    <span className="h-2 w-2 rounded-full bg-sky-500" />
-                    All fields required
                   </div>
                 </div>
                 <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -1042,7 +1116,7 @@ export default function BookAppointmentPage() {
                       </div>
                       <div className="lg:col-span-3 sm:col-span-2">
                         <label htmlFor="concern-files" className="mb-3 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
-                          Upload File / Photo <span className="font-normal text-slate-500">(Optional, up to 3 files, 1 MB each)</span>
+                          Upload File / Photo <span className="font-normal text-slate-500">(Optional, up to {MAX_CONCERN_FILES} files, {MAX_CONCERN_FILE_SIZE_LABEL} each)</span>
                         </label>
                         <input
                           id="concern-files"
@@ -1052,6 +1126,39 @@ export default function BookAppointmentPage() {
                           onChange={handleConcernFilesSelected}
                           className="w-full rounded-[1.2rem] border border-dashed border-sky-200 bg-sky-50/40 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-200"
                         />
+                        {uploadedConcernFiles.some((file) => isPreviewableImage(file)) ? (
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {uploadedConcernFiles.map((file, index) =>
+                              isPreviewableImage(file) ? (
+                                <div
+                                  key={`${file.file_name}-preview-${index}`}
+                                  className="overflow-hidden rounded-[1.1rem] border border-sky-200 bg-white shadow-sm"
+                                >
+                                  <div className="aspect-[4/3] bg-sky-50">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={file.file_url}
+                                      alt={file.file_name}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-between gap-2 px-3 py-2">
+                                    <p className="truncate text-xs font-semibold text-slate-700" title={file.file_name}>
+                                      {file.file_name}
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeConcernFile(index)}
+                                      className="shrink-0 rounded-full border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : null,
+                            )}
+                          </div>
+                        ) : null}
                         {uploadedConcernFiles.length > 0 ? (
                           <div className="mt-3 flex flex-wrap gap-2">
                             {uploadedConcernFiles.map((file, index) => (
@@ -1094,7 +1201,7 @@ export default function BookAppointmentPage() {
                             updateForm("date", nextAvailableSlot.date);
                             updateForm("start", nextAvailableSlot.slot.start);
                           }}
-                          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100 hover:border-sky-300"
+                          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-100"
                         >
                           <FaBolt className="h-3 w-3 text-amber-500" aria-hidden="true" />
                           Next: {formatDisplayDate(nextAvailableSlot.date)} {formatRange(nextAvailableSlot.slot.start, nextAvailableSlot.slot.end)}
@@ -1102,7 +1209,7 @@ export default function BookAppointmentPage() {
                       ) : null}
                     </div>
 
-                    <div className="mt-6 rounded-[1.75rem] border border-sky-100 bg-[linear-gradient(180deg,#fafffb_0%,#eefcf2_100%)] p-5">
+                    <div className="mt-6 rounded-[1.75rem] border border-sky-100 bg-[linear-gradient(180deg,#f8fbff_0%,#eaf5ff_100%)] p-5">
                       <div className="flex items-center justify-between mb-4">
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Calendar Selection</p>
                         <div className="flex items-center gap-2">
@@ -1148,7 +1255,7 @@ export default function BookAppointmentPage() {
                                     ? "border-sky-500 bg-sky-600 text-white shadow-[0_10px_22px_rgba(14,165,233,0.22)]"
                                     : isPast
                                     ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-400"
-                                    : "border-sky-100 bg-white text-slate-900 hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-50/60"
+                                    : "border-sky-100 bg-white text-slate-900 hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-50/70"
                                 }`}
                             >
                                 {isToday && !isSelected ? (
@@ -1173,10 +1280,10 @@ export default function BookAppointmentPage() {
                         <input 
                           id="datepicker"
                           type="date" 
-                          value={formData.date} 
-                          min={today} 
-                          onChange={(e) => updateForm("date", e.target.value)} 
-                          className="w-full sm:w-auto rounded-[1.1rem] border border-sky-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-200 cursor-pointer" 
+                          value={formData.date}
+                          min={today}
+                          onChange={(e) => updateForm("date", e.target.value)}
+                          className="w-full cursor-pointer rounded-[1.1rem] border border-sky-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-200 sm:w-auto"
                         />
                       </div>
                     </div>
@@ -1203,7 +1310,7 @@ export default function BookAppointmentPage() {
                     Booking Summary
                   </p>
                   
-                  <div className="mt-4 rounded-3xl border border-sky-200 bg-[linear-gradient(180deg,#f0f9ff_0%,#e0f2fe_100%)] p-4.5 shadow-sm">
+                  <div className="mt-4 rounded-3xl border border-sky-200 bg-[linear-gradient(180deg,#f8fbff_0%,#eaf5ff_100%)] p-4.5 shadow-sm">
                     <div className="space-y-3">
                       <SummaryRow label="Visit Type" value={<VisitTypeValue type={formData.type} />} done />
                       <SummaryRow label="Doctor" value={selectedDoctor?.name ?? "-"} done />
@@ -1216,12 +1323,11 @@ export default function BookAppointmentPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-3xl border-2 border-sky-500 bg-[linear-gradient(180deg,#f0f9ff_0%,#e0f2fe_100%)] px-4 py-4 shadow-md">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700">Estimated Fee</p>
+                  <div className="mt-4 rounded-3xl border-2 border-sky-500 bg-[linear-gradient(180deg,#f8fbff_0%,#eaf5ff_100%)] px-4 py-4 shadow-md">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700">Fee</p>
                     <p className="mt-2.5 text-3xl font-black text-sky-900">
-                      PHP {estimatedFee.toLocaleString()}
+                      {selectedVisitFeeLabel}
                     </p>
-                    <p className="mt-1.5 text-xs text-sky-700 font-medium">for {selectedSlotDuration}</p>
                   </div>
 
                   {formData.type === "Online" ? (
@@ -1286,7 +1392,9 @@ export default function BookAppointmentPage() {
                           Appointment Details
                         </p>
                         <div className="space-y-3">
+                          <SummaryRow label="Patient Type" value={formData.patientStatus} done={step1Valid} />
                           <SummaryRow label="Visit Type" value={<VisitTypeValue type={formData.type} />} done />
+                          {formData.type === "Clinic" ? <SummaryRow label="Clinic" value={selectedClinic.label} done={!!formData.clinicId} /> : null}
                           <SummaryRow label="Service" value={formData.service} done={!!formData.service} />
                           <SummaryRow label="Doctor" value={selectedDoctor?.name ?? "-"} done />
                           <div className="h-px bg-linear-to-r from-sky-200 to-transparent" />
@@ -1303,6 +1411,7 @@ export default function BookAppointmentPage() {
                           Patient Information
                         </p>
                         <div className="space-y-3 text-sm">
+                          <SummaryRow label="Patient Type" value={formData.patientStatus} done={step1Valid} />
                           <SummaryRow label="Name" value={effectivePatientName} done={step2Valid} />
                           <SummaryRow label="Email" value={effectivePatientEmail} done={step2Valid} />
                           <SummaryRow label="Phone" value={effectivePatientPhone} done={step2Valid} />
@@ -1318,8 +1427,8 @@ export default function BookAppointmentPage() {
                       <div className="pt-2 border-t border-sky-200">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700 mb-3">Payment Info</p>
                         <SummaryRow
-                          label={formData.type === "Online" ? "Amount Due" : "Payable After"}
-                          value={`PHP ${estimatedFee.toLocaleString()}`}
+                          label="Fee"
+                          value={selectedVisitFeeLabel}
                           done
                         />
                         {formData.type === "Online" ? (
@@ -1367,11 +1476,9 @@ export default function BookAppointmentPage() {
                       </p>
 
                       <div className="mt-5 rounded-[1.4rem] border-2 border-sky-300 bg-sky-50 px-4 py-4">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-700">
-                          {formData.type === "Online" ? `Amount due (${selectedSlotDuration})` : `Consultation fee (${selectedSlotDuration})`}
-                        </p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-700">Fee</p>
                         <p className="mt-2.5 text-3xl font-black text-sky-900">
-                          PHP {estimatedFee.toLocaleString()}
+                          {selectedVisitFeeLabel}
                         </p>
                       </div>
 

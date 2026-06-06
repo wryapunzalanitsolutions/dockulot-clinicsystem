@@ -27,7 +27,7 @@ export async function POST(req: Request) {
         name: body.name,
         email: body.email ?? null,
         phone: body.phone ?? null,
-        inquiry_type: body.inquiry_type ?? "General",
+        inquiry_type: body.inquiry_type ?? "Ask general questions",
         message: body.message,
       })
       .select()

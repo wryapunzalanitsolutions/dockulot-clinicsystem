@@ -43,6 +43,16 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   }, [hasAccess, isLoading, router, user]);
 
   async function handleLogout() {
+    if (accessToken) {
+      await fetch("/api/v2/security/session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ event: "logout" }),
+      }).catch(() => null);
+    }
     await signOut();
     router.replace("/login");
   }

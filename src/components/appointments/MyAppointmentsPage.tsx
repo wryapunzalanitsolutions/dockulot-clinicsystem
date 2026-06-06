@@ -465,7 +465,9 @@ function TypeBadge({ type }: { type: AppointmentType }) {
 
 function StatusBadge({ status }: { status: string }) {
   const tone =
-    status === "In Progress"
+    status === "Pending"
+      ? "bg-amber-50 text-amber-700"
+      : status === "In Progress"
       ? "bg-amber-50 text-amber-700"
       : status === "Completed"
         ? "bg-sky-50 text-sky-700"

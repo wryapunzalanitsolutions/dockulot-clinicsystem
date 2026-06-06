@@ -1,3 +1,5 @@
+import { parseAppointmentContext } from "@/src/lib/appointment-context";
+import { getClinicToday } from "@/src/lib/timezone";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
 
 export type RevenueReport = {
@@ -50,6 +52,56 @@ export type AppointmentTypeBreakdown = {
   count: number;
 };
 
+export type AppointmentStatusSummary = {
+  total: number;
+  completed: number;
+  cancelled: number;
+};
+
+export type SalesSnapshot = {
+  daily: number;
+  monthly: number;
+  pos_daily: number;
+  pos_monthly: number;
+};
+
+export type PosReportSummary = {
+  invoices: number;
+  paid_invoices: number;
+  paid_total: number;
+  average_ticket: number;
+  items_sold: number;
+};
+
+export type InventoryReportSummary = {
+  products: number;
+  low_stock: number;
+  expiring_soon: number;
+  stock_value: number;
+  stock_cost: number;
+};
+
+export type ContentReportItem = {
+  id: string;
+  title: string;
+  slug: string;
+  category: string;
+  content_type: string;
+  views: number;
+  appointment_clicks: number;
+};
+
+export type WebsiteTrafficPoint = {
+  date: string;
+  pageviews: number;
+  visitors: number;
+};
+
+export type RequestedServiceReport = {
+  service: string;
+  count: number;
+};
+
 export type ReportsPayload = {
   revenue: RevenueReport;
   no_show: NoShowReport[];
@@ -59,6 +111,15 @@ export type ReportsPayload = {
   payment_statuses: PaymentStatusBreakdown[];
   daily_trends: DailyTrendPoint[];
   appointment_types: AppointmentTypeBreakdown[];
+  appointment_summary: AppointmentStatusSummary;
+  sales_summary: SalesSnapshot;
+  pos_summary: PosReportSummary;
+  inventory_summary: InventoryReportSummary;
+  top_blogs: ContentReportItem[];
+  top_videos: ContentReportItem[];
+  content_clicks_total: number;
+  visitor_traffic: WebsiteTrafficPoint[];
+  requested_services: RequestedServiceReport[];
 };
 
 type PaymentRow = {
@@ -66,6 +127,7 @@ type PaymentRow = {
   method: string;
   status: string;
   paid_at: string | null;
+  billing_id: string | null;
   appointments?:
     | {
         appointment_type?: string | null;
@@ -79,18 +141,70 @@ type PaymentRow = {
 type AppointmentRow = {
   patient_id: string;
   doctor_id: string;
+  service_id: string | null;
   appointment_date: string;
   start_time: string;
   status: string;
   appointment_type: string;
+  reason: string | null;
+  clinic_services?:
+    | {
+        name?: string | null;
+      }
+    | {
+        name?: string | null;
+      }[]
+    | null;
   doctors?:
     | {
         profiles?: { full_name?: string | null } | { full_name?: string | null }[] | null;
       }
     | {
-        profiles?: { full_name?: string | null } | { full_name?: string | null }[] | null;
+        profiles?: { full_name?: string | null } | { full_name?: string | null }[];
       }[]
     | null;
+};
+
+type BillingRow = {
+  id: string;
+  total: number | string;
+  status: string;
+  created_at: string;
+  issued_at: string | null;
+  billing_items?:
+    | {
+        quantity?: number | string | null;
+      }[]
+    | null;
+};
+
+type InventoryRow = {
+  stock_qty: number | string;
+  reorder_level: number | string;
+  cost_price: number | string;
+  selling_price: number | string;
+  expiry_date: string | null;
+  is_active: boolean;
+};
+
+type ContentRow = {
+  id: string;
+  title: string;
+  slug: string;
+  category: string;
+  content_type: string;
+  view_count: number | string;
+  appointment_click_count: number | string;
+  status: string;
+};
+
+type WebsiteAnalyticsRow = {
+  event_name: string;
+  path: string | null;
+  content_post_id: string | null;
+  service_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 };
 
 function normalizeDate(value: string) {
@@ -122,12 +236,39 @@ function getDoctorName(value: AppointmentRow["doctors"]) {
   return profile?.full_name?.trim() || "Unknown doctor";
 }
 
+function getServiceName(value: AppointmentRow["clinic_services"], reason: string | null, type: string) {
+  const service = Array.isArray(value) ? value[0] : value;
+  const fromRelation = service?.name?.trim();
+  if (fromRelation) return fromRelation;
+
+  const fromReason = parseAppointmentContext(reason).service.trim();
+  if (fromReason) return fromReason;
+
+  return type === "Online" ? "Online Consultation" : "General Consultation";
+}
+
+function getMetadataValue(metadata: Record<string, unknown> | null | undefined, key: string) {
+  if (!metadata || typeof metadata !== "object") return "";
+  const value = metadata[key];
+  return typeof value === "string" ? value : "";
+}
+
+function isWithinRange(date: string, from?: string, to?: string) {
+  if (from && date < from) return false;
+  if (to && date > to) return false;
+  return true;
+}
+
+function monthStart(date: string) {
+  return `${date.slice(0, 7)}-01`;
+}
+
 async function getPayments(from?: string, to?: string) {
   const supabase = getSupabaseAdmin();
   let query = supabase
     .from("payments")
-    .select("amount, method, status, paid_at, appointments(appointment_type)")
-    .order("paid_at", { ascending: true });
+    .select("amount, method, status, paid_at, billing_id, appointments(appointment_type)")
+    .order("paid_at", { ascending: true, nullsFirst: false });
 
   if (from) query = query.gte("paid_at", `${from}T00:00:00`);
   if (to) query = query.lte("paid_at", `${to}T23:59:59.999`);
@@ -142,7 +283,7 @@ async function getAppointments(from?: string, to?: string) {
   const supabase = getSupabaseAdmin();
   let query = supabase
     .from("appointments")
-    .select("patient_id, doctor_id, appointment_date, start_time, status, appointment_type, doctors(profiles(full_name))")
+    .select("patient_id, doctor_id, service_id, appointment_date, start_time, status, appointment_type, reason, clinic_services(name), doctors(profiles(full_name))")
     .order("appointment_date", { ascending: true })
     .order("start_time", { ascending: true });
 
@@ -153,6 +294,57 @@ async function getAppointments(from?: string, to?: string) {
   if (error) throw error;
 
   return (data ?? []) as unknown as AppointmentRow[];
+}
+
+async function getBillings(from?: string, to?: string) {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("billings")
+    .select("id, total, status, created_at, issued_at, billing_items(quantity)")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  return ((data ?? []) as BillingRow[]).filter((row) =>
+    isWithinRange(normalizeDate(row.issued_at ?? row.created_at), from, to),
+  );
+}
+
+async function getInventorySnapshot() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("inventory_products")
+    .select("stock_qty, reorder_level, cost_price, selling_price, expiry_date, is_active");
+  if (error) throw error;
+
+  return (data ?? []) as InventoryRow[];
+}
+
+async function getContentRows() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("content_posts")
+    .select("id, title, slug, category, content_type, view_count, appointment_click_count, status")
+    .eq("status", "Published")
+    .order("published_at", { ascending: false, nullsFirst: false });
+  if (error) throw error;
+
+  return (data ?? []) as ContentRow[];
+}
+
+async function getWebsiteAnalytics(from?: string, to?: string) {
+  const supabase = getSupabaseAdmin();
+  let query = supabase
+    .from("website_analytics")
+    .select("event_name, path, content_post_id, service_id, metadata, created_at")
+    .order("created_at", { ascending: true });
+
+  if (from) query = query.gte("created_at", `${from}T00:00:00`);
+  if (to) query = query.lte("created_at", `${to}T23:59:59.999`);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data ?? []) as WebsiteAnalyticsRow[];
 }
 
 export async function getRevenue(from?: string, to?: string): Promise<RevenueReport> {
@@ -324,6 +516,159 @@ export async function getAppointmentTypeBreakdown(from?: string, to?: string): P
     .sort((a, b) => b.count - a.count);
 }
 
+export async function getAppointmentSummary(from?: string, to?: string): Promise<AppointmentStatusSummary> {
+  const rows = await getAppointments(from, to);
+
+  return {
+    total: rows.length,
+    completed: rows.filter((row) => row.status === "Completed").length,
+    cancelled: rows.filter((row) => row.status === "Cancelled").length,
+  };
+}
+
+export async function getSalesSummary(): Promise<SalesSnapshot> {
+  const today = getClinicToday();
+  const fromMonth = monthStart(today);
+  const [dailyRevenue, monthlyRevenue, dailyPayments, monthlyPayments] = await Promise.all([
+    getRevenue(today, today),
+    getRevenue(fromMonth, today),
+    getPayments(today, today),
+    getPayments(fromMonth, today),
+  ]);
+
+  const posDaily = dailyPayments
+    .filter((row) => row.status === "Paid" && row.billing_id)
+    .reduce((sum, row) => sum + parseAmount(row.amount), 0);
+  const posMonthly = monthlyPayments
+    .filter((row) => row.status === "Paid" && row.billing_id)
+    .reduce((sum, row) => sum + parseAmount(row.amount), 0);
+
+  return {
+    daily: dailyRevenue.total,
+    monthly: monthlyRevenue.total,
+    pos_daily: posDaily,
+    pos_monthly: posMonthly,
+  };
+}
+
+export async function getPosSummary(from?: string, to?: string): Promise<PosReportSummary> {
+  const rows = await getBillings(from, to);
+  const paidRows = rows.filter((row) => row.status === "Paid");
+  const itemsSold = paidRows.reduce(
+    (sum, row) =>
+      sum
+      + (row.billing_items ?? []).reduce((lineSum, item) => lineSum + parseAmount(item.quantity), 0),
+    0,
+  );
+  const paidTotal = paidRows.reduce((sum, row) => sum + parseAmount(row.total), 0);
+
+  return {
+    invoices: rows.length,
+    paid_invoices: paidRows.length,
+    paid_total: paidTotal,
+    average_ticket: paidRows.length ? paidTotal / paidRows.length : 0,
+    items_sold: itemsSold,
+  };
+}
+
+export async function getInventorySummary(): Promise<InventoryReportSummary> {
+  const rows = await getInventorySnapshot();
+  const now = Date.now();
+  const expiringCutoff = now + 1000 * 60 * 60 * 24 * 45;
+  const activeRows = rows.filter((row) => row.is_active);
+
+  return {
+    products: activeRows.length,
+    low_stock: activeRows.filter((row) => parseAmount(row.stock_qty) <= parseAmount(row.reorder_level)).length,
+    expiring_soon: activeRows.filter((row) => row.expiry_date && new Date(row.expiry_date).getTime() <= expiringCutoff).length,
+    stock_value: activeRows.reduce((sum, row) => sum + parseAmount(row.stock_qty) * parseAmount(row.selling_price), 0),
+    stock_cost: activeRows.reduce((sum, row) => sum + parseAmount(row.stock_qty) * parseAmount(row.cost_price), 0),
+  };
+}
+
+export async function getContentSummary(from?: string, to?: string) {
+  const [contentRows, analyticsRows] = await Promise.all([getContentRows(), getWebsiteAnalytics(from, to)]);
+  const rows = !from && !to
+    ? contentRows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        slug: row.slug,
+        category: row.category,
+        content_type: row.content_type,
+        views: parseAmount(row.view_count),
+        appointment_clicks: parseAmount(row.appointment_click_count),
+      }))
+    : contentRows
+        .map((row) => {
+          const relatedEvents = analyticsRows.filter((event) => event.content_post_id === row.id);
+          return {
+            id: row.id,
+            title: row.title,
+            slug: row.slug,
+            category: row.category,
+            content_type: row.content_type,
+            views: relatedEvents.filter((event) => event.event_name === "content_view" || event.event_name === "video_open").length,
+            appointment_clicks: relatedEvents.filter((event) => event.event_name === "appointment_click").length,
+          };
+        })
+        .filter((row) => row.views > 0 || row.appointment_clicks > 0);
+
+  const top_blogs = rows
+    .filter((row) => row.content_type === "Blog" || row.content_type === "HealthTip")
+    .sort((a, b) => b.views - a.views || b.appointment_clicks - a.appointment_clicks || a.title.localeCompare(b.title))
+    .slice(0, 5);
+  const top_videos = rows
+    .filter((row) => row.content_type === "Video" || row.content_type === "Announcement" || row.content_type === "LiveReplay")
+    .sort((a, b) => b.views - a.views || b.appointment_clicks - a.appointment_clicks || a.title.localeCompare(b.title))
+    .slice(0, 5);
+
+  return {
+    top_blogs,
+    top_videos,
+    content_clicks_total: rows.reduce((sum, row) => sum + row.appointment_clicks, 0),
+  };
+}
+
+export async function getWebsiteTraffic(from?: string, to?: string): Promise<WebsiteTrafficPoint[]> {
+  const rows = await getWebsiteAnalytics(from, to);
+  const agg = new Map<string, { pageviews: number; visitors: Set<string> }>();
+
+  for (const row of rows) {
+    if (row.event_name !== "page_view") continue;
+    const date = normalizeDate(row.created_at);
+    const current = agg.get(date) ?? { pageviews: 0, visitors: new Set<string>() };
+    current.pageviews += 1;
+    const clientId = getMetadataValue(row.metadata, "client_id");
+    current.visitors.add(clientId || `anon-${row.created_at}-${current.pageviews}`);
+    agg.set(date, current);
+  }
+
+  return [...agg.entries()]
+    .map(([date, value]) => ({
+      date,
+      pageviews: value.pageviews,
+      visitors: value.visitors.size,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export async function getRequestedServices(from?: string, to?: string): Promise<RequestedServiceReport[]> {
+  const rows = await getAppointments(from, to);
+  const agg = new Map<string, number>();
+
+  for (const row of rows) {
+    if (row.status === "Cancelled") continue;
+    const service = getServiceName(row.clinic_services, row.reason, row.appointment_type).trim();
+    if (!service) continue;
+    agg.set(service, (agg.get(service) ?? 0) + 1);
+  }
+
+  return [...agg.entries()]
+    .map(([service, count]) => ({ service, count }))
+    .sort((a, b) => b.count - a.count || a.service.localeCompare(b.service))
+    .slice(0, 8);
+}
+
 export async function getReportsDashboard(from?: string, to?: string): Promise<ReportsPayload> {
   const [
     revenue,
@@ -334,6 +679,13 @@ export async function getReportsDashboard(from?: string, to?: string): Promise<R
     payment_statuses,
     daily_trends,
     appointment_types,
+    appointment_summary,
+    sales_summary,
+    pos_summary,
+    inventory_summary,
+    contentSummary,
+    visitor_traffic,
+    requested_services,
   ] = await Promise.all([
     getRevenue(from, to),
     getNoShowRates(from, to),
@@ -343,6 +695,13 @@ export async function getReportsDashboard(from?: string, to?: string): Promise<R
     getPaymentStatusBreakdown(from, to),
     getDailyTrends(from, to),
     getAppointmentTypeBreakdown(from, to),
+    getAppointmentSummary(from, to),
+    getSalesSummary(),
+    getPosSummary(from, to),
+    getInventorySummary(),
+    getContentSummary(from, to),
+    getWebsiteTraffic(from, to),
+    getRequestedServices(from, to),
   ]);
 
   return {
@@ -354,5 +713,14 @@ export async function getReportsDashboard(from?: string, to?: string): Promise<R
     payment_statuses,
     daily_trends,
     appointment_types,
+    appointment_summary,
+    sales_summary,
+    pos_summary,
+    inventory_summary,
+    top_blogs: contentSummary.top_blogs,
+    top_videos: contentSummary.top_videos,
+    content_clicks_total: contentSummary.content_clicks_total,
+    visitor_traffic,
+    requested_services,
   };
 }

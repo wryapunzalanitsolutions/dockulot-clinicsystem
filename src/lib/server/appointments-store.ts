@@ -38,7 +38,7 @@ export type AppointmentCreatePayload = {
 
 type AppointmentCreateContext = {
   actor?: AuthenticatedUser;
-  initialStatus?: "Confirmed" | "CheckedIn";
+  initialStatus?: "Pending" | "Confirmed" | "CheckedIn";
 };
 
 // `meetingLink` is optional on update — when omitted we keep whatever's in DB.
@@ -430,6 +430,8 @@ export async function createPersistedAppointmentWithContext(
       message:
         context.initialStatus === "CheckedIn"
           ? "Walk-in patient added to the live queue."
+          : context.initialStatus === "Pending"
+            ? "Appointment request submitted for approval."
           : payload.type === "Clinic"
             ? "Clinic appointment confirmed."
             : "Appointment booked successfully.",
@@ -492,6 +494,8 @@ export async function updatePersistedAppointment(payload: AppointmentUpdatePaylo
         ? existing.status
         : existing.status === "Completed"
           ? "Completed"
+          : existing.status === "Pending"
+            ? "Pending"
           : "Confirmed";
 
     // Resolve the meeting_link to persist:
@@ -628,6 +632,80 @@ export async function deletePersistedAppointment(appointmentId: string) {
     message: "Appointment cancelled.",
     appointments: await readAppointments(),
   };
+}
+
+export async function approvePersistedAppointment(appointmentId: string, actor?: AuthenticatedUser) {
+  const supabase = getSupabaseAdmin();
+  try {
+    const { data: existing, error: fetchErr } = await supabase
+      .from("appointments")
+      .select("*")
+      .eq("id", appointmentId)
+      .single<V2Appointment>();
+    if (fetchErr || !existing) {
+      return {
+        ok: false as const,
+        message: "Appointment not found.",
+        appointments: await readAppointments(),
+      };
+    }
+
+    if (existing.status !== "Pending") {
+      return {
+        ok: false as const,
+        message: "Only pending appointments can be approved.",
+        appointments: await readAppointments(),
+      };
+    }
+
+    const { error: updateErr } = await supabase
+      .from("appointments")
+      .update({ status: "Confirmed" })
+      .eq("id", appointmentId);
+    if (updateErr) throw updateErr;
+
+    try {
+      await enqueueNotification({
+        user_id: existing.patient_id,
+        template: "appointment_confirmed",
+        channels: ["email", "sms"],
+        payload: { appointment_id: existing.id, meeting_link: existing.meeting_link },
+      });
+
+      await enqueueAppointmentTeamNotifications({
+        appointment_id: existing.id,
+        appointment_type: existing.appointment_type,
+        patient_user_id: existing.patient_id,
+        appointment_date: existing.appointment_date,
+        start_time: existing.start_time,
+        doctor_user_id: existing.doctor_id,
+        excludeUserIds: [existing.patient_id, actor?.user.id].filter((value): value is string => !!value),
+        template: "appointment_staff_confirmed",
+      });
+    } catch (notificationError) {
+      console.error("[appointments] approval notifications failed", {
+        appointmentId: existing.id,
+        patientUuid: existing.patient_id,
+        doctorUuid: existing.doctor_id,
+        error: notificationError instanceof Error ? notificationError.message : notificationError,
+      });
+    }
+
+    const appointments = await readAppointments();
+    const appointment = appointments.find((a) => a.id === appointmentId) ?? null;
+    return {
+      ok: true as const,
+      message: "Appointment approved.",
+      appointment,
+      appointments,
+    };
+  } catch (e) {
+    return {
+      ok: false as const,
+      message: e instanceof Error ? e.message : "Approval failed",
+      appointments: await readAppointments(),
+    };
+  }
 }
 
 export async function markClinicAppointmentComplete(appointmentId: string) {

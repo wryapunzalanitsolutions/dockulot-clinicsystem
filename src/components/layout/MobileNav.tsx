@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
-import { FaHome, FaInfoCircle, FaQuestionCircle, FaQuoteRight, FaStethoscope, FaVideo } from "react-icons/fa";
+import { FaCalendarAlt, FaHome, FaInfoCircle, FaQuestionCircle, FaQuoteRight, FaStethoscope, FaVideo } from "react-icons/fa";
 
 export default function MobileNav() {
   const [open, setOpen] = useState(false);
@@ -98,6 +98,14 @@ export default function MobileNav() {
           </ul>
 
           <div className="mt-6 space-y-3 border-t border-slate-100 pt-4">
+            <Link
+              href="/#booking"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-sky-600 px-3 py-2.5 text-center text-sm font-bold leading-none text-white hover:bg-sky-500"
+            >
+              <FaCalendarAlt />
+              Book appointment
+            </Link>
             <Link href="/#contact" onClick={() => setOpen(false)} className="block w-full rounded-xl border border-sky-200 px-4 py-3 text-center font-semibold text-sky-800 hover:bg-sky-50">
               Contact
             </Link>

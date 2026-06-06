@@ -3,6 +3,7 @@ import { HttpError, type Actor } from "@/src/lib/http";
 import type {
   LandingContent,
   LandingHowToStep,
+  LandingHighlight,
   LandingNavItem,
   LandingService,
   LandingServiceBullet,
@@ -18,6 +19,7 @@ export type LandingContentInput = Partial<
     | "id"
     | "updated_at"
     | "updated_by"
+    | "about_highlights"
     | "testimonials"
     | "nav_items"
     | "services"
@@ -27,6 +29,7 @@ export type LandingContentInput = Partial<
     | "footer_hours"
   >
 > & {
+  about_highlights?: LandingHighlight[];
   testimonials?: LandingTestimonial[];
   nav_items?: LandingNavItem[];
   services?: LandingService[];
@@ -36,11 +39,11 @@ export type LandingContentInput = Partial<
   footer_hours?: string[];
 };
 
-const ALLOW_ROLES = new Set(["super_admin", "doctor"]);
+const ALLOW_ROLES = new Set(["super_admin", "admin", "staff", "secretary", "doctor"]);
 
 function ensureCanEdit(actor: Actor) {
   if (!ALLOW_ROLES.has(actor.profile.role)) {
-    throw new HttpError(403, "Only super-admin or doctor can edit landing content");
+    throw new HttpError(403, "Only clinic staff can edit landing content");
   }
 }
 
@@ -190,6 +193,16 @@ export async function updateLandingContent(
             .filter((b) => b.title || b.body)
         : [],
     }));
+  }
+
+  if (input.about_highlights !== undefined) {
+    if (!Array.isArray(input.about_highlights)) throw new HttpError(400, "about_highlights must be an array");
+    patch.about_highlights = input.about_highlights
+      .map((item): LandingHighlight => ({
+        title: String(item.title ?? "").trim(),
+        body: String(item.body ?? "").trim(),
+      }))
+      .filter((item) => item.title || item.body);
   }
 
   if (input.blog_categories !== undefined) {

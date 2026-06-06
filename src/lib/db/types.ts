@@ -11,6 +11,7 @@ export type ScheduleMode = "Clinic" | "Online" | "Both";
 
 export type ApptStatus =
   | "PendingPayment"
+  | "Pending"
   | "Confirmed"
   | "CheckedIn"
   | "InProgress"
@@ -186,6 +187,11 @@ export type LandingService = {
   bullets: LandingServiceBullet[];
 };
 
+export type LandingHighlight = {
+  title: string;
+  body: string;
+};
+
 export type LandingHowToStep = {
   step: number;
   title: string;
@@ -207,6 +213,7 @@ export type LandingContent = {
   doctor_name: string;
   doctor_title: string;
   doctor_photo_url: string | null;
+  about_highlights: LandingHighlight[];
   feature_1_title: string;
   feature_1_body: string;
   feature_2_title: string;

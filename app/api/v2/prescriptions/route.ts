@@ -1,5 +1,7 @@
 import { HttpError, httpError, isClinicStaff, ok, requireActor } from "@/src/lib/http";
+import { enqueueNotification } from "@/src/lib/services/notification";
 import { getSupabaseAdmin } from "@/src/lib/supabase/server";
+import type { DbRole } from "@/src/lib/db/types";
 
 type PrescriptionItemInput = {
   medicine_name?: string;
@@ -8,6 +10,14 @@ type PrescriptionItemInput = {
   duration?: string | null;
   instructions?: string | null;
 };
+
+function canManagePrescriptions(role: DbRole) {
+  return role === "super_admin" || role === "admin" || role === "doctor";
+}
+
+function normalizeText(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
 
 export async function GET(req: Request) {
   try {
@@ -31,16 +41,30 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const actor = await requireActor(req);
-    if (!isClinicStaff(actor.profile.role)) throw new HttpError(403, "Forbidden");
+    if (!canManagePrescriptions(actor.profile.role)) throw new HttpError(403, "Only doctors and admins can create prescriptions.");
     const body = await req.json();
     if (!body.patient_id || !body.doctor_id) throw new HttpError(400, "patient_id and doctor_id required");
     const supabase = getSupabaseAdmin();
     let diagnosisId: string | null = null;
 
-    const diagnosisText = typeof body.diagnosis_text === "string" ? body.diagnosis_text.trim() : "";
-    const treatmentPlan = typeof body.treatment_plan === "string" ? body.treatment_plan.trim() : "";
+    const diagnosisText = normalizeText(body.diagnosis_text);
+    const treatmentPlan = normalizeText(body.treatment_plan);
+    const generalInstructions = normalizeText(body.general_instructions);
     const followUpDate = body.follow_up_date || null;
     const releaseToPortal = body.released_to_patient ?? true;
+    const items: PrescriptionItemInput[] = Array.isArray(body.items) ? body.items : [];
+    const cleanedItems = items
+      .map((item) => ({
+        medicine_name: normalizeText(item.medicine_name),
+        dosage: normalizeText(item.dosage),
+        frequency: normalizeText(item.frequency),
+        duration: normalizeText(item.duration),
+        instructions: normalizeText(item.instructions),
+      }))
+      .filter((item): item is Required<Pick<typeof item, "medicine_name">> & typeof item => Boolean(item.medicine_name));
+
+    if (!diagnosisText) throw new HttpError(400, "Diagnosis is required.");
+    if (cleanedItems.length === 0) throw new HttpError(400, "Add at least one medicine item.");
 
     if (diagnosisText || treatmentPlan || followUpDate) {
       const { data: diagnosis, error: diagnosisError } = await supabase
@@ -49,8 +73,8 @@ export async function POST(req: Request) {
           appointment_id: body.appointment_id || null,
           patient_id: body.patient_id,
           doctor_id: body.doctor_id,
-          diagnosis_text: diagnosisText || "Diagnosis recorded in prescription module",
-          treatment_plan: treatmentPlan || null,
+          diagnosis_text: diagnosisText,
+          treatment_plan: treatmentPlan,
           follow_up_date: followUpDate,
           visible_to_patient: releaseToPortal,
         })
@@ -67,7 +91,7 @@ export async function POST(req: Request) {
         patient_id: body.patient_id,
         doctor_id: body.doctor_id,
         diagnosis_id: diagnosisId ?? body.diagnosis_id ?? null,
-        general_instructions: body.general_instructions ?? treatmentPlan ?? null,
+        general_instructions: generalInstructions ?? treatmentPlan,
         follow_up_date: followUpDate,
         released_to_patient: releaseToPortal,
       })
@@ -75,22 +99,31 @@ export async function POST(req: Request) {
       .single();
     if (error) throw error;
 
-    const items: PrescriptionItemInput[] = Array.isArray(body.items) ? body.items : [];
-    if (items.length) {
+    if (cleanedItems.length) {
       const { error: itemsError } = await supabase.from("prescription_items").insert(
-        items
-          .filter((item) => item.medicine_name)
-          .map((item, index) => ({
-            prescription_id: prescription.id,
-            medicine_name: item.medicine_name,
-            dosage: item.dosage ?? null,
-            frequency: item.frequency ?? null,
-            duration: item.duration ?? null,
-            instructions: item.instructions ?? null,
-            sort_order: index,
-          })),
+        cleanedItems.map((item, index) => ({
+          prescription_id: prescription.id,
+          medicine_name: item.medicine_name,
+          dosage: item.dosage,
+          frequency: item.frequency,
+          duration: item.duration,
+          instructions: item.instructions,
+          sort_order: index,
+        })),
       );
       if (itemsError) throw itemsError;
+    }
+
+    if (releaseToPortal) {
+      await enqueueNotification({
+        user_id: body.patient_id,
+        template: "prescription_released",
+        channels: ["email"],
+        payload: {
+          prescription_id: prescription.id,
+          prescription_no: prescription.prescription_no,
+        },
+      });
     }
 
     return ok({ prescription }, 201);

@@ -4,11 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import {
   FaDownload,
+  FaFloppyDisk,
   FaEye,
+  FaPenToSquare,
   FaPlus,
+  FaPaperPlane,
   FaPrint,
   FaPrescriptionBottleMedical,
   FaTrash,
+  FaXmark,
 } from "react-icons/fa6";
 import { useRole } from "@/src/components/layout/RoleProvider";
 
@@ -30,7 +34,7 @@ type Prescription = {
   follow_up_date: string | null;
   released_to_patient: boolean;
   created_at: string;
-  prescription_items?: Array<{ medicine_name: string; dosage: string | null; frequency: string | null; duration: string | null; instructions: string | null }>;
+  prescription_items?: Array<{ id?: string; medicine_name: string; dosage: string | null; frequency: string | null; duration: string | null; instructions: string | null; sort_order?: number | null }>;
   diagnoses?: DiagnosisRecord | null;
   doctors?: { profiles?: { full_name?: string | null } | null } | null;
   patients?: { profiles?: { full_name?: string; email?: string } | null } | null;
@@ -68,6 +72,9 @@ export default function PrescriptionsPage() {
   });
   const [items, setItems] = useState<PrescriptionItemDraft[]>([{ ...EMPTY_ITEM }]);
   const [feedback, setFeedback] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const canManage = role === "DOCTOR" || role === "SUPER_ADMIN" || role === "SECRETARY";
 
   const headers = useMemo(() => ({
     Authorization: `Bearer ${accessToken}`,
@@ -77,8 +84,14 @@ export default function PrescriptionsPage() {
   async function load() {
     if (!accessToken) return;
     const prescriptionRes = await fetch("/api/v2/prescriptions", { headers, cache: "no-store" });
-    if (prescriptionRes.ok) setPrescriptions((await prescriptionRes.json()).prescriptions ?? []);
-    if (role !== "PATIENT") {
+    if (prescriptionRes.ok) {
+      const rows = ((await prescriptionRes.json()).prescriptions ?? []) as Prescription[];
+      setPrescriptions(rows.map((row) => ({
+        ...row,
+        prescription_items: [...(row.prescription_items ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+      })));
+    }
+    if (canManage) {
       const [patientsRes, doctorsRes] = await Promise.all([
         fetch("/api/v2/patients", { headers, cache: "no-store" }),
         fetch("/api/v2/doctors", { headers, cache: "no-store" }),
@@ -89,8 +102,47 @@ export default function PrescriptionsPage() {
   }
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [accessToken, role]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function resetEditor() {
+    setEditingId(null);
+    setForm((s) => ({
+      ...s,
+      patient_id: "",
+      doctor_id: "",
+      diagnosis_text: "",
+      treatment_plan: "",
+      general_instructions: "",
+      follow_up_date: "",
+      released_to_patient: true,
+    }));
+    setItems([{ ...EMPTY_ITEM }]);
+  }
+
+  function editPrescription(item: Prescription) {
+    setEditingId(item.id);
+    setForm({
+      patient_id: item.patient_id,
+      doctor_id: item.doctor_id,
+      diagnosis_text: item.diagnoses?.diagnosis_text ?? "",
+      treatment_plan: item.diagnoses?.treatment_plan ?? "",
+      general_instructions: item.general_instructions ?? "",
+      follow_up_date: item.follow_up_date ?? item.diagnoses?.follow_up_date ?? "",
+      released_to_patient: item.released_to_patient,
+    });
+    setItems((item.prescription_items?.length ? item.prescription_items : [{ ...EMPTY_ITEM }]).map((rx) => ({
+      medicine_name: rx.medicine_name,
+      dosage: rx.dosage ?? "",
+      frequency: rx.frequency ?? "",
+      duration: rx.duration ?? "",
+      instructions: rx.instructions ?? "",
+    })));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   function updateItem(index: number, field: keyof PrescriptionItemDraft, value: string) {
     setItems((current) =>
@@ -108,7 +160,7 @@ export default function PrescriptionsPage() {
     setItems((current) => (current.length === 1 ? current : current.filter((_, itemIndex) => itemIndex !== index)));
   }
 
-  async function createPrescription(e: FormEvent<HTMLFormElement>) {
+  async function submitPrescription(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!accessToken) return;
     const cleanedItems = items
@@ -126,8 +178,9 @@ export default function PrescriptionsPage() {
       return;
     }
 
-    const res = await fetch("/api/v2/prescriptions", {
-      method: "POST",
+    const endpoint = editingId ? `/api/v2/prescriptions/${editingId}` : "/api/v2/prescriptions";
+    const res = await fetch(endpoint, {
+      method: editingId ? "PATCH" : "POST",
       headers,
       body: JSON.stringify({
         patient_id: form.patient_id,
@@ -141,27 +194,24 @@ export default function PrescriptionsPage() {
       }),
     });
     if (!res.ok) {
-      setFeedback((await res.json()).message ?? "Unable to create prescription");
+      setFeedback((await res.json()).message ?? "Unable to save prescription");
       return;
     }
-    setFeedback("Prescription created.");
-    setForm((s) => ({
-      ...s,
-      diagnosis_text: "",
-      treatment_plan: "",
-      general_instructions: "",
-    }));
-    setItems([{ ...EMPTY_ITEM }]);
+    setFeedback(editingId ? "Prescription history updated." : "Prescription created and saved to history.");
+    resetEditor();
     await load();
   }
 
   async function toggleRelease(item: Prescription) {
     if (!accessToken) return;
-    await fetch(`/api/v2/prescriptions/${item.id}`, {
+    const res = await fetch(`/api/v2/prescriptions/${item.id}`, {
       method: "PATCH",
       headers,
       body: JSON.stringify({ released_to_patient: !item.released_to_patient }),
     });
+    setFeedback(res.ok
+      ? (!item.released_to_patient ? "Prescription sent to the patient portal." : "Prescription hidden from the patient portal.")
+      : "Unable to update patient portal visibility.");
     await load();
   }
 
@@ -227,24 +277,35 @@ export default function PrescriptionsPage() {
         <CapabilityCard icon={<FaDownload />} title="PDF + Print" text="Download a PDF copy or print for pharmacy-ready use." />
       </div>
 
-      {role !== "PATIENT" ? (
-        <form onSubmit={createPrescription} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-950">Create prescription</h2>
+      {canManage ? (
+        <form onSubmit={submitPrescription} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">{editingId ? "Edit prescription" : "Create prescription"}</h2>
+              <p className="mt-1 text-xs text-slate-500">Saved records remain available in prescription history.</p>
+            </div>
+            {editingId ? (
+              <button type="button" onClick={resetEditor} className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600">
+                <FaXmark className="h-3 w-3" />
+                Cancel edit
+              </button>
+            ) : null}
+          </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <select required className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100" value={form.patient_id} onChange={(e) => setForm((s) => ({ ...s, patient_id: e.target.value }))}>
+            <select required disabled={Boolean(editingId)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-100" value={form.patient_id} onChange={(e) => setForm((s) => ({ ...s, patient_id: e.target.value }))}>
               <option value="">Select patient</option>
               {patients.map((p) => <option key={p.id} value={p.id}>{p.profiles?.full_name ?? p.id}</option>)}
             </select>
-            <select required className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100" value={form.doctor_id} onChange={(e) => setForm((s) => ({ ...s, doctor_id: e.target.value }))}>
+            <select required disabled={Boolean(editingId)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100 disabled:bg-slate-100" value={form.doctor_id} onChange={(e) => setForm((s) => ({ ...s, doctor_id: e.target.value }))}>
               <option value="">Select doctor</option>
               {doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
-            <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100" placeholder="Diagnosis" value={form.diagnosis_text} onChange={(e) => setForm((s) => ({ ...s, diagnosis_text: e.target.value }))} />
+            <input required className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100" placeholder="Diagnosis" value={form.diagnosis_text} onChange={(e) => setForm((s) => ({ ...s, diagnosis_text: e.target.value }))} />
             <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100" placeholder="Treatment plan" value={form.treatment_plan} onChange={(e) => setForm((s) => ({ ...s, treatment_plan: e.target.value }))} />
             <input type="date" className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100" value={form.follow_up_date} onChange={(e) => setForm((s) => ({ ...s, follow_up_date: e.target.value }))} />
             <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold">
               <input type="checkbox" checked={form.released_to_patient} onChange={(e) => setForm((s) => ({ ...s, released_to_patient: e.target.checked }))} />
-              Release to patient portal
+              Send to patient portal
             </label>
           </div>
 
@@ -321,13 +382,25 @@ export default function PrescriptionsPage() {
           </div>
 
           <textarea className="mt-3 min-h-24 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100" placeholder="General instructions" value={form.general_instructions} onChange={(e) => setForm((s) => ({ ...s, general_instructions: e.target.value }))} />
-          <button className="mt-4 rounded-full bg-sky-600 px-5 py-2.5 text-sm font-bold text-white">Create prescription</button>
+          <button className="mt-4 inline-flex items-center gap-2 rounded-full bg-sky-600 px-5 py-2.5 text-sm font-bold text-white">
+            {editingId ? <FaFloppyDisk /> : <FaPlus />}
+            {editingId ? "Save changes" : "Create prescription"}
+          </button>
         </form>
       ) : null}
 
       {feedback ? <p className="rounded-xl bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-700">{feedback}</p> : null}
 
       <div className="grid gap-4">
+        {prescriptions.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+            <FaPrescriptionBottleMedical className="mx-auto h-8 w-8 text-sky-500" />
+            <h2 className="mt-3 text-lg font-bold text-slate-950">No prescription history yet</h2>
+            <p className="mt-2 text-sm text-slate-500">
+              {canManage ? "Create a prescription above to save it here." : "Released prescriptions from your doctor will appear here."}
+            </p>
+          </div>
+        ) : null}
         {prescriptions.map((item) => (
           <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:border-0 print:shadow-none hover:bg-sky-50 transition">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -340,7 +413,8 @@ export default function PrescriptionsPage() {
                 </p>
               </div>
               <div className="flex gap-2 print:hidden">
-                {role !== "PATIENT" ? <button onClick={() => toggleRelease(item)} className="rounded-full border border-sky-200 px-4 py-2 text-xs font-bold text-sky-700">{item.released_to_patient ? "Released" : "Hidden"}</button> : null}
+                {canManage ? <button onClick={() => editPrescription(item)} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700"><FaPenToSquare /> Edit</button> : null}
+                {canManage ? <button onClick={() => toggleRelease(item)} className="inline-flex items-center gap-2 rounded-full border border-sky-200 px-4 py-2 text-xs font-bold text-sky-700">{item.released_to_patient ? <FaEye /> : <FaPaperPlane />}{item.released_to_patient ? "Released" : "Send to portal"}</button> : null}
                 <button onClick={() => downloadPdf(item)} className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2 text-xs font-bold text-sky-700"><FaDownload /> Download PDF</button>
                 <button onClick={() => printPrescription(item)} className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-xs font-bold text-white"><FaPrint /> Print</button>
               </div>

@@ -33,6 +33,7 @@ import {
   FaXmark,
 } from "react-icons/fa6";
 import {
+  approveAppointmentAction,
   deleteAppointmentAction,
   updateAppointmentAction,
 } from "@/app/(dashboard)/appointments/actions";
@@ -283,6 +284,19 @@ export default function AppointmentListPage() {
     });
   }
 
+  function approveAppointment(appointmentId: string) {
+    if (!accessToken) {
+      setFeedback("Sign in again to continue.");
+      return;
+    }
+
+    startUpdateTransition(async () => {
+      const result = await approveAppointmentAction(accessToken, appointmentId);
+      setAppointments(result.appointments);
+      setFeedback(result.message);
+    });
+  }
+
   /**
    * Doctor (or staff) flips the appointment to InProgress. This is the gate
    * that unlocks POS billing — the cashier can't generate a bill until the
@@ -417,11 +431,11 @@ export default function AppointmentListPage() {
           hint="confirmed + done"
         />
         <StatCard
-          label="In Progress"
+          label="Pending"
           value={summary.pendingCount}
           tone="amber"
           icon={<FaClock className="h-4 w-4" />}
-          hint={summary.pendingCount === 0 ? "Queue is clear" : "active right now"}
+          hint={summary.pendingCount === 0 ? "No requests awaiting approval" : "awaiting approval"}
         />
       </div>
 
@@ -515,6 +529,14 @@ export default function AppointmentListPage() {
                   tone="slate"
                 >
                   All
+                </FilterChip>
+                <FilterChip
+                  active={statusFilter === "Pending"}
+                  onClick={() => setStatusFilter("Pending")}
+                  tone="amber"
+                  icon={<FaClock className="h-2.5 w-2.5" />}
+                >
+                  Pending
                 </FilterChip>
                 <FilterChip
                   active={statusFilter === "Confirmed"}
@@ -710,6 +732,18 @@ export default function AppointmentListPage() {
                           ) : null}
                           {canManage && !isEditing && !isConfirmingDelete ? (
                             <>
+                              {appointment.type === "Clinic"
+                                && appointment.status === "Pending" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => approveAppointment(appointment.id)}
+                                  disabled={isUpdating}
+                                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[linear-gradient(135deg,#f59e0b,#fbbf24)] px-3 py-2 text-xs font-bold text-white shadow-[0_8px_18px_rgba(245,158,11,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  <FaCircleCheck className="h-3 w-3" aria-hidden="true" />
+                                  Approve
+                                </button>
+                              ) : null}
                               {appointment.type === "Clinic"
                                 && appointment.status === "Confirmed"
                                 && appointment.date === today ? (
@@ -1298,6 +1332,14 @@ function TypeBadge({ type }: { type: AppointmentType }) {
 }
 
 function StatusBadge({ status }: { status: AppointmentStatus }) {
+  if (status === "Pending") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+        <FaClock className="h-2.5 w-2.5" aria-hidden="true" />
+        Pending
+      </span>
+    );
+  }
   if (status === "Checked In") {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-800">

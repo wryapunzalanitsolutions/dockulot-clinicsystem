@@ -54,7 +54,7 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const actor = await requireActor(req);
-    if (actor.profile.role !== "super_admin" && actor.profile.role !== "doctor") {
+    if (actor.profile.role !== "super_admin" && actor.profile.role !== "secretary" && actor.profile.role !== "doctor") {
       return ok({ message: "Only the clinic admin or doctor can edit clinic info." }, 403);
     }
 
